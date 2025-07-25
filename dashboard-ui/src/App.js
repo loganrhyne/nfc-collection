@@ -16,10 +16,10 @@ function App() {
   // Content for the left column (filters)
   const renderLeftColumnContent = () => (
     <div>
-      <h3>Type Distribution</h3>
+      <h3>Type</h3>
       <TypeBarChart />
       
-      <h3 style={{ marginTop: '24px' }}>Region Distribution</h3>
+      <h3 style={{ marginTop: '24px' }}>Region</h3>
       <RegionBarChart />
     </div>
   );

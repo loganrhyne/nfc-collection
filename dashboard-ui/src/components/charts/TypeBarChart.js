@@ -25,14 +25,21 @@ const TypeBarChart = () => {
           margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
           layout="vertical"
         >
-          <XAxis type="number" />
+          <XAxis 
+            type="number" 
+            label={{ value: 'Entries', position: 'insideBottom', offset: -5, fontSize: 11 }}
+          />
           <YAxis 
             dataKey="name" 
             type="category" 
             width={80} 
             tick={{ fontSize: 12 }}
+            label={{ value: 'Types', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' }, fontSize: 11 }}
           />
-          <Tooltip />
+          <Tooltip 
+            formatter={(value) => [`${value} entries`, 'Count']}
+            labelFormatter={(label) => `Type: ${label}`}
+          />
           {data.map((entry) => (
             <Bar
               key={entry.name}

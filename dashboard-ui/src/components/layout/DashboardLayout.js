@@ -86,7 +86,6 @@ const DashboardLayout = ({
         </TopSection>
         
         <BottomSection>
-          <SectionTitle>Timeline</SectionTitle>
           {timelineChartContent}
         </BottomSection>
       </CenterColumn>

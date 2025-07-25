@@ -113,7 +113,7 @@ export const getRegionCountsWithTypeSeries = (entries) => {
 /**
  * Get counts by quarter with breakdown by type
  * @param {Array} entries - Processed journal entries 
- * @returns {Array} - Array with quarter counts broken down by type
+ * @returns {Array} - Array with quarter counts broken down by type, including empty quarters
  */
 export const getQuarterCountsWithTypeSeries = (entries) => {
   if (!entries || !Array.isArray(entries)) return [];
@@ -123,23 +123,74 @@ export const getQuarterCountsWithTypeSeries = (entries) => {
   
   const quarterGroups = groupEntriesBy(sortedEntries, 'quarter');
   
-  return Object.keys(quarterGroups).map(quarter => {
-    const quarterEntries = quarterGroups[quarter];
-    const typeGroups = groupEntriesBy(quarterEntries, 'type');
+  // Get all types for the legend
+  const allTypes = [...new Set(entries.map(entry => entry.type).filter(Boolean))];
+  
+  // Find the earliest and latest quarters
+  let minYear = 9999, maxYear = 0;
+  let minQuarter = 'Q4', maxQuarter = 'Q1';
+  
+  Object.keys(quarterGroups).forEach(quarter => {
+    const [q, y] = quarter.split('-');
+    const year = parseInt(y);
     
-    // Create an object with quarter name and type counts
-    const result = { name: quarter };
+    if (year < minYear || (year === minYear && q < minQuarter)) {
+      minYear = year;
+      minQuarter = q;
+    }
     
-    // Add each type count to the result object
-    Object.keys(typeGroups).forEach(type => {
-      result[type] = typeGroups[type].length;
-    });
-    
-    return result;
-  }).sort((a, b) => {
-    // Ensure proper sorting by year and quarter
-    const [qa, ya] = a.name.split('-');
-    const [qb, yb] = b.name.split('-');
-    return ya !== yb ? ya - yb : qa.localeCompare(qb);
+    if (year > maxYear || (year === maxYear && q > maxQuarter)) {
+      maxYear = year;
+      maxQuarter = q;
+    }
+  });
+  
+  // Generate all quarters between min and max
+  const allQuarters = [];
+  for (let year = minYear; year <= maxYear; year++) {
+    for (let q = 1; q <= 4; q++) {
+      const quarterKey = `Q${q}`;
+      
+      // Skip quarters before the min or after the max
+      if (
+        (year === minYear && quarterKey < minQuarter) || 
+        (year === maxYear && quarterKey > maxQuarter)
+      ) {
+        continue;
+      }
+      
+      const fullQuarterKey = `${quarterKey}-${year}`;
+      const displayName = `${quarterKey} ${year}`;
+      
+      const quarterData = {
+        name: displayName,
+        rawQuarter: fullQuarterKey
+      };
+      
+      // Initialize all types to zero
+      allTypes.forEach(type => {
+        quarterData[type] = 0;
+      });
+      
+      // Fill in actual data if it exists
+      if (quarterGroups[fullQuarterKey]) {
+        const typeGroups = groupEntriesBy(quarterGroups[fullQuarterKey], 'type');
+        
+        Object.keys(typeGroups).forEach(type => {
+          quarterData[type] = typeGroups[type].length;
+        });
+      }
+      
+      allQuarters.push(quarterData);
+    }
+  }
+  
+  // Sort by year and quarter
+  return allQuarters.sort((a, b) => {
+    const [qa, ya] = a.rawQuarter.split('-');
+    const [qb, yb] = b.rawQuarter.split('-');
+    return parseInt(ya) !== parseInt(yb) ? 
+      parseInt(ya) - parseInt(yb) : 
+      parseInt(qa.substring(1)) - parseInt(qb.substring(1));
   });
 };
