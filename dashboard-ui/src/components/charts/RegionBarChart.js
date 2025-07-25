@@ -58,14 +58,22 @@ const RegionBarChart = () => {
     // Extract the region name from the payload
     const regionName = entry && entry.payload ? entry.payload.name : null;
     
-    // Find which type this is based on index
-    const typeName = index < types.length ? types[index] : null;
+    // Get the actual dataKey that this Bar represents
+    // This is the correct way to determine the type, not using the index
+    const typeName = entry && entry.tooltipPayload && entry.tooltipPayload[0] ?
+      entry.tooltipPayload[0].dataKey : null;
     
     console.log('Region values extracted:', { regionName, typeName });
     
-    if (regionName && typeName) {
+    // If there's already a type filter active, respect it and just set the region
+    if (filters.type) {
+      if (regionName) {
+        console.log('Setting region filter only (type already set):', regionName);
+        setFilter('region', regionName, 'region-chart');
+      }
+    } else if (regionName && typeName) {
+      // Otherwise, set both region and type filters
       console.log('Setting multi filter for region segment:', regionName, typeName);
-      // Apply both filters at once - filter by this region and this type
       setMultiFilter({
         region: regionName,
         type: typeName

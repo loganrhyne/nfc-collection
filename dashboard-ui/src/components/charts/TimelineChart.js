@@ -55,14 +55,22 @@ const TimelineChart = () => {
     // Extract the quarter name from the payload
     const quarterName = entry && entry.payload ? entry.payload.rawQuarter : null;
     
-    // Find which type this is based on index
-    const typeName = index < types.length ? types[index] : null;
+    // Get the actual dataKey that this Bar represents
+    // This is the correct way to determine the type, not using the index
+    const typeName = entry && entry.tooltipPayload && entry.tooltipPayload[0] ?
+      entry.tooltipPayload[0].dataKey : null;
     
     console.log('Timeline values extracted:', { quarterName, typeName });
     
-    if (quarterName && typeName) {
+    // If there's already a type filter active, respect it and just set the quarter
+    if (filters.type) {
+      if (quarterName) {
+        console.log('Setting quarter filter only (type already set):', quarterName);
+        setFilter('quarter', quarterName, 'timeline-chart');
+      }
+    } else if (quarterName && typeName) {
+      // Otherwise, set both quarter and type filters
       console.log('Setting multi filter for timeline segment:', quarterName, typeName);
-      // Apply both filters at once - filter by this quarter and this type
       setMultiFilter({
         quarter: quarterName,
         type: typeName
