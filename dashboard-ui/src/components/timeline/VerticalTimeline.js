@@ -4,7 +4,7 @@ import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
 
 const TimelineContainer = styled.div`
-  height: calc(100vh - 70px);
+  height: calc(100% - 60px);
   overflow-y: auto;
   padding-right: 10px;
 `;

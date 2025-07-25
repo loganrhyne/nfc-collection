@@ -25,11 +25,11 @@ const TimelineChart = () => {
   };
   
   return (
-    <div style={{ width: '100%', height: 200 }}>
+    <div style={{ width: '100%', height: 180 }}>
       <ResponsiveContainer>
         <BarChart
           data={data}
-          margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
+          margin={{ top: 5, right: 20, left: 5, bottom: 20 }}
         >
           <XAxis 
             dataKey="name" 
@@ -40,7 +40,8 @@ const TimelineChart = () => {
           <Tooltip />
           <Legend 
             onClick={handleLegendClick}
-            wrapperStyle={{ fontSize: '12px' }}
+            wrapperStyle={{ fontSize: '11px' }}
+            verticalAlign="top"
           />
           {types.map((type) => (
             <Bar
