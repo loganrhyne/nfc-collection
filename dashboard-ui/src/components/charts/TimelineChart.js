@@ -89,7 +89,18 @@ const TimelineChart = () => {
           barCategoryGap={ChartStyles.barCategoryGap.dense}
           onClick={(data) => {
             console.log('Timeline chart - direct bar click:', data);
-            if (data && data.activePayload && data.activePayload[0]) {
+            // Try to handle click even if activePayload is not set
+            // This happens when clicking on bar areas
+            if (data && data.activeLabel) {
+              console.log('Timeline chart - using activeLabel:', data.activeLabel);
+              // Find the quarter object based on the activeLabel (displayed name)
+              const quarterObj = data.activeLabel && data ? 
+                data.find(q => q.name === data.activeLabel) : null;
+                
+              if (quarterObj) {
+                handleBarClick(quarterObj);
+              }
+            } else if (data && data.activePayload && data.activePayload[0]) {
               handleBarClick(data.activePayload[0].payload);
             }
           }}

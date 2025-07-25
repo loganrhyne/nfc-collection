@@ -94,7 +94,12 @@ const RegionBarChart = () => {
           barCategoryGap={ChartStyles.barCategoryGap.normal}
           onClick={(data) => {
             console.log('Region chart - direct bar click:', data);
-            if (data && data.activePayload && data.activePayload[0]) {
+            // Try to handle click even if activePayload is not set
+            // This happens when clicking on bar areas
+            if (data && data.activeLabel) {
+              console.log('Region chart - using activeLabel:', data.activeLabel);
+              handleBarClick({ name: data.activeLabel });
+            } else if (data && data.activePayload && data.activePayload[0]) {
               handleBarClick(data.activePayload[0].payload);
             }
           }}
