@@ -27,7 +27,14 @@ deactivate
 # Set up the dashboard UI
 echo "Setting up dashboard UI..."
 cd dashboard-ui
-npm install
+
+# Increase Node.js memory limit to avoid memory issues on Raspberry Pi
+echo "Using increased memory limit for npm install (Raspberry Pi optimization)"
+export NODE_OPTIONS=--max_old_space_size=512
+
+# Use production flag to skip dev dependencies and use the --no-optional flag to skip optional dependencies
+echo "Running npm install with Raspberry Pi optimizations (this may take a while)..."
+npm install --no-optional --verbose
 
 echo "Setup complete!"
 echo "To run the dashboard: cd dashboard-ui && npm start"
