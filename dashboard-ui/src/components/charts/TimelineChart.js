@@ -25,21 +25,33 @@ const TimelineChart = () => {
   
   // Handle bar click to filter by quarter
   const handleBarClick = (data) => {
-    setFilter('quarter', data.rawQuarter, 'timeline-chart');
+    // Check if we have valid data with a rawQuarter property
+    if (data && data.rawQuarter) {
+      console.log('Timeline chart - handleBarClick:', data.rawQuarter);
+      setFilter('quarter', data.rawQuarter, 'timeline-chart');
+    }
   };
 
   // Handle segment click (when clicking a specific segment of a stacked bar)
   const handleSegmentClick = (entry, index) => {
+    // Log what we received
+    console.log('Timeline chart - handleSegmentClick:', entry, index);
+    
     // Prevent event bubbling to the parent bar click handler
     if (entry && entry.event) {
       entry.event.stopPropagation();
     }
     
-    // Extract the quarter name and find which type this is based on index
-    const quarterName = entry.payload?.rawQuarter;
-    const typeName = types[index];
+    // Extract the quarter name from the payload
+    const quarterName = entry && entry.payload ? entry.payload.rawQuarter : null;
+    
+    // Find which type this is based on index
+    const typeName = index < types.length ? types[index] : null;
+    
+    console.log('Timeline values extracted:', { quarterName, typeName });
     
     if (quarterName && typeName) {
+      console.log('Setting multi filter for timeline segment:', quarterName, typeName);
       // Apply both filters at once - filter by this quarter and this type
       setMultiFilter({
         quarter: quarterName,
@@ -56,7 +68,12 @@ const TimelineChart = () => {
           margin={{ top: 5, right: 20, left: 5, bottom: 20 }}
           barGap={0}
           barCategoryGap={ChartStyles.barCategoryGap.dense}
-          onClick={handleBarClick}
+          onClick={(data) => {
+            console.log('Timeline chart - direct bar click:', data);
+            if (data && data.activePayload && data.activePayload[0]) {
+              handleBarClick(data.activePayload[0].payload);
+            }
+          }}
         >
           {/* X axis (time periods) */}
           <XAxis {...getTimelineXAxisProps()} />

@@ -28,21 +28,33 @@ const RegionBarChart = () => {
   
   // Handle bar click to filter by region
   const handleBarClick = (data) => {
-    setFilter('region', data.name, 'region-chart');
+    // Check if we have valid data with a name property
+    if (data && data.name) {
+      console.log('Region chart - handleBarClick:', data.name);
+      setFilter('region', data.name, 'region-chart');
+    }
   };
 
   // Handle segment click (when clicking a specific segment of a stacked bar)
   const handleSegmentClick = (entry, index) => {
+    // Log what we received
+    console.log('Region chart - handleSegmentClick:', entry, index);
+    
     // Prevent event bubbling to the parent bar click handler
     if (entry && entry.event) {
       entry.event.stopPropagation();
     }
     
-    // Extract the region name and find which type this is based on index
-    const regionName = entry.payload?.name;
-    const typeName = types[index];
+    // Extract the region name from the payload
+    const regionName = entry && entry.payload ? entry.payload.name : null;
+    
+    // Find which type this is based on index
+    const typeName = index < types.length ? types[index] : null;
+    
+    console.log('Region values extracted:', { regionName, typeName });
     
     if (regionName && typeName) {
+      console.log('Setting multi filter for region segment:', regionName, typeName);
       // Apply both filters at once - filter by this region and this type
       setMultiFilter({
         region: regionName,
@@ -60,7 +72,12 @@ const RegionBarChart = () => {
           margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
           barGap={0}
           barCategoryGap={ChartStyles.barCategoryGap.normal}
-          onClick={handleBarClick}
+          onClick={(data) => {
+            console.log('Region chart - direct bar click:', data);
+            if (data && data.activePayload && data.activePayload[0]) {
+              handleBarClick(data.activePayload[0].payload);
+            }
+          }}
         >
           {/* X axis (horizontal) */}
           <XAxis {...getVerticalXAxisProps()} />

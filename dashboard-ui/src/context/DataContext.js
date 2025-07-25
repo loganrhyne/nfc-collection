@@ -89,8 +89,11 @@ export const DataProvider = ({ children }) => {
 
   // Set filter for a specific dimension
   const setFilter = (dimension, value, source = null) => {
+    console.log(`Setting filter: ${dimension} = ${value} (source: ${source})`);
+    
     // If toggling off, remove the filter
     if (value === filters[dimension]) {
+      console.log(`Removing filter: ${dimension}`);
       setFilters(prev => ({
         ...prev,
         [dimension]: null
@@ -104,6 +107,7 @@ export const DataProvider = ({ children }) => {
       });
     } else {
       // Otherwise set the filter and track its source
+      console.log(`Adding filter: ${dimension} = ${value}`);
       setFilters(prev => ({
         ...prev,
         [dimension]: value
@@ -120,17 +124,23 @@ export const DataProvider = ({ children }) => {
   };
   
   // Set filter for multiple dimensions at once (for segment clicks on stacked bars)
-  const setMultiFilter = (filters, source = null) => {
+  const setMultiFilter = (newFilters, source = null) => {
+    console.log('Setting multiple filters:', newFilters, 'source:', source);
+    
     // Update all the specified filters
-    setFilters(prev => ({
-      ...prev,
-      ...filters
-    }));
+    setFilters(prev => {
+      const result = {
+        ...prev,
+        ...newFilters
+      };
+      console.log('Updated filters state:', result);
+      return result;
+    });
     
     // Track sources for all dimensions
     if (source) {
       const newSources = {};
-      Object.keys(filters).forEach(dimension => {
+      Object.keys(newFilters).forEach(dimension => {
         newSources[dimension] = source;
       });
       
