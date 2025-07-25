@@ -38,6 +38,7 @@ const TimelineChart = () => {
     // Check if we have valid data with a rawQuarter property
     if (data && data.rawQuarter) {
       console.log('Timeline chart - handleBarClick:', data.rawQuarter);
+      // Only set quarter filter
       setFilter('quarter', data.rawQuarter, 'timeline-chart');
     }
   };

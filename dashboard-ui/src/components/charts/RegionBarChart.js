@@ -41,6 +41,8 @@ const RegionBarChart = () => {
     // Check if we have valid data with a name property
     if (data && data.name) {
       console.log('Region chart - handleBarClick:', data.name);
+      // Check if this is a click on the bar itself, not a segment
+      // Only set region filter
       setFilter('region', data.name, 'region-chart');
     }
   };
