@@ -8,8 +8,11 @@ const RegionBarChart = () => {
   const { allEntries, filters, setFilter } = useData();
   
   // Get region counts with type breakdown
-  const data = getRegionCountsWithTypeSeries(allEntries)
+  let data = getRegionCountsWithTypeSeries(allEntries)
     .filter(item => item.name && item.name !== 'Unknown');
+
+  // Sort regions alphabetically for consistency
+  data = data.sort((a, b) => a.name.localeCompare(b.name));
 
   // Get all unique type values
   const types = Object.keys(colorScheme);
@@ -20,9 +23,9 @@ const RegionBarChart = () => {
     setFilter('region', regionName);
   };
 
-  // Handle legend click to filter by type
-  const handleLegendClick = (entry) => {
-    setFilter('type', entry.value);
+  // Handle type click through bar segments
+  const handleTypeClick = (entry, type) => {
+    setFilter('type', type);
   };
   
   return (
@@ -30,20 +33,26 @@ const RegionBarChart = () => {
       <ResponsiveContainer>
         <BarChart
           data={data}
-          margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
+          margin={{ top: 10, right: 20, left: 5, bottom: 5 }}
           layout="vertical"
-          barSize={20} // Set fixed bar height
+          barSize={16} // Slightly smaller for better alignment
+          barGap={0}
+          barCategoryGap={10} // Better spacing between categories
         >
           <XAxis 
             type="number"
-            label={{ value: 'Entries', position: 'insideBottom', offset: -5, fontSize: 11 }}
+            axisLine={true}
+            tickLine={true}
+            tickCount={5}
           />
           <YAxis 
             dataKey="name" 
             type="category" 
             width={80} 
+            axisLine={true}
+            tickLine={true}
             tick={{ fontSize: 12 }}
-            label={{ value: 'Regions', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' }, fontSize: 11 }}
+            tickMargin={5}
           />
           <Tooltip 
             formatter={(value, name) => [`${value} entries`, name]}

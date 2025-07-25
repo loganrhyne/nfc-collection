@@ -31,15 +31,20 @@ const TimelineChart = () => {
           data={data}
           margin={{ top: 5, right: 20, left: 5, bottom: 20 }}
           barCategoryGap={1} // Make bars closer together for many quarters
+          barSize={8} // Very small bars for many quarters
         >
           <XAxis 
             dataKey="name" 
             tick={{ fontSize: 9, angle: -45, textAnchor: 'end' }}
             height={50}
             interval={0} // Show all labels
+            axisLine={true}
+            tickLine={true}
           />
           <YAxis 
             allowDecimals={false}
+            axisLine={true}
+            tickLine={true}
           />
           <Tooltip 
             formatter={(value, name) => [`${value} entries`, name]} 
