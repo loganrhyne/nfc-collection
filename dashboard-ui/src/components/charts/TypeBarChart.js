@@ -35,10 +35,25 @@ const TypeBarChart = () => {
             width={80}
             tick={{ fontSize: 12 }}
           />
-          <Tooltip
-            // Match the format of other charts
-            formatter={(value, name) => [`${value} entries`, name]} 
-            labelFormatter={(label) => label}
+          <Tooltip 
+            content={({ active, payload }) => {
+              if (active && payload && payload.length) {
+                const data = payload[0];
+                return (
+                  <div style={{ 
+                    backgroundColor: '#fff', 
+                    padding: '5px 10px', 
+                    border: '1px solid #ccc',
+                    borderRadius: '4px' 
+                  }}>
+                    <p style={{ margin: '0px', color: colorScheme[data.payload.name] || '#333' }}>
+                      {data.payload.name}: {data.value} entries
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            }}
           />
           <Bar 
             dataKey="count"
