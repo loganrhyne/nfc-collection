@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useData } from '../../context/DataContext';
 import { getRegionCountsWithTypeSeries } from '../../utils/dataProcessing';
 import colorScheme from '../../utils/colorScheme';
@@ -8,24 +8,24 @@ const RegionBarChart = () => {
   const { allEntries, filters, setFilter } = useData();
   
   // Get region counts with type breakdown
-  let data = getRegionCountsWithTypeSeries(allEntries)
-    .filter(item => item.name && item.name !== 'Unknown');
-
-  // Sort regions alphabetically for consistency
-  data = data.sort((a, b) => a.name.localeCompare(b.name));
+  const data = getRegionCountsWithTypeSeries(allEntries)
+    .filter(item => item.name && item.name !== 'Unknown')
+    .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
 
   // Get all unique type values
   const types = Object.keys(colorScheme);
   
   // Handle bar click to filter by region
   const handleBarClick = (data) => {
-    const regionName = data.name;
-    setFilter('region', regionName);
+    setFilter('region', data.name);
   };
 
-  // Handle type click through bar segments
-  const handleTypeClick = (entry, type) => {
-    setFilter('type', type);
+  // Handle type click (when clicking a segment of a stacked bar)
+  const handleTypeClick = (entry, index) => {
+    // Find which type this is based on index
+    if (index < types.length) {
+      setFilter('type', types[index]);
+    }
   };
   
   return (
@@ -33,41 +33,36 @@ const RegionBarChart = () => {
       <ResponsiveContainer>
         <BarChart
           data={data}
-          margin={{ top: 10, right: 20, left: 5, bottom: 5 }}
           layout="vertical"
-          barSize={16} // Slightly smaller for better alignment
+          margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
           barGap={0}
-          barCategoryGap={10} // Better spacing between categories
+          barCategoryGap="15%"
+          onClick={handleBarClick}
         >
           <XAxis 
             type="number"
-            axisLine={true}
-            tickLine={true}
             tickCount={5}
           />
           <YAxis 
             dataKey="name" 
             type="category" 
             width={80} 
-            axisLine={true}
-            tickLine={true}
             tick={{ fontSize: 12 }}
-            tickMargin={5}
           />
           <Tooltip 
             formatter={(value, name) => [`${value} entries`, name]}
             labelFormatter={(label) => `Region: ${label}`}
           />
-          {types.map((type) => (
+          {/* Create a stacked bar for each type */}
+          {types.map((type, index) => (
             <Bar
               key={type}
               dataKey={type}
               stackId="a"
               fill={colorScheme[type] || '#999'}
-              onClick={handleBarClick}
-              className="clickable-bar"
-              // Highlight the active filter
-              opacity={(filters.type && filters.type !== type) ? 0.3 : 1}
+              onClick={(data, index) => handleTypeClick(data, index)}
+              // Highlight active filter
+              opacity={filters.type && filters.type !== type ? 0.3 : 1}
             />
           ))}
         </BarChart>

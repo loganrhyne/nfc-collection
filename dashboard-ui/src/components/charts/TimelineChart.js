@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useData } from '../../context/DataContext';
 import { getQuarterCountsWithTypeSeries } from '../../utils/dataProcessing';
 import colorScheme from '../../utils/colorScheme';
@@ -15,13 +15,15 @@ const TimelineChart = () => {
   
   // Handle bar click to filter by quarter
   const handleBarClick = (data) => {
-    const quarterName = data.name;
-    setFilter('quarter', quarterName);
+    setFilter('quarter', data.rawQuarter);
   };
 
-  // Handle legend click to filter by type
-  const handleLegendClick = (entry) => {
-    setFilter('type', entry.value);
+  // Handle type click (when clicking a segment of a stacked bar)
+  const handleTypeClick = (entry, index) => {
+    // Find which type this is based on index
+    if (index < types.length) {
+      setFilter('type', types[index]);
+    }
   };
   
   return (
@@ -30,36 +32,35 @@ const TimelineChart = () => {
         <BarChart
           data={data}
           margin={{ top: 5, right: 20, left: 5, bottom: 20 }}
-          barCategoryGap={1} // Make bars closer together for many quarters
-          barSize={8} // Very small bars for many quarters
+          barGap={0}
+          barCategoryGap="2%"
+          onClick={handleBarClick}
         >
           <XAxis 
             dataKey="name" 
             tick={{ fontSize: 9, angle: -45, textAnchor: 'end' }}
             height={50}
             interval={0} // Show all labels
-            axisLine={true}
-            tickLine={true}
+            tickMargin={8}
           />
           <YAxis 
             allowDecimals={false}
-            axisLine={true}
-            tickLine={true}
+            tickCount={4}
           />
           <Tooltip 
             formatter={(value, name) => [`${value} entries`, name]} 
             labelFormatter={(label) => `Period: ${label}`}
           />
-          {types.map((type) => (
+          {/* Create a stacked bar for each type */}
+          {types.map((type, index) => (
             <Bar
               key={type}
               dataKey={type}
               stackId="a"
               fill={colorScheme[type] || '#999'}
-              onClick={handleBarClick}
-              className="clickable-bar"
-              // Highlight the active filter
-              opacity={(filters.type && filters.type !== type) ? 0.3 : 1}
+              onClick={(data, index) => handleTypeClick(data, index)}
+              // Highlight active filter
+              opacity={filters.type && filters.type !== type ? 0.3 : 1}
             />
           ))}
         </BarChart>
