@@ -3,17 +3,25 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { useData } from '../../context/DataContext';
 import { getRegionCountsWithTypeSeries } from '../../utils/dataProcessing';
 import colorScheme from '../../utils/colorScheme';
+import {
+  StackedTooltip,
+  getVerticalXAxisProps,
+  getVerticalYAxisProps,
+  sortByName,
+  getTypeKeys,
+  ChartStyles
+} from './ChartUtils';
 
 const RegionBarChart = () => {
   const { allEntries, filters, setFilter } = useData();
   
-  // Get region counts with type breakdown
-  const data = getRegionCountsWithTypeSeries(allEntries)
-    .filter(item => item.name && item.name !== 'Unknown')
-    .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
+  // Get region counts with type breakdown and sort alphabetically
+  const data = sortByName(
+    getRegionCountsWithTypeSeries(allEntries).filter(item => item.name && item.name !== 'Unknown')
+  );
 
   // Get all unique type values
-  const types = Object.keys(colorScheme);
+  const types = getTypeKeys();
   
   // Handle bar click to filter by region
   const handleBarClick = (data) => {
@@ -36,23 +44,17 @@ const RegionBarChart = () => {
           layout="vertical"
           margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
           barGap={0}
-          barCategoryGap="15%"
+          barCategoryGap={ChartStyles.barCategoryGap.normal}
           onClick={handleBarClick}
         >
-          <XAxis 
-            type="number"
-            tickCount={5}
-          />
-          <YAxis 
-            dataKey="name" 
-            type="category" 
-            width={80} 
-            tick={{ fontSize: 12 }}
-          />
-          <Tooltip 
-            formatter={(value, name) => [`${value} entries`, name]}
-            labelFormatter={(label) => `Region: ${label}`}
-          />
+          {/* X axis (horizontal) */}
+          <XAxis {...getVerticalXAxisProps()} />
+          
+          {/* Y axis (categories) */}
+          <YAxis {...getVerticalYAxisProps()} />
+          
+          {/* Custom tooltip component */}
+          <Tooltip content={props => <StackedTooltip {...props} labelPrefix="Region" />} />
           {/* Create a stacked bar for each type */}
           {types.map((type, index) => (
             <Bar

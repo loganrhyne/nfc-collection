@@ -3,14 +3,25 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { useData } from '../../context/DataContext';
 import { getCountsByProperty } from '../../utils/dataProcessing';
 import colorScheme from '../../utils/colorScheme';
+import { 
+  SimpleTooltip, 
+  getVerticalXAxisProps, 
+  getVerticalYAxisProps,
+  sortByName,
+  ChartStyles
+} from './ChartUtils';
 
+/**
+ * TypeBarChart displays the count of entries by type
+ * Each type gets a single bar with its distinct color from the colorScheme
+ */
 const TypeBarChart = () => {
   const { allEntries, filters, setFilter } = useData();
   
-  // Get type counts as a simple array of objects with name and count
-  const data = getCountsByProperty(allEntries, 'type')
-    .filter(item => item.name && item.name !== 'Unknown')
-    .sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically for consistency
+  // Get type counts and sort alphabetically
+  const data = sortByName(
+    getCountsByProperty(allEntries, 'type').filter(item => item.name && item.name !== 'Unknown')
+  );
   
   // Handle bar click to filter by type
   const handleBarClick = (entry) => {
@@ -24,40 +35,21 @@ const TypeBarChart = () => {
           data={data}
           layout="vertical"
           margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
+          barGap={0}
+          barCategoryGap={ChartStyles.barCategoryGap.normal}
         >
-          <XAxis 
-            type="number"
-            tickCount={5}
-          />
-          <YAxis 
-            type="category"
-            dataKey="name"
-            width={80}
-            tick={{ fontSize: 12 }}
-          />
-          <Tooltip 
-            content={({ active, payload }) => {
-              if (active && payload && payload.length) {
-                const data = payload[0];
-                return (
-                  <div style={{ 
-                    backgroundColor: '#fff', 
-                    padding: '5px 10px', 
-                    border: '1px solid #ccc',
-                    borderRadius: '4px' 
-                  }}>
-                    <p style={{ margin: '0px', color: colorScheme[data.payload.name] || '#333' }}>
-                      {data.payload.name}: {data.value} entries
-                    </p>
-                  </div>
-                );
-              }
-              return null;
-            }}
-          />
+          {/* X axis (horizontal) */}
+          <XAxis {...getVerticalXAxisProps()} />
+          
+          {/* Y axis (categories) */}
+          <YAxis {...getVerticalYAxisProps()} />
+          
+          {/* Custom tooltip component */}
+          <Tooltip content={props => <SimpleTooltip {...props} />} />
+          
+          {/* Single bar series with colored cells */}
           <Bar 
             dataKey="count"
-            // No fill here - we'll use individual cells
             onClick={handleBarClick}
           >
             {/* Create a cell for each data point with the right color */}
@@ -65,7 +57,6 @@ const TypeBarChart = () => {
               <Cell 
                 key={`cell-${index}`} 
                 fill={colorScheme[entry.name] || '#999'}
-                // Highlight the active filter
                 opacity={filters.type && filters.type !== entry.name ? 0.3 : 1}
               />
             ))}

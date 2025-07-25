@@ -3,6 +3,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { useData } from '../../context/DataContext';
 import { getQuarterCountsWithTypeSeries } from '../../utils/dataProcessing';
 import colorScheme from '../../utils/colorScheme';
+import {
+  StackedTooltip,
+  getTimelineXAxisProps,
+  getTimelineYAxisProps,
+  getTypeKeys,
+  ChartStyles
+} from './ChartUtils';
 
 const TimelineChart = () => {
   const { allEntries, filters, setFilter } = useData();
@@ -11,7 +18,7 @@ const TimelineChart = () => {
   const data = getQuarterCountsWithTypeSeries(allEntries);
 
   // Get all unique type values
-  const types = Object.keys(colorScheme);
+  const types = getTypeKeys();
   
   // Handle bar click to filter by quarter
   const handleBarClick = (data) => {
@@ -33,24 +40,17 @@ const TimelineChart = () => {
           data={data}
           margin={{ top: 5, right: 20, left: 5, bottom: 20 }}
           barGap={0}
-          barCategoryGap="2%"
+          barCategoryGap={ChartStyles.barCategoryGap.dense}
           onClick={handleBarClick}
         >
-          <XAxis 
-            dataKey="name" 
-            tick={{ fontSize: 9, angle: -45, textAnchor: 'end' }}
-            height={50}
-            interval={0} // Show all labels
-            tickMargin={8}
-          />
-          <YAxis 
-            allowDecimals={false}
-            tickCount={4}
-          />
-          <Tooltip 
-            formatter={(value, name) => [`${value} entries`, name]} 
-            labelFormatter={(label) => `Period: ${label}`}
-          />
+          {/* X axis (time periods) */}
+          <XAxis {...getTimelineXAxisProps()} />
+          
+          {/* Y axis (counts) */}
+          <YAxis {...getTimelineYAxisProps()} />
+          
+          {/* Custom tooltip component */}
+          <Tooltip content={props => <StackedTooltip {...props} labelPrefix="Period" />} />
           {/* Create a stacked bar for each type */}
           {types.map((type, index) => (
             <Bar
