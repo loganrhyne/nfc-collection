@@ -58,31 +58,38 @@ export const DataProvider = ({ children }) => {
     setFilteredEntries(filtered);
   }, [filters, entries]);
   
-  // Get entries filtered by everything except one dimension
-  // This is used to feed charts the right data while respecting other filters
-  const getEntriesFilteredExcept = (excludeDimension) => {
+  /**
+   * Get entries filtered by everything except one dimension
+   * @param {string} excludeDimension - The dimension to exclude from filtering
+   * @param {boolean} showOnlyFilteredForOwn - If true, will apply the filter for the excluded dimension as well
+   * @returns {Array} - Filtered entries
+   */
+  const getEntriesFilteredExcept = (excludeDimension, showOnlyFilteredForOwn = false) => {
     let filtered = [...entries];
     
-    // Apply all filters except the excluded dimension
-    if (excludeDimension !== 'type' && filters.type) {
+    // Apply all filters except the excluded dimension (unless showOnlyFilteredForOwn is true)
+    if ((excludeDimension !== 'type' || showOnlyFilteredForOwn) && filters.type) {
       filtered = filtered.filter(entry => entry.type === filters.type);
     }
     
-    if (excludeDimension !== 'region' && filters.region) {
+    if ((excludeDimension !== 'region' || showOnlyFilteredForOwn) && filters.region) {
       filtered = filtered.filter(entry => entry.region === filters.region);
     }
     
-    if (excludeDimension !== 'quarter' && filters.quarter) {
+    if ((excludeDimension !== 'quarter' || showOnlyFilteredForOwn) && filters.quarter) {
       filtered = filtered.filter(entry => entry.quarter === filters.quarter);
     }
     
-    if (excludeDimension !== 'search' && filters.search) {
+    if ((excludeDimension !== 'search' || showOnlyFilteredForOwn) && filters.search) {
       const searchLower = filters.search.toLowerCase();
       filtered = filtered.filter(entry => 
         entry.title?.toLowerCase().includes(searchLower) || 
         entry.text?.toLowerCase().includes(searchLower)
       );
     }
+    
+    console.log(`Filtered for ${excludeDimension} (showOwn=${showOnlyFilteredForOwn}):`, 
+      `Started with ${entries.length}, ended with ${filtered.length} entries`);
     
     return filtered;
   };

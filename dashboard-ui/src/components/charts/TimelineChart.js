@@ -14,8 +14,18 @@ import {
 const TimelineChart = () => {
   const { getEntriesFilteredExcept, filters, setFilter, setMultiFilter } = useData();
   
-  // Get entries filtered by everything except quarter
-  const entriesForChart = getEntriesFilteredExcept('quarter');
+  // If a quarter filter is active, show only that quarter
+  // Otherwise show all quarters with other filters applied
+  const showSingleQuarter = !!filters.quarter;
+  
+  // Get entries with appropriate filtering
+  const entriesForChart = getEntriesFilteredExcept('quarter', showSingleQuarter);
+  
+  console.log('TimelineChart rendering with:', { 
+    showSingleQuarter, 
+    activeQuarterFilter: filters.quarter,
+    entriesCount: entriesForChart.length 
+  });
   
   // Get quarter counts with type breakdown
   const data = getQuarterCountsWithTypeSeries(entriesForChart);

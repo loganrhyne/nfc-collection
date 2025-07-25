@@ -46,27 +46,38 @@ The system now tracks which chart component applied each filter, providing visua
 
 The core of the filtering system includes several key components in `DataContext.js`:
 
-#### 1. Filtered Data Access
+#### 1. Filtered Data Access with Self-Filtering Mode
+
+A key feature of the filtering system is the ability for charts to show either:
+- All possible values for their dimension (ignoring their own dimension's filter)
+- Only the currently filtered value for their dimension (applying their own filter)
+
+This is controlled through the `showOnlyFilteredForOwn` parameter:
 
 ```javascript
-// Get entries filtered by everything except one dimension
-const getEntriesFilteredExcept = (excludeDimension) => {
+/**
+ * Get entries filtered by everything except one dimension
+ * @param {string} excludeDimension - The dimension to exclude from filtering
+ * @param {boolean} showOnlyFilteredForOwn - If true, will apply the filter for the excluded dimension as well
+ * @returns {Array} - Filtered entries
+ */
+const getEntriesFilteredExcept = (excludeDimension, showOnlyFilteredForOwn = false) => {
   let filtered = [...entries];
   
-  // Apply all filters except the excluded dimension
-  if (excludeDimension !== 'type' && filters.type) {
+  // Apply all filters except the excluded dimension (unless showOnlyFilteredForOwn is true)
+  if ((excludeDimension !== 'type' || showOnlyFilteredForOwn) && filters.type) {
     filtered = filtered.filter(entry => entry.type === filters.type);
   }
   
-  if (excludeDimension !== 'region' && filters.region) {
+  if ((excludeDimension !== 'region' || showOnlyFilteredForOwn) && filters.region) {
     filtered = filtered.filter(entry => entry.region === filters.region);
   }
   
-  if (excludeDimension !== 'quarter' && filters.quarter) {
+  if ((excludeDimension !== 'quarter' || showOnlyFilteredForOwn) && filters.quarter) {
     filtered = filtered.filter(entry => entry.quarter === filters.quarter);
   }
   
-  if (excludeDimension !== 'search' && filters.search) {
+  if ((excludeDimension !== 'search' || showOnlyFilteredForOwn) && filters.search) {
     const searchLower = filters.search.toLowerCase();
     filtered = filtered.filter(entry => 
       entry.title?.toLowerCase().includes(searchLower) || 
@@ -115,23 +126,20 @@ const [filterSources, setFilterSources] = useState({});
 
 ### Chart Component Changes
 
-Each chart component now uses the filtered data specific to its needs and indicates the filter source:
+Each chart component now uses the filtered data specific to its needs, with intelligent handling of its own dimension's filter state:
 
 ```javascript
-// TypeBarChart.js
-const entriesForChart = getEntriesFilteredExcept('type');
-// When bar clicked
-setFilter('type', entry.name, 'type-chart');
+// TypeBarChart.js - showing only filtered type when a type filter is active
+const showSingleType = !!filters.type;
+const entriesForChart = getEntriesFilteredExcept('type', showSingleType);
 
-// RegionBarChart.js
-const entriesForChart = getEntriesFilteredExcept('region');
-// When segment clicked
-setMultiFilter({ region: regionName, type: typeName }, 'region-chart-segment');
+// RegionBarChart.js - showing only filtered region when a region filter is active
+const showSingleRegion = !!filters.region;
+const entriesForChart = getEntriesFilteredExcept('region', showSingleRegion);
 
-// TimelineChart.js
-const entriesForChart = getEntriesFilteredExcept('quarter');
-// When segment clicked
-setMultiFilter({ quarter: quarterName, type: typeName }, 'timeline-chart-segment');
+// TimelineChart.js - showing only filtered quarter when a quarter filter is active 
+const showSingleQuarter = !!filters.quarter;
+const entriesForChart = getEntriesFilteredExcept('quarter', showSingleQuarter);
 ```
 
 ### Enhanced Active Filters UI

@@ -18,8 +18,18 @@ import {
 const TypeBarChart = () => {
   const { getEntriesFilteredExcept, filters, setFilter } = useData();
   
-  // Get entries filtered by everything except type
-  const entriesForChart = getEntriesFilteredExcept('type');
+  // If a type filter is active, show only that type
+  // Otherwise show all types with other filters applied
+  const showSingleType = !!filters.type;
+  
+  // Get entries with appropriate filtering
+  const entriesForChart = getEntriesFilteredExcept('type', showSingleType);
+  
+  console.log('TypeChart rendering with:', { 
+    showSingleType, 
+    activeTypeFilter: filters.type,
+    entriesCount: entriesForChart.length 
+  });
   
   // Get type counts and sort alphabetically
   const data = sortByName(

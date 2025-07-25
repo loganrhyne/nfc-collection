@@ -15,8 +15,18 @@ import {
 const RegionBarChart = () => {
   const { getEntriesFilteredExcept, filters, setFilter, setMultiFilter } = useData();
   
-  // Get entries filtered by everything except region
-  const entriesForChart = getEntriesFilteredExcept('region');
+  // If a region filter is active, show only that region
+  // Otherwise show all regions with other filters applied
+  const showSingleRegion = !!filters.region;
+  
+  // Get entries with appropriate filtering
+  const entriesForChart = getEntriesFilteredExcept('region', showSingleRegion);
+  
+  console.log('RegionChart rendering with:', { 
+    showSingleRegion, 
+    activeRegionFilter: filters.region,
+    entriesCount: entriesForChart.length 
+  });
   
   // Get region counts with type breakdown and sort alphabetically
   const data = sortByName(
