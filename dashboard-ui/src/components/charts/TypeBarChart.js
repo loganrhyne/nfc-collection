@@ -16,11 +16,14 @@ import {
  * Each type gets a single bar with its distinct color from the colorScheme
  */
 const TypeBarChart = () => {
-  const { allEntries, filters, setFilter } = useData();
+  const { getEntriesFilteredExcept, filters, setFilter } = useData();
+  
+  // Get entries filtered by everything except type
+  const entriesForChart = getEntriesFilteredExcept('type');
   
   // Get type counts and sort alphabetically
   const data = sortByName(
-    getCountsByProperty(allEntries, 'type').filter(item => item.name && item.name !== 'Unknown')
+    getCountsByProperty(entriesForChart, 'type').filter(item => item.name && item.name !== 'Unknown')
   );
   
   // Handle bar click to filter by type

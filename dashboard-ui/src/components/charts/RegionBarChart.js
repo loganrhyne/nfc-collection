@@ -13,11 +13,14 @@ import {
 } from './ChartUtils';
 
 const RegionBarChart = () => {
-  const { allEntries, filters, setFilter } = useData();
+  const { getEntriesFilteredExcept, filters, setFilter } = useData();
+  
+  // Get entries filtered by everything except region
+  const entriesForChart = getEntriesFilteredExcept('region');
   
   // Get region counts with type breakdown and sort alphabetically
   const data = sortByName(
-    getRegionCountsWithTypeSeries(allEntries).filter(item => item.name && item.name !== 'Unknown')
+    getRegionCountsWithTypeSeries(entriesForChart).filter(item => item.name && item.name !== 'Unknown')
   );
 
   // Get all unique type values

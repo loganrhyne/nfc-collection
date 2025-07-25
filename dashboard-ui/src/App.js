@@ -8,6 +8,7 @@ import MapView from './components/map/MapView';
 import VerticalTimeline from './components/timeline/VerticalTimeline';
 import JournalEntryDetail from './components/entry/JournalEntryDetail';
 import NfcHandler from './components/nfc/NfcHandler';
+import ActiveFilters from './components/filters/ActiveFilters';
 import './App.css';
 
 function App() {
@@ -34,7 +35,10 @@ function App() {
 
   // Content for the map section (center top)
   const renderMapContent = () => (
-    <MapView />
+    <>
+      <ActiveFilters />
+      <MapView />
+    </>
   );
 
   // Content for the timeline chart (center bottom)

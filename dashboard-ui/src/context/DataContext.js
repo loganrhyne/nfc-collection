@@ -54,6 +54,35 @@ export const DataProvider = ({ children }) => {
     
     setFilteredEntries(filtered);
   }, [filters, entries]);
+  
+  // Get entries filtered by everything except one dimension
+  // This is used to feed charts the right data while respecting other filters
+  const getEntriesFilteredExcept = (excludeDimension) => {
+    let filtered = [...entries];
+    
+    // Apply all filters except the excluded dimension
+    if (excludeDimension !== 'type' && filters.type) {
+      filtered = filtered.filter(entry => entry.type === filters.type);
+    }
+    
+    if (excludeDimension !== 'region' && filters.region) {
+      filtered = filtered.filter(entry => entry.region === filters.region);
+    }
+    
+    if (excludeDimension !== 'quarter' && filters.quarter) {
+      filtered = filtered.filter(entry => entry.quarter === filters.quarter);
+    }
+    
+    if (excludeDimension !== 'search' && filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(entry => 
+        entry.title?.toLowerCase().includes(searchLower) || 
+        entry.text?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    return filtered;
+  };
 
   // Set filter for a specific dimension
   const setFilter = (dimension, value) => {
@@ -113,7 +142,8 @@ export const DataProvider = ({ children }) => {
         getEntryByUUID,
         getGridPositionByUUID,
         setGridPositionForUUID,
-        highlightTypeOnGrid
+        highlightTypeOnGrid,
+        getEntriesFilteredExcept
       }}
     >
       {children}

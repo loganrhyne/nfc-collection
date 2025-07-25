@@ -12,10 +12,13 @@ import {
 } from './ChartUtils';
 
 const TimelineChart = () => {
-  const { allEntries, filters, setFilter } = useData();
+  const { getEntriesFilteredExcept, filters, setFilter } = useData();
+  
+  // Get entries filtered by everything except quarter
+  const entriesForChart = getEntriesFilteredExcept('quarter');
   
   // Get quarter counts with type breakdown
-  const data = getQuarterCountsWithTypeSeries(allEntries);
+  const data = getQuarterCountsWithTypeSeries(entriesForChart);
 
   // Get all unique type values
   const types = getTypeKeys();

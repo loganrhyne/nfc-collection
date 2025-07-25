@@ -53,7 +53,7 @@ const getEntryIcon = (type) => {
 };
 
 const MapView = () => {
-  const { entries, setSelectedEntry } = useData();
+  const { entries, filters, setSelectedEntry } = useData();
   
   // Calculate map bounds based on entry locations
   const getMapBounds = () => {
