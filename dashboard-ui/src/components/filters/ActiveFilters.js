@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
-import { FiFilter, FiCalendar, FiMapPin, FiSearch } from 'react-icons/fi';
 
 const FiltersContainer = styled.div`
   display: flex;
@@ -33,13 +32,6 @@ const FilterLabel = styled.span`
   font-weight: 500;
   display: flex;
   align-items: center;
-`;
-
-const IconWrapper = styled.span`
-  margin-right: 4px;
-  display: flex;
-  align-items: center;
-  font-size: 12px;
 `;
 
 const SourceTag = styled.span`
@@ -105,7 +97,6 @@ const ActiveFilters = () => {
           onClick={() => setFilter('type', filters.type)}
         >
           <FilterLabel>
-            <IconWrapper><FiFilter /></IconWrapper>
             Type:
             {filterSources.type && <SourceTag>{filterSources.type}</SourceTag>}
           </FilterLabel> 
@@ -120,7 +111,6 @@ const ActiveFilters = () => {
           onClick={() => setFilter('region', filters.region)}
         >
           <FilterLabel>
-            <IconWrapper><FiMapPin /></IconWrapper>
             Region:
             {filterSources.region && <SourceTag>{filterSources.region}</SourceTag>}
           </FilterLabel>
@@ -135,7 +125,6 @@ const ActiveFilters = () => {
           onClick={() => setFilter('quarter', filters.quarter)}
         >
           <FilterLabel>
-            <IconWrapper><FiCalendar /></IconWrapper>
             Period:
             {filterSources.quarter && <SourceTag>{filterSources.quarter}</SourceTag>}
           </FilterLabel>
@@ -150,7 +139,6 @@ const ActiveFilters = () => {
           onClick={() => setFilter('search', '')}
         >
           <FilterLabel>
-            <IconWrapper><FiSearch /></IconWrapper>
             Search:
             {filterSources.search && <SourceTag>{filterSources.search}</SourceTag>}
           </FilterLabel>
