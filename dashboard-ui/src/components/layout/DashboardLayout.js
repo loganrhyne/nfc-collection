@@ -77,7 +77,6 @@ const DashboardLayout = ({
   return (
     <DashboardContainer>
       <LeftColumn>
-        <SectionTitle>Filters</SectionTitle>
         {leftColumnContent}
       </LeftColumn>
       

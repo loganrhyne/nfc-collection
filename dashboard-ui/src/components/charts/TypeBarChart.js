@@ -36,9 +36,9 @@ const TypeBarChart = () => {
             tick={{ fontSize: 12 }}
           />
           <Tooltip
-            // Simple formatter showing just the count
-            formatter={(value) => `${value} entries`}
-            // No need for additional label formatting
+            // Match the format of other charts
+            formatter={(value, name) => [`${value} entries`, name]} 
+            labelFormatter={(label) => label}
           />
           <Bar 
             dataKey="count"
