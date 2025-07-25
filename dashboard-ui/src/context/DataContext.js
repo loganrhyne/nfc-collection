@@ -15,6 +15,9 @@ export const DataProvider = ({ children }) => {
     quarter: null,
     search: ''
   });
+  
+  // Track which chart set each filter to better communicate the source
+  const [filterSources, setFilterSources] = useState({});
   const [gridMapping, setGridMapping] = useState({});
   const [selectedEntry, setSelectedEntry] = useState(null);
 
@@ -85,11 +88,57 @@ export const DataProvider = ({ children }) => {
   };
 
   // Set filter for a specific dimension
-  const setFilter = (dimension, value) => {
+  const setFilter = (dimension, value, source = null) => {
+    // If toggling off, remove the filter
+    if (value === filters[dimension]) {
+      setFilters(prev => ({
+        ...prev,
+        [dimension]: null
+      }));
+      
+      // Also remove the source tracking
+      setFilterSources(prev => {
+        const newSources = {...prev};
+        delete newSources[dimension];
+        return newSources;
+      });
+    } else {
+      // Otherwise set the filter and track its source
+      setFilters(prev => ({
+        ...prev,
+        [dimension]: value
+      }));
+      
+      // Track which chart set this filter
+      if (source) {
+        setFilterSources(prev => ({
+          ...prev,
+          [dimension]: source
+        }));
+      }
+    }
+  };
+  
+  // Set filter for multiple dimensions at once (for segment clicks on stacked bars)
+  const setMultiFilter = (filters, source = null) => {
+    // Update all the specified filters
     setFilters(prev => ({
       ...prev,
-      [dimension]: value === prev[dimension] ? null : value // Toggle filter if already active
+      ...filters
     }));
+    
+    // Track sources for all dimensions
+    if (source) {
+      const newSources = {};
+      Object.keys(filters).forEach(dimension => {
+        newSources[dimension] = source;
+      });
+      
+      setFilterSources(prev => ({
+        ...prev,
+        ...newSources
+      }));
+    }
   };
 
   // Reset all filters
@@ -100,6 +149,9 @@ export const DataProvider = ({ children }) => {
       quarter: null,
       search: ''
     });
+    
+    // Clear all filter sources
+    setFilterSources({});
   };
 
   // Find entry by UUID
@@ -135,7 +187,9 @@ export const DataProvider = ({ children }) => {
         allEntries: entries,
         entries: filteredEntries,
         filters,
+        filterSources,
         setFilter,
+        setMultiFilter,
         resetFilters,
         selectedEntry,
         setSelectedEntry,

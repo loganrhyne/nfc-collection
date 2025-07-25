@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
+import { FiFilter, FiCalendar, FiMapPin, FiSearch } from 'react-icons/fi';
 
 const FiltersContainer = styled.div`
   display: flex;
@@ -20,6 +21,7 @@ const FilterBadge = styled.div`
   font-size: 0.85rem;
   cursor: pointer;
   transition: opacity 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   
   &:hover {
     opacity: 0.8;
@@ -29,6 +31,24 @@ const FilterBadge = styled.div`
 const FilterLabel = styled.span`
   margin-right: 4px;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+`;
+
+const IconWrapper = styled.span`
+  margin-right: 4px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+`;
+
+const SourceTag = styled.span`
+  font-size: 8px;
+  background: rgba(255,255,255,0.3);
+  padding: 1px 3px;
+  border-radius: 3px;
+  margin-left: 4px;
+  opacity: 0.7;
 `;
 
 const RemoveIcon = styled.span`
@@ -49,7 +69,7 @@ const ClearAll = styled.div`
 `;
 
 const ActiveFilters = () => {
-  const { filters, setFilter, resetFilters } = useData();
+  const { filters, filterSources, setFilter, resetFilters } = useData();
   
   // Check if any filter is active
   const hasActiveFilters = Object.values(filters).some(value => 
@@ -84,7 +104,11 @@ const ActiveFilters = () => {
           textColor={getTextColor(colorScheme[filters.type])}
           onClick={() => setFilter('type', filters.type)}
         >
-          <FilterLabel>Type:</FilterLabel> 
+          <FilterLabel>
+            <IconWrapper><FiFilter /></IconWrapper>
+            Type:
+            {filterSources.type && <SourceTag>{filterSources.type}</SourceTag>}
+          </FilterLabel> 
           {filters.type}
           <RemoveIcon>×</RemoveIcon>
         </FilterBadge>
@@ -95,7 +119,11 @@ const ActiveFilters = () => {
           color="#f0f0f0"
           onClick={() => setFilter('region', filters.region)}
         >
-          <FilterLabel>Region:</FilterLabel>
+          <FilterLabel>
+            <IconWrapper><FiMapPin /></IconWrapper>
+            Region:
+            {filterSources.region && <SourceTag>{filterSources.region}</SourceTag>}
+          </FilterLabel>
           {filters.region}
           <RemoveIcon>×</RemoveIcon>
         </FilterBadge>
@@ -106,7 +134,11 @@ const ActiveFilters = () => {
           color="#f0f0f0"
           onClick={() => setFilter('quarter', filters.quarter)}
         >
-          <FilterLabel>Period:</FilterLabel>
+          <FilterLabel>
+            <IconWrapper><FiCalendar /></IconWrapper>
+            Period:
+            {filterSources.quarter && <SourceTag>{filterSources.quarter}</SourceTag>}
+          </FilterLabel>
           {filters.quarter.replace('Q', 'Q')}
           <RemoveIcon>×</RemoveIcon>
         </FilterBadge>
@@ -117,7 +149,11 @@ const ActiveFilters = () => {
           color="#f0f0f0"
           onClick={() => setFilter('search', '')}
         >
-          <FilterLabel>Search:</FilterLabel>
+          <FilterLabel>
+            <IconWrapper><FiSearch /></IconWrapper>
+            Search:
+            {filterSources.search && <SourceTag>{filterSources.search}</SourceTag>}
+          </FilterLabel>
           {filters.search}
           <RemoveIcon>×</RemoveIcon>
         </FilterBadge>

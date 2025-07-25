@@ -28,7 +28,7 @@ const TypeBarChart = () => {
   
   // Handle bar click to filter by type
   const handleBarClick = (entry) => {
-    setFilter('type', entry.name);
+    setFilter('type', entry.name, 'type-chart');
   };
   
   return (

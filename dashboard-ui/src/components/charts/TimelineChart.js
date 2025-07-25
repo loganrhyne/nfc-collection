@@ -12,7 +12,7 @@ import {
 } from './ChartUtils';
 
 const TimelineChart = () => {
-  const { getEntriesFilteredExcept, filters, setFilter } = useData();
+  const { getEntriesFilteredExcept, filters, setFilter, setMultiFilter } = useData();
   
   // Get entries filtered by everything except quarter
   const entriesForChart = getEntriesFilteredExcept('quarter');
@@ -25,14 +25,26 @@ const TimelineChart = () => {
   
   // Handle bar click to filter by quarter
   const handleBarClick = (data) => {
-    setFilter('quarter', data.rawQuarter);
+    setFilter('quarter', data.rawQuarter, 'timeline-chart');
   };
 
-  // Handle type click (when clicking a segment of a stacked bar)
-  const handleTypeClick = (entry, index) => {
-    // Find which type this is based on index
-    if (index < types.length) {
-      setFilter('type', types[index]);
+  // Handle segment click (when clicking a specific segment of a stacked bar)
+  const handleSegmentClick = (entry, index) => {
+    // Prevent event bubbling to the parent bar click handler
+    if (entry && entry.event) {
+      entry.event.stopPropagation();
+    }
+    
+    // Extract the quarter name and find which type this is based on index
+    const quarterName = entry.payload?.rawQuarter;
+    const typeName = types[index];
+    
+    if (quarterName && typeName) {
+      // Apply both filters at once - filter by this quarter and this type
+      setMultiFilter({
+        quarter: quarterName,
+        type: typeName
+      }, 'timeline-chart-segment');
     }
   };
   
@@ -61,7 +73,7 @@ const TimelineChart = () => {
               dataKey={type}
               stackId="a"
               fill={colorScheme[type] || '#999'}
-              onClick={(data, index) => handleTypeClick(data, index)}
+              onClick={(data, index) => handleSegmentClick(data, index)}
               // Highlight active filter
               opacity={filters.type && filters.type !== type ? 0.3 : 1}
             />

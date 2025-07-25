@@ -13,7 +13,7 @@ import {
 } from './ChartUtils';
 
 const RegionBarChart = () => {
-  const { getEntriesFilteredExcept, filters, setFilter } = useData();
+  const { getEntriesFilteredExcept, filters, setFilter, setMultiFilter } = useData();
   
   // Get entries filtered by everything except region
   const entriesForChart = getEntriesFilteredExcept('region');
@@ -28,14 +28,26 @@ const RegionBarChart = () => {
   
   // Handle bar click to filter by region
   const handleBarClick = (data) => {
-    setFilter('region', data.name);
+    setFilter('region', data.name, 'region-chart');
   };
 
-  // Handle type click (when clicking a segment of a stacked bar)
-  const handleTypeClick = (entry, index) => {
-    // Find which type this is based on index
-    if (index < types.length) {
-      setFilter('type', types[index]);
+  // Handle segment click (when clicking a specific segment of a stacked bar)
+  const handleSegmentClick = (entry, index) => {
+    // Prevent event bubbling to the parent bar click handler
+    if (entry && entry.event) {
+      entry.event.stopPropagation();
+    }
+    
+    // Extract the region name and find which type this is based on index
+    const regionName = entry.payload?.name;
+    const typeName = types[index];
+    
+    if (regionName && typeName) {
+      // Apply both filters at once - filter by this region and this type
+      setMultiFilter({
+        region: regionName,
+        type: typeName
+      }, 'region-chart-segment');
     }
   };
   
@@ -65,7 +77,7 @@ const RegionBarChart = () => {
               dataKey={type}
               stackId="a"
               fill={colorScheme[type] || '#999'}
-              onClick={(data, index) => handleTypeClick(data, index)}
+              onClick={(data, index) => handleSegmentClick(data, index)}
               // Highlight active filter
               opacity={filters.type && filters.type !== type ? 0.3 : 1}
             />
