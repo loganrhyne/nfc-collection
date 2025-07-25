@@ -26,12 +26,13 @@ const RegionBarChart = () => {
   };
   
   return (
-    <div style={{ width: '100%', height: 200 }}>
+    <div style={{ width: '100%', height: '100%' }}>
       <ResponsiveContainer>
         <BarChart
           data={data}
           margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
           layout="vertical"
+          barSize={20} // Set fixed bar height
         >
           <XAxis 
             type="number"

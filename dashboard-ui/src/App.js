@@ -15,12 +15,20 @@ function App() {
 
   // Content for the left column (filters)
   const renderLeftColumnContent = () => (
-    <div>
-      <h3>Type</h3>
-      <TypeBarChart />
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <h3 style={{ marginBottom: '8px' }}>Type</h3>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <TypeBarChart />
+        </div>
+      </div>
       
-      <h3 style={{ marginTop: '24px' }}>Region</h3>
-      <RegionBarChart />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <h3 style={{ marginTop: '16px', marginBottom: '8px' }}>Region</h3>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <RegionBarChart />
+        </div>
+      </div>
     </div>
   );
 

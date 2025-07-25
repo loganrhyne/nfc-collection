@@ -17,7 +17,9 @@ const DashboardContainer = styled.div`
 const LeftColumn = styled.div`
   width: 250px;
   height: 100%;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 16px;
   background-color: #f5f5f5;
   border-right: 1px solid #e0e0e0;
