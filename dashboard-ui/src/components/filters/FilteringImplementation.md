@@ -8,7 +8,16 @@ The system now supports both single-dimension filtering (clicking on chart bars)
 
 ## Key Concepts
 
-### 1. Filter Context
+### 1. Interaction Model
+
+The dashboard supports two distinct filtering interactions:
+
+- **Bar Clicks**: Clicking on the main bar area (or axis label) applies a filter for just that dimension (region or quarter)
+- **Segment Clicks**: Clicking on a colored segment within a stacked bar applies filters for both the bar's dimension AND the segment's type
+
+This provides an intuitive way to either broadly filter by dimension or narrowly filter by both dimension and type.
+
+### 2. Filter Context
 
 The filter state is managed centrally in the `DataContext`, which tracks active filters for:
 - Type (sand type)
@@ -169,3 +178,4 @@ An improved `ActiveFilters` component visually displays the currently active fil
 6. **Feedback Visualization**: Show visual cues in charts to indicate which elements contributed to current filters
 7. **Filter Dependencies**: Implement more sophisticated handling of interdependent filters
 8. **Filter Impact Preview**: Show preview of how many items would match if a filter was applied
+9. **Enhanced Click Differentiation**: Further improve the distinction between bar clicks and segment clicks with visual cues

@@ -9,7 +9,9 @@ import {
   getVerticalYAxisProps,
   sortByName,
   getTypeKeys,
-  ChartStyles
+  ChartStyles,
+  isSegmentClick,
+  extractBarInfo
 } from './ChartUtils';
 
 const RegionBarChart = () => {
@@ -36,50 +38,31 @@ const RegionBarChart = () => {
   // Get all unique type values
   const types = getTypeKeys();
   
-  // Handle bar click to filter by region
-  const handleBarClick = (data) => {
-    // Check if we have valid data with a name property
-    if (data && data.name) {
-      console.log('Region chart - handleBarClick:', data.name);
-      // Check if this is a click on the bar itself, not a segment
-      // Only set region filter
-      setFilter('region', data.name, 'region-chart');
-    }
-  };
-
-  // Handle segment click (when clicking a specific segment of a stacked bar)
-  const handleSegmentClick = (entry, index) => {
-    // Log what we received
-    console.log('Region chart - handleSegmentClick:', entry, index);
+  /**
+   * Universal click handler for the RegionBarChart
+   * Handles both bar clicks (filter by region only) and segment clicks (filter by region + type)
+   */
+  const handleChartClick = (event) => {
+    console.log('Region chart - click event:', event);
     
-    // Prevent event bubbling to the parent bar click handler
-    if (entry && entry.event) {
-      entry.event.stopPropagation();
-    }
+    // Extract information from the click event
+    const { categoryName: regionName, typeName, isSegment } = extractBarInfo(event, data);
+    console.log('Region click extracted:', { regionName, typeName, isSegment });
     
-    // Extract the region name from the payload
-    const regionName = entry && entry.payload ? entry.payload.name : null;
+    if (!regionName) return;
     
-    // Get the actual dataKey that this Bar represents
-    // This is the correct way to determine the type, not using the index
-    const typeName = entry && entry.tooltipPayload && entry.tooltipPayload[0] ?
-      entry.tooltipPayload[0].dataKey : null;
-    
-    console.log('Region values extracted:', { regionName, typeName });
-    
-    // If there's already a type filter active, respect it and just set the region
-    if (filters.type) {
-      if (regionName) {
-        console.log('Setting region filter only (type already set):', regionName);
-        setFilter('region', regionName, 'region-chart');
-      }
-    } else if (regionName && typeName) {
-      // Otherwise, set both region and type filters
-      console.log('Setting multi filter for region segment:', regionName, typeName);
+    // If clicking a segment, apply both region and type filters
+    if (isSegment && typeName && !filters.type) {
+      console.log('Setting region+type filter:', regionName, typeName);
       setMultiFilter({
         region: regionName,
         type: typeName
       }, 'region-chart-segment');
+    } 
+    // Otherwise just filter by region
+    else {
+      console.log('Setting region filter only:', regionName);
+      setFilter('region', regionName, 'region-chart');
     }
   };
   
@@ -92,17 +75,7 @@ const RegionBarChart = () => {
           margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
           barGap={0}
           barCategoryGap={ChartStyles.barCategoryGap.normal}
-          onClick={(data) => {
-            console.log('Region chart - direct bar click:', data);
-            // Try to handle click even if activePayload is not set
-            // This happens when clicking on bar areas
-            if (data && data.activeLabel) {
-              console.log('Region chart - using activeLabel:', data.activeLabel);
-              handleBarClick({ name: data.activeLabel });
-            } else if (data && data.activePayload && data.activePayload[0]) {
-              handleBarClick(data.activePayload[0].payload);
-            }
-          }}
+          onClick={handleChartClick}
         >
           {/* X axis (horizontal) */}
           <XAxis {...getVerticalXAxisProps()} />
@@ -119,7 +92,13 @@ const RegionBarChart = () => {
               dataKey={type}
               stackId="a"
               fill={colorScheme[type] || '#999'}
-              onClick={(data, index) => handleSegmentClick(data, index)}
+              onClick={(data, index) => {
+                // Add event to stop propagation
+                if (data && data.event) {
+                  data.event.stopPropagation();
+                }
+                handleChartClick(data);
+              }}
               // Highlight active filter
               opacity={filters.type && filters.type !== type ? 0.3 : 1}
             />

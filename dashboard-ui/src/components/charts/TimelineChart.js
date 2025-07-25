@@ -8,7 +8,9 @@ import {
   getTimelineXAxisProps,
   getTimelineYAxisProps,
   getTypeKeys,
-  ChartStyles
+  ChartStyles,
+  isSegmentClick,
+  extractBarInfo
 } from './ChartUtils';
 
 const TimelineChart = () => {
@@ -33,49 +35,53 @@ const TimelineChart = () => {
   // Get all unique type values
   const types = getTypeKeys();
   
-  // Handle bar click to filter by quarter
-  const handleBarClick = (data) => {
-    // Check if we have valid data with a rawQuarter property
-    if (data && data.rawQuarter) {
-      console.log('Timeline chart - handleBarClick:', data.rawQuarter);
-      // Only set quarter filter
-      setFilter('quarter', data.rawQuarter, 'timeline-chart');
-    }
-  };
-
-  // Handle segment click (when clicking a specific segment of a stacked bar)
-  const handleSegmentClick = (entry, index) => {
-    // Log what we received
-    console.log('Timeline chart - handleSegmentClick:', entry, index);
+  /**
+   * Universal click handler for the TimelineChart
+   * Handles both bar clicks (filter by quarter only) and segment clicks (filter by quarter + type)
+   */
+  const handleChartClick = (event) => {
+    console.log('Timeline chart - click event:', event);
     
-    // Prevent event bubbling to the parent bar click handler
-    if (entry && entry.event) {
-      entry.event.stopPropagation();
-    }
+    // Extract information from the click event
+    let quarterName = null;
     
-    // Extract the quarter name from the payload
-    const quarterName = entry && entry.payload ? entry.payload.rawQuarter : null;
-    
-    // Get the actual dataKey that this Bar represents
-    // This is the correct way to determine the type, not using the index
-    const typeName = entry && entry.tooltipPayload && entry.tooltipPayload[0] ?
-      entry.tooltipPayload[0].dataKey : null;
-    
-    console.log('Timeline values extracted:', { quarterName, typeName });
-    
-    // If there's already a type filter active, respect it and just set the quarter
-    if (filters.type) {
-      if (quarterName) {
-        console.log('Setting quarter filter only (type already set):', quarterName);
-        setFilter('quarter', quarterName, 'timeline-chart');
+    // First, try to get the direct quarter name from activeLabel
+    if (event && event.activeLabel) {
+      // We need to find the quarter object that matches this displayed name
+      const quarterObj = data.find(item => item.name === event.activeLabel);
+      if (quarterObj) {
+        quarterName = quarterObj.rawQuarter;
       }
-    } else if (quarterName && typeName) {
-      // Otherwise, set both quarter and type filters
-      console.log('Setting multi filter for timeline segment:', quarterName, typeName);
+    }
+    
+    // If that didn't work, try to get it from the payload
+    if (!quarterName && event && event.payload) {
+      quarterName = event.payload.rawQuarter;
+    }
+    
+    // Get the type from tooltipPayload for segment clicks
+    const isSegment = isSegmentClick(event);
+    let typeName = null;
+    if (isSegment && event.tooltipPayload && event.tooltipPayload[0]) {
+      typeName = event.tooltipPayload[0].dataKey;
+    }
+    
+    console.log('Timeline click extracted:', { quarterName, typeName, isSegment });
+    
+    if (!quarterName) return;
+    
+    // If clicking a segment, apply both quarter and type filters
+    if (isSegment && typeName && !filters.type) {
+      console.log('Setting quarter+type filter:', quarterName, typeName);
       setMultiFilter({
         quarter: quarterName,
         type: typeName
       }, 'timeline-chart-segment');
+    } 
+    // Otherwise just filter by quarter
+    else {
+      console.log('Setting quarter filter only:', quarterName);
+      setFilter('quarter', quarterName, 'timeline-chart');
     }
   };
   
@@ -87,23 +93,7 @@ const TimelineChart = () => {
           margin={{ top: 5, right: 20, left: 5, bottom: 20 }}
           barGap={0}
           barCategoryGap={ChartStyles.barCategoryGap.dense}
-          onClick={(data) => {
-            console.log('Timeline chart - direct bar click:', data);
-            // Try to handle click even if activePayload is not set
-            // This happens when clicking on bar areas
-            if (data && data.activeLabel) {
-              console.log('Timeline chart - using activeLabel:', data.activeLabel);
-              // Find the quarter object based on the activeLabel (displayed name)
-              const quarterObj = data.activeLabel && data ? 
-                data.find(q => q.name === data.activeLabel) : null;
-                
-              if (quarterObj) {
-                handleBarClick(quarterObj);
-              }
-            } else if (data && data.activePayload && data.activePayload[0]) {
-              handleBarClick(data.activePayload[0].payload);
-            }
-          }}
+          onClick={handleChartClick}
         >
           {/* X axis (time periods) */}
           <XAxis {...getTimelineXAxisProps()} />
@@ -120,7 +110,13 @@ const TimelineChart = () => {
               dataKey={type}
               stackId="a"
               fill={colorScheme[type] || '#999'}
-              onClick={(data, index) => handleSegmentClick(data, index)}
+              onClick={(data, index) => {
+                // Add event to stop propagation
+                if (data && data.event) {
+                  data.event.stopPropagation();
+                }
+                handleChartClick(data);
+              }}
               // Highlight active filter
               opacity={filters.type && filters.type !== type ? 0.3 : 1}
             />

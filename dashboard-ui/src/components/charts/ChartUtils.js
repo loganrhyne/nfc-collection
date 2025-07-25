@@ -19,7 +19,8 @@ export const ChartStyles = {
   },
   axis: {
     tickSize: 5,
-    stroke: '#ccc'
+    stroke: '#ccc',
+    cursor: 'pointer' // Make axis labels clickable
   },
   barCategoryGap: {
     normal: '15%',
@@ -79,7 +80,7 @@ export const StackedTooltip = ({ active, payload, label, labelPrefix, valueUnit 
 /**
  * Get consistent XAxis props for vertical bar charts
  */
-export const getVerticalXAxisProps = () => ({
+export const getVerticalXAxisProps = (onClick = null) => ({
   type: 'number',
   axisLine: true,
   tickLine: true,
@@ -91,13 +92,16 @@ export const getVerticalXAxisProps = () => ({
 /**
  * Get consistent YAxis props for vertical bar charts
  */
-export const getVerticalYAxisProps = () => ({
+export const getVerticalYAxisProps = (onTickClick = null) => ({
   type: 'category',
   dataKey: 'name',
   width: 80,
   axisLine: true,
   tickLine: true,
-  tick: { fontSize: 12 },
+  tick: { 
+    fontSize: 12,
+    cursor: 'pointer' 
+  },
   tickMargin: 5,
   stroke: ChartStyles.axis.stroke,
   tickSize: ChartStyles.axis.tickSize
@@ -106,9 +110,14 @@ export const getVerticalYAxisProps = () => ({
 /**
  * Get consistent XAxis props for horizontal bar charts (timeline)
  */
-export const getTimelineXAxisProps = () => ({
+export const getTimelineXAxisProps = (onTickClick = null) => ({
   dataKey: 'name',
-  tick: { fontSize: 9, angle: -45, textAnchor: 'end' },
+  tick: { 
+    fontSize: 9, 
+    angle: -45, 
+    textAnchor: 'end',
+    cursor: 'pointer'
+  },
   height: 50,
   interval: 0,
   tickMargin: 8,
@@ -141,3 +150,45 @@ export const sortByName = data => {
  * Get all type keys from color scheme
  */
 export const getTypeKeys = () => Object.keys(colorScheme);
+
+/**
+ * Determines if a click event is on a bar segment rather than the main bar
+ * Returns true for segment clicks, false for general bar clicks
+ */
+export const isSegmentClick = (event) => {
+  // Check if we have tooltipPayload which indicates a segment was clicked
+  return event && event.tooltipPayload && event.tooltipPayload.length > 0;
+};
+
+/**
+ * Extract bar information from a click event
+ * Works for both bar clicks and segment clicks
+ */
+export const extractBarInfo = (event, data) => {
+  if (!event) return { categoryName: null, typeName: null, isSegment: false };
+  
+  // Check if this is a segment click
+  const isSegment = isSegmentClick(event);
+  
+  // Get category name (region or quarter)
+  let categoryName = null;
+  if (event.activeLabel) {
+    categoryName = event.activeLabel;
+  } else if (event.payload && event.payload.name) {
+    categoryName = event.payload.name;
+  } else if (isSegment && event.payload) {
+    categoryName = event.payload.name;
+  }
+  
+  // Get type name (for segment clicks)
+  let typeName = null;
+  if (isSegment && event.tooltipPayload && event.tooltipPayload[0]) {
+    typeName = event.tooltipPayload[0].dataKey;
+  }
+  
+  return { 
+    categoryName, 
+    typeName,
+    isSegment
+  };
+};
