@@ -13,7 +13,7 @@ const TimelineContainer = styled.div`
 // Vertical line that runs through the timeline
 const VerticalLine = styled.div`
   position: absolute;
-  left: 20px;
+  left: 30px;
   top: 0;
   bottom: 0;
   width: 2px;
@@ -23,7 +23,7 @@ const VerticalLine = styled.div`
 
 const TimelineList = styled.div`
   position: relative;
-  padding-left: 50px; // Space for the vertical line and dot
+  padding-left: 60px; // Increased space for the vertical line and dot
 `;
 
 const TimelineItem = styled.div`
@@ -49,27 +49,20 @@ const TimelineItem = styled.div`
   `}
 `;
 
-// Circle with journal icon
+// Colored circle indicator
 const TimelineDot = styled.div`
   position: absolute;
-  left: -40px;
+  left: -39px; // Adjusted to center with vertical line
   top: 15px;
-  width: 24px;
-  height: 24px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background-color: ${props => props.color || '#ccc'};
   border: 2px solid white;
   box-shadow: 0 0 0 2px #e0e0e0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 2;
-  
-  &:after {
-    content: '📔';
-    font-size: 11px;
-    transform: translateY(-1px);
-  }
+  transition: all 0.2s;
+  transform: translateX(-${props => props.selected ? '0px' : '0px'});
 `;
 
 const TimelineDate = styled.div`
@@ -142,7 +135,10 @@ const VerticalTimeline = () => {
             onClick={() => handleItemClick(entry)}
             selected={selectedEntry?.uuid === entry.uuid}
           >
-            <TimelineDot color={colorScheme[entry.type] || '#999'} />
+            <TimelineDot 
+            color={colorScheme[entry.type] || '#999'}
+            selected={selectedEntry?.uuid === entry.uuid}
+          />
             <TimelineDate>
               {formatDate(entry.creationDate)}
             </TimelineDate>

@@ -64,7 +64,7 @@ const SectionTitle = styled.h2`
   color: #333;
   padding: 16px 20px;
   border-bottom: 1px solid #eee;
-  background-color: #fafafa;
+  background-color: #fff;
   font-weight: 500;
   position: sticky;
   top: 0;
