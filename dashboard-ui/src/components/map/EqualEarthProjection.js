@@ -1,6 +1,6 @@
 import L from 'leaflet';
-import 'proj4leaflet';
 import proj4 from 'proj4';
+import 'proj4leaflet';
 
 /**
  * Equal Earth Projection definition for use with Leaflet
