@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import MapTileSelector from './MapTileSelector';
 import L from 'leaflet';
 import { useData } from '../../context/DataContext';
 import styled from 'styled-components';
@@ -145,10 +146,8 @@ const MapView = () => {
         {/* BoundsFitter updates the map bounds when entries change */}
         <BoundsFitter bounds={bounds} />
         
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        {/* MapTileSelector provides tile layer selection UI and renders the active tile layer */}
+        <MapTileSelector />
         
         {entries.map((entry) => (
           entry.location && entry.location.latitude && entry.location.longitude ? (
