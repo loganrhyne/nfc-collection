@@ -12,6 +12,7 @@ const DashboardContainer = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
+  background-color: #f5f5f5;
 `;
 
 const LeftColumn = styled.div`
@@ -37,9 +38,11 @@ const RightColumn = styled.div`
   width: 350px;
   height: 100%;
   overflow-y: auto;
-  padding: 16px;
-  background-color: #f5f5f5;
+  padding: 0;
+  background-color: #fff;
   border-left: 1px solid #e0e0e0;
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.05);
+  z-index: 1;
 `;
 
 const TopSection = styled.div`
@@ -57,9 +60,15 @@ const BottomSection = styled.div`
 
 const SectionTitle = styled.h2`
   font-size: 1.2rem;
-  margin-top: 0;
-  margin-bottom: 16px;
+  margin: 0;
   color: #333;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+  background-color: #fafafa;
+  font-weight: 500;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 `;
 
 /**
@@ -91,8 +100,10 @@ const DashboardLayout = ({
       </CenterColumn>
       
       <RightColumn>
-        <SectionTitle>Entries</SectionTitle>
-        {rightColumnContent}
+        <SectionTitle>Journal Entries</SectionTitle>
+        <div style={{ padding: '16px' }}>
+          {rightColumnContent}
+        </div>
       </RightColumn>
     </DashboardContainer>
   );
