@@ -89,8 +89,13 @@ const MapView = () => {
   const getMapBounds = () => {
     if (!entries.length) return [[0, 0], [0, 0]];
     
+    // Filter entries with valid coordinates
     const validEntries = entries.filter(entry => 
-      entry.location && entry.location.latitude && entry.location.longitude
+      entry.location && 
+      typeof entry.location.latitude === 'number' && !isNaN(entry.location.latitude) && isFinite(entry.location.latitude) &&
+      typeof entry.location.longitude === 'number' && !isNaN(entry.location.longitude) && isFinite(entry.location.longitude) &&
+      entry.location.latitude >= -90 && entry.location.latitude <= 90 &&
+      entry.location.longitude >= -180 && entry.location.longitude <= 180
     );
     
     if (!validEntries.length) return [[0, 0], [0, 0]];
@@ -98,22 +103,31 @@ const MapView = () => {
     const latitudes = validEntries.map(entry => entry.location.latitude);
     const longitudes = validEntries.map(entry => entry.location.longitude);
     
-    const minLat = Math.min(...latitudes);
-    const maxLat = Math.max(...latitudes);
+    // Ensure values are finite numbers
+    const minLat = Math.max(-85, Math.min(...latitudes)); // Constrain to avoid projection issues
+    const maxLat = Math.min(85, Math.max(...latitudes));
     const minLng = Math.min(...longitudes);
     const maxLng = Math.max(...longitudes);
     
     // Calculate padding as a percentage of the range
     // with a minimum to ensure visibility
-    const latRange = maxLat - minLat;
-    const lngRange = maxLng - minLng;
+    const latRange = maxLat - minLat || 10; // Fallback if range is 0
+    const lngRange = maxLng - minLng || 10;
     const latPadding = Math.max(latRange * 0.1, 0.5);
     const lngPadding = Math.max(lngRange * 0.1, 0.5);
     
-    return [
-      [minLat - latPadding, minLng - lngPadding],
-      [maxLat + latPadding, maxLng + lngPadding]
+    // Ensure bounds are within valid range
+    const southWest = [
+      Math.max(-85, minLat - latPadding),
+      Math.max(-180, minLng - lngPadding)
     ];
+    
+    const northEast = [
+      Math.min(85, maxLat + latPadding),
+      Math.min(180, maxLng + lngPadding)
+    ];
+    
+    return [southWest, northEast];
   };
   
   // Keep track of current bounds
@@ -125,7 +139,11 @@ const MapView = () => {
   };
   
   // If no entries with valid locations, show a message
-  if (!entries.some(entry => entry.location && entry.location.latitude && entry.location.longitude)) {
+  if (!entries.some(entry => (
+    entry.location && 
+    typeof entry.location.latitude === 'number' && !isNaN(entry.location.latitude) && isFinite(entry.location.latitude) &&
+    typeof entry.location.longitude === 'number' && !isNaN(entry.location.longitude) && isFinite(entry.location.longitude)
+  ))) {
     return (
       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p>No entries with valid locations to display</p>
@@ -155,7 +173,9 @@ const MapView = () => {
         <MapTileSelector />
         
         {entries.map((entry) => (
-          entry.location && entry.location.latitude && entry.location.longitude ? (
+          entry.location && 
+          typeof entry.location.latitude === 'number' && !isNaN(entry.location.latitude) && isFinite(entry.location.latitude) &&
+          typeof entry.location.longitude === 'number' && !isNaN(entry.location.longitude) && isFinite(entry.location.longitude) ? (
             <Marker
               key={entry.uuid}
               position={[entry.location.latitude, entry.location.longitude]}
