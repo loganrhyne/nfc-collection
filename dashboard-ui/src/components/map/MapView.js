@@ -6,11 +6,17 @@ import { useData } from '../../context/DataContext';
 import styled from 'styled-components';
 import colorScheme from '../../utils/colorScheme';
 import equalEarthProjection from './EqualEarthProjection';
+import standardProjection from './StandardProjection';
 
 // Import Leaflet CSS - we'll need to make sure this is included in the index.html
 // or add as import in the index.js file
 import 'leaflet/dist/leaflet.css';
 import 'proj4leaflet';
+
+// Choose which projection to use
+// Set to true to use Equal Earth, false to use standard Web Mercator
+const USE_EQUAL_EARTH = false;
+const projection = USE_EQUAL_EARTH ? equalEarthProjection : standardProjection;
 
 const MapWrapper = styled.div`
   height: 100%;
@@ -63,18 +69,24 @@ const BoundsFitter = ({ bounds }) => {
   const map = useMap();
   
   useEffect(() => {
-    if (bounds && bounds[0] && bounds[1]) {
-      // Convert to Leaflet bounds format
-      const leafletBounds = L.latLngBounds(bounds);
+    if (bounds && bounds[0] && bounds[1] && 
+        bounds[0][0] !== undefined && bounds[0][1] !== undefined &&
+        bounds[1][0] !== undefined && bounds[1][1] !== undefined) {
       
-      // Only update if bounds are valid
-      if (leafletBounds.isValid()) {
-        // Use flyToBounds for a smooth animation
-        map.flyToBounds(leafletBounds, {
-          padding: [50, 50],  // Add padding in pixels
-          maxZoom: 12,        // Limit maximum zoom level
-          duration: 0.5       // Animation duration in seconds
-        });
+      // Use a safe approach to set the view without animation
+      try {
+        // Get the center and zoom that would fit these bounds
+        const center = [
+          (bounds[0][0] + bounds[1][0]) / 2,
+          (bounds[0][1] + bounds[1][1]) / 2
+        ];
+        
+        // Set view safely - no animation, just immediate repositioning
+        map.setView(center, 2, { animate: false });
+        
+        console.log('Map view set to center:', center);
+      } catch (err) {
+        console.error('Error setting map bounds:', err);
       }
     }
   }, [bounds, map]);
@@ -163,7 +175,7 @@ const MapView = () => {
         zoom={1} 
         minZoom={1}
         maxZoom={8}
-        crs={equalEarthProjection}
+        crs={projection}
         style={{ height: '100%', width: '100%' }}
       >
         {/* BoundsFitter updates the map bounds when entries change */}
