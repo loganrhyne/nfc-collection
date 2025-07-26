@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "proj4": "^2.19.9",
+    "proj4leaflet": "^1.0.2"
+  }
+}

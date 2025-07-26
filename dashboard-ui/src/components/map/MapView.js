@@ -5,10 +5,12 @@ import L from 'leaflet';
 import { useData } from '../../context/DataContext';
 import styled from 'styled-components';
 import colorScheme from '../../utils/colorScheme';
+import equalEarthProjection from './EqualEarthProjection';
 
 // Import Leaflet CSS - we'll need to make sure this is included in the index.html
 // or add as import in the index.js file
 import 'leaflet/dist/leaflet.css';
+import 'proj4leaflet';
 
 const MapWrapper = styled.div`
   height: 100%;
@@ -140,7 +142,10 @@ const MapView = () => {
     <MapWrapper>
       <MapContainer 
         center={center}
-        zoom={2} 
+        zoom={1} 
+        minZoom={1}
+        maxZoom={8}
+        crs={equalEarthProjection}
         style={{ height: '100%', width: '100%' }}
       >
         {/* BoundsFitter updates the map bounds when entries change */}
