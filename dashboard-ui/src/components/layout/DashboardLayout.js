@@ -82,7 +82,6 @@ const DashboardLayout = ({
       
       <CenterColumn>
         <TopSection>
-          <SectionTitle>Map</SectionTitle>
           {mapContent}
         </TopSection>
         

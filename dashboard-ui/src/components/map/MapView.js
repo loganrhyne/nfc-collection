@@ -1,5 +1,5 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useData } from '../../context/DataContext';
 import styled from 'styled-components';
@@ -52,6 +52,33 @@ const getEntryIcon = (type) => {
   });
 };
 
+/**
+ * BoundsFitter component - updates map bounds when entries change
+ * Uses the useMap hook to access the Leaflet map instance and update its bounds
+ */
+const BoundsFitter = ({ bounds }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (bounds && bounds[0] && bounds[1]) {
+      // Convert to Leaflet bounds format
+      const leafletBounds = L.latLngBounds(bounds);
+      
+      // Only update if bounds are valid
+      if (leafletBounds.isValid()) {
+        // Use flyToBounds for a smooth animation
+        map.flyToBounds(leafletBounds, {
+          padding: [50, 50],  // Add padding in pixels
+          maxZoom: 12,        // Limit maximum zoom level
+          duration: 0.5       // Animation duration in seconds
+        });
+      }
+    }
+  }, [bounds, map]);
+
+  return null;  // This is a utility component with no visual output
+};
+
 const MapView = () => {
   const { entries, filters, setSelectedEntry } = useData();
   
@@ -73,13 +100,21 @@ const MapView = () => {
     const minLng = Math.min(...longitudes);
     const maxLng = Math.max(...longitudes);
     
-    // Add some padding
-    const padding = 0.5;
+    // Calculate padding as a percentage of the range
+    // with a minimum to ensure visibility
+    const latRange = maxLat - minLat;
+    const lngRange = maxLng - minLng;
+    const latPadding = Math.max(latRange * 0.1, 0.5);
+    const lngPadding = Math.max(lngRange * 0.1, 0.5);
+    
     return [
-      [minLat - padding, minLng - padding],
-      [maxLat + padding, maxLng + padding]
+      [minLat - latPadding, minLng - lngPadding],
+      [maxLat + latPadding, maxLng + lngPadding]
     ];
   };
+  
+  // Keep track of current bounds
+  const bounds = getMapBounds();
   
   // Handle marker click to show entry details
   const handleMarkerClick = (entry) => {
@@ -105,9 +140,11 @@ const MapView = () => {
       <MapContainer 
         center={center}
         zoom={2} 
-        bounds={getMapBounds()}
         style={{ height: '100%', width: '100%' }}
       >
+        {/* BoundsFitter updates the map bounds when entries change */}
+        <BoundsFitter bounds={bounds} />
+        
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
