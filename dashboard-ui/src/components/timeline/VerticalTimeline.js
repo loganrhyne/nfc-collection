@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
@@ -96,7 +96,7 @@ const EmptyState = styled.div`
   color: #666;
 `;
 
-const VerticalTimeline = () => {
+const VerticalTimeline = ({ onEntrySelect }) => {
   const { entries, selectedEntry, setSelectedEntry } = useData();
   
   // Format date for display
@@ -112,7 +112,17 @@ const VerticalTimeline = () => {
   // Handle timeline item click
   const handleItemClick = (entry) => {
     setSelectedEntry(entry);
+    if (onEntrySelect) {
+      onEntrySelect(entry);
+    }
   };
+  
+  // When selectedEntry changes, notify parent if needed
+  useEffect(() => {
+    if (selectedEntry && onEntrySelect) {
+      onEntrySelect(selectedEntry);
+    }
+  }, [selectedEntry, onEntrySelect]);
   
   // Sort entries by date (newest first)
   const sortedEntries = [...entries].sort((a, b) => 

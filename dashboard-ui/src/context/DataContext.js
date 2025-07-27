@@ -29,7 +29,7 @@ import {
 const DataContext = createContext();
 
 // Context provider component
-export const DataProvider = ({ children }) => {
+export const DataProvider = ({ children, entryIdFromUrl }) => {
   const [entries, setEntries] = useState([]);
   const [filteredEntries, setFilteredEntries] = useState([]);
   const [filters, setFilters] = useState({
@@ -66,7 +66,15 @@ export const DataProvider = ({ children }) => {
     
     // TODO: Load grid mapping from storage or API
     // For now we'll use an empty object
-  }, []);
+    
+    // If an entry ID was provided in the URL, find and select that entry
+    if (entryIdFromUrl) {
+      const entryFromUrl = processed.find(entry => entry.uuid === entryIdFromUrl);
+      if (entryFromUrl) {
+        setSelectedEntry(entryFromUrl);
+      }
+    }
+  }, [entryIdFromUrl]);
 
   /**
    * Apply active filters to produce filtered entries
