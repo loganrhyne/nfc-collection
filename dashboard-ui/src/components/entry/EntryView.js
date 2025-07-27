@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
@@ -189,16 +189,20 @@ const SectionTitle = styled.h2`
   z-index: 10;
 `;
 
-const EntryView = ({ onReturn }) => {
-  // Ensure onReturn is a function to prevent errors
-  const handleReturn = () => {
-    if (typeof onReturn === 'function') {
-      onReturn();
-    }
-  };
-  const { selectedEntry, setSelectedEntry } = useData();
+const EntryView = ({ entryId, onReturn }) => {
+  const { entries, selectedEntry, setSelectedEntry } = useData();
   
-  // Handle timeline entry selection
+  // Find entry by ID if provided in URL
+  useEffect(() => {
+    if (entryId && entries.length > 0) {
+      const entry = entries.find(e => e.uuid === entryId);
+      if (entry) {
+        setSelectedEntry(entry);
+      }
+    }
+  }, [entryId, entries, setSelectedEntry]);
+  
+  // Handle timeline entry selection - allows navigation between entries without going back to dashboard
   const handleEntrySelect = (entry) => {
     setSelectedEntry(entry);
   };
@@ -216,12 +220,13 @@ const EntryView = ({ onReturn }) => {
     location,
     photos,
     videos,
-    pdfAttachments,
-    uuid
+    pdfAttachments
   } = selectedEntry || {};
   
   // Format date for display
   const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
     return new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -235,12 +240,12 @@ const EntryView = ({ onReturn }) => {
     // For now just render the text as-is with basic paragraph breaks
     return text?.split('\\n').map((paragraph, index) => (
       paragraph ? <p key={index}>{paragraph.replace(/\\./g, '')}</p> : <br key={index} />
-    ));
+    )) || [];
   };
   
   return (
     <EntryViewContainer>
-      <ReturnButton onClick={handleReturn}>
+      <ReturnButton onClick={onReturn}>
         Return to Dashboard
       </ReturnButton>
       
@@ -271,12 +276,16 @@ const EntryView = ({ onReturn }) => {
               </EntryMeta>
               
               <div>
-                <EntryTag color={colorScheme[type] || '#eee'} textColor="#fff">
-                  {type}
-                </EntryTag>
-                <EntryTag color="#eee">
-                  {region}
-                </EntryTag>
+                {type && (
+                  <EntryTag color={colorScheme[type] || '#eee'} textColor="#fff">
+                    {type}
+                  </EntryTag>
+                )}
+                {region && (
+                  <EntryTag color="#eee">
+                    {region}
+                  </EntryTag>
+                )}
               </div>
             </EntryHeader>
             
@@ -284,7 +293,7 @@ const EntryView = ({ onReturn }) => {
               {renderContent()}
             </EntryContent>
             
-            {location && (
+            {location && location.latitude && location.longitude && (
               <LocationSection>
                 <ContentSectionTitle>Location Details</ContentSectionTitle>
                 <LocationDetails>
