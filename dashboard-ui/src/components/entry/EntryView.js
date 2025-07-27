@@ -50,7 +50,7 @@ const MainContentArea = styled.div`
 `;
 
 const EntryContainer = styled.div`
-  padding: 60px 32px 32px;
+  padding: 24px 32px 32px;
   background-color: #fff;
   height: 100%;
   width: 100%;
