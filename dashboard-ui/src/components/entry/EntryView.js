@@ -14,10 +14,6 @@ const EntryViewContainer = styled.div`
 `;
 
 const ReturnButton = styled.button`
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 10;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -30,6 +26,7 @@ const ReturnButton = styled.button`
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: all 0.2s;
+  margin-right: 20px;
   
   &:hover {
     background-color: #f8f8f8;
@@ -64,12 +61,15 @@ const EntryHeader = styled.div`
   margin-bottom: 32px;
   border-bottom: 1px solid #eee;
   padding-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
 `;
 
 const EntryTitle = styled.h1`
   font-size: 2.5rem;
   margin-bottom: 16px;
   color: ${props => props.color || '#333'};
+  flex: 1;
 `;
 
 const EntryMeta = styled.div`
@@ -250,15 +250,6 @@ const EntryView = ({ entryId, onReturn }) => {
   
   return (
     <EntryViewContainer>
-      <ReturnButton onClick={() => {
-        // Clear selected entry before returning to dashboard
-        setSelectedEntry(null);
-        // Call the return function passed from parent
-        if (onReturn) onReturn();
-      }}>
-        Return to Dashboard
-      </ReturnButton>
-      
       <MainContentArea>
         {noEntrySelected ? (
           <NoEntryMessage>
@@ -267,6 +258,14 @@ const EntryView = ({ entryId, onReturn }) => {
         ) : (
           <EntryContainer>
             <EntryHeader>
+              <ReturnButton onClick={() => {
+                // Clear selected entry before returning to dashboard
+                setSelectedEntry(null);
+                // Call the return function passed from parent
+                if (onReturn) onReturn();
+              }}>
+                Return to Dashboard
+              </ReturnButton>
               <EntryTitle color={colorScheme[type] || '#333'}>
                 {title}
               </EntryTitle>
