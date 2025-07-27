@@ -17,26 +17,27 @@ const EntryViewContainer = styled.div`
 const ReturnButton = styled.button`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background-color: white;
   color: #333;
   border: 1px solid #ddd;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 4px;
   font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   transition: all 0.2s;
   align-self: flex-start;
+  font-size: 0.9rem;
   
   &:hover {
     background-color: #f8f8f8;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
   
   &:before {
     content: "←";
-    font-size: 18px;
+    font-size: 16px;
   }
 `;
 
@@ -62,9 +63,10 @@ const EntryHeader = styled.div`
   margin-bottom: 32px;
   border-bottom: 1px solid #eee;
   padding-bottom: 24px;
+  padding-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
 `;
 
 // Style for markdown h1 tags
