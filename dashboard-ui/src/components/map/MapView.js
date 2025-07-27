@@ -5,18 +5,10 @@ import L from 'leaflet';
 import { useData } from '../../context/DataContext';
 import styled from 'styled-components';
 import colorScheme from '../../utils/colorScheme';
-import equalEarthProjection from './EqualEarthProjection';
-import standardProjection from './StandardProjection';
 
 // Import Leaflet CSS - we'll need to make sure this is included in the index.html
 // or add as import in the index.js file
 import 'leaflet/dist/leaflet.css';
-import 'proj4leaflet';
-
-// Choose which projection to use
-// Set to true to use Equal Earth, false to use standard Web Mercator
-const USE_EQUAL_EARTH = false;
-const projection = USE_EQUAL_EARTH ? equalEarthProjection : standardProjection;
 
 const MapWrapper = styled.div`
   height: 100%;
@@ -69,24 +61,18 @@ const BoundsFitter = ({ bounds }) => {
   const map = useMap();
   
   useEffect(() => {
-    if (bounds && bounds[0] && bounds[1] && 
-        bounds[0][0] !== undefined && bounds[0][1] !== undefined &&
-        bounds[1][0] !== undefined && bounds[1][1] !== undefined) {
+    if (bounds && bounds[0] && bounds[1]) {
+      // Convert to Leaflet bounds format
+      const leafletBounds = L.latLngBounds(bounds);
       
-      // Use a safe approach to set the view without animation
-      try {
-        // Get the center and zoom that would fit these bounds
-        const center = [
-          (bounds[0][0] + bounds[1][0]) / 2,
-          (bounds[0][1] + bounds[1][1]) / 2
-        ];
-        
-        // Set view safely - no animation, just immediate repositioning
-        map.setView(center, 2, { animate: false });
-        
-        console.log('Map view set to center:', center);
-      } catch (err) {
-        console.error('Error setting map bounds:', err);
+      // Only update if bounds are valid
+      if (leafletBounds.isValid()) {
+        // Use flyToBounds for a smooth animation
+        map.flyToBounds(leafletBounds, {
+          padding: [50, 50],  // Add padding in pixels
+          maxZoom: 12,        // Limit maximum zoom level
+          duration: 0.5       // Animation duration in seconds
+        });
       }
     }
   }, [bounds, map]);
@@ -101,13 +87,8 @@ const MapView = () => {
   const getMapBounds = () => {
     if (!entries.length) return [[0, 0], [0, 0]];
     
-    // Filter entries with valid coordinates
     const validEntries = entries.filter(entry => 
-      entry.location && 
-      typeof entry.location.latitude === 'number' && !isNaN(entry.location.latitude) && isFinite(entry.location.latitude) &&
-      typeof entry.location.longitude === 'number' && !isNaN(entry.location.longitude) && isFinite(entry.location.longitude) &&
-      entry.location.latitude >= -90 && entry.location.latitude <= 90 &&
-      entry.location.longitude >= -180 && entry.location.longitude <= 180
+      entry.location && entry.location.latitude && entry.location.longitude
     );
     
     if (!validEntries.length) return [[0, 0], [0, 0]];
@@ -115,31 +96,22 @@ const MapView = () => {
     const latitudes = validEntries.map(entry => entry.location.latitude);
     const longitudes = validEntries.map(entry => entry.location.longitude);
     
-    // Ensure values are finite numbers
-    const minLat = Math.max(-85, Math.min(...latitudes)); // Constrain to avoid projection issues
-    const maxLat = Math.min(85, Math.max(...latitudes));
+    const minLat = Math.min(...latitudes);
+    const maxLat = Math.max(...latitudes);
     const minLng = Math.min(...longitudes);
     const maxLng = Math.max(...longitudes);
     
     // Calculate padding as a percentage of the range
     // with a minimum to ensure visibility
-    const latRange = maxLat - minLat || 10; // Fallback if range is 0
-    const lngRange = maxLng - minLng || 10;
+    const latRange = maxLat - minLat;
+    const lngRange = maxLng - minLng;
     const latPadding = Math.max(latRange * 0.1, 0.5);
     const lngPadding = Math.max(lngRange * 0.1, 0.5);
     
-    // Ensure bounds are within valid range
-    const southWest = [
-      Math.max(-85, minLat - latPadding),
-      Math.max(-180, minLng - lngPadding)
+    return [
+      [minLat - latPadding, minLng - lngPadding],
+      [maxLat + latPadding, maxLng + lngPadding]
     ];
-    
-    const northEast = [
-      Math.min(85, maxLat + latPadding),
-      Math.min(180, maxLng + lngPadding)
-    ];
-    
-    return [southWest, northEast];
   };
   
   // Keep track of current bounds
@@ -151,11 +123,7 @@ const MapView = () => {
   };
   
   // If no entries with valid locations, show a message
-  if (!entries.some(entry => (
-    entry.location && 
-    typeof entry.location.latitude === 'number' && !isNaN(entry.location.latitude) && isFinite(entry.location.latitude) &&
-    typeof entry.location.longitude === 'number' && !isNaN(entry.location.longitude) && isFinite(entry.location.longitude)
-  ))) {
+  if (!entries.some(entry => entry.location && entry.location.latitude && entry.location.longitude)) {
     return (
       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p>No entries with valid locations to display</p>
@@ -172,10 +140,7 @@ const MapView = () => {
     <MapWrapper>
       <MapContainer 
         center={center}
-        zoom={1} 
-        minZoom={1}
-        maxZoom={8}
-        crs={projection}
+        zoom={2} 
         style={{ height: '100%', width: '100%' }}
       >
         {/* BoundsFitter updates the map bounds when entries change */}
@@ -185,9 +150,7 @@ const MapView = () => {
         <MapTileSelector />
         
         {entries.map((entry) => (
-          entry.location && 
-          typeof entry.location.latitude === 'number' && !isNaN(entry.location.latitude) && isFinite(entry.location.latitude) &&
-          typeof entry.location.longitude === 'number' && !isNaN(entry.location.longitude) && isFinite(entry.location.longitude) ? (
+          entry.location && entry.location.latitude && entry.location.longitude ? (
             <Marker
               key={entry.uuid}
               position={[entry.location.latitude, entry.location.longitude]}
