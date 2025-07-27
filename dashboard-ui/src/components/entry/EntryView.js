@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
 import VerticalTimeline from '../timeline/VerticalTimeline';
+import ReactMarkdown from 'react-markdown';
 
 const EntryViewContainer = styled.div`
   display: flex;
@@ -26,7 +27,7 @@ const ReturnButton = styled.button`
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: all 0.2s;
-  margin-right: 20px;
+  align-self: flex-start;
   
   &:hover {
     background-color: #f8f8f8;
@@ -62,23 +63,28 @@ const EntryHeader = styled.div`
   border-bottom: 1px solid #eee;
   padding-bottom: 24px;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 12px;
 `;
 
-const EntryTitle = styled.h1`
-  font-size: 2.5rem;
-  margin-bottom: 16px;
-  color: ${props => props.color || '#333'};
-  flex: 1;
+// Style for markdown h1 tags
+const MarkdownHeading = styled.div`
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 16px;
+    margin-top: 0;
+    color: ${props => props.color || '#333'};
+  }
 `;
 
 const EntryMeta = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   font-size: 1rem;
   color: #666;
+  justify-content: flex-end;
 `;
 
 const EntryMetaItem = styled.div`
@@ -217,7 +223,6 @@ const EntryView = ({ entryId, onReturn }) => {
   
   // Extract entry data if an entry is selected
   const {
-    title,
     type,
     region,
     text,
@@ -240,12 +245,13 @@ const EntryView = ({ entryId, onReturn }) => {
     });
   };
   
-  // Function to render markdown content (simplified)
-  const renderContent = () => {
-    // For now just render the text as-is with basic paragraph breaks
-    return text?.split('\\n').map((paragraph, index) => (
-      paragraph ? <p key={index}>{paragraph.replace(/\\./g, '')}</p> : <br key={index} />
-    )) || [];
+  // Process JSON richText field into markdown format if available
+  const processEntryContent = () => {
+    if (text) {
+      return text.replace(/\\\\/g, '\\');
+    } else {
+      return '';
+    }
   };
   
   return (
@@ -266,40 +272,41 @@ const EntryView = ({ entryId, onReturn }) => {
               }}>
                 Return to Dashboard
               </ReturnButton>
-              <EntryTitle color={colorScheme[type] || '#333'}>
-                {title}
-              </EntryTitle>
               
-              <EntryMeta>
-                <EntryMetaItem>
-                  <span role="img" aria-label="Date">📅</span> {formatDate(creationDate)}
-                </EntryMetaItem>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  {type && (
+                    <EntryTag color={colorScheme[type] || '#eee'} textColor="#fff">
+                      {type}
+                    </EntryTag>
+                  )}
+                  {region && (
+                    <EntryTag color="#eee">
+                      {region}
+                    </EntryTag>
+                  )}
+                </div>
                 
-                {location && (
+                <EntryMeta>
                   <EntryMetaItem>
-                    <span role="img" aria-label="Location">📍</span> 
-                    {location?.placeName || location?.localityName}
-                    {location?.country ? `, ${location.country}` : ''}
+                    <span role="img" aria-label="Date">📅</span> {formatDate(creationDate)}
                   </EntryMetaItem>
-                )}
-              </EntryMeta>
-              
-              <div>
-                {type && (
-                  <EntryTag color={colorScheme[type] || '#eee'} textColor="#fff">
-                    {type}
-                  </EntryTag>
-                )}
-                {region && (
-                  <EntryTag color="#eee">
-                    {region}
-                  </EntryTag>
-                )}
+                  
+                  {location && (
+                    <EntryMetaItem>
+                      <span role="img" aria-label="Location">📍</span> 
+                      {location?.placeName || location?.localityName}
+                      {location?.country ? `, ${location.country}` : ''}
+                    </EntryMetaItem>
+                  )}
+                </EntryMeta>
               </div>
             </EntryHeader>
             
             <EntryContent>
-              {renderContent()}
+              <MarkdownHeading color={colorScheme[type] || '#333'}>
+                <ReactMarkdown>{processEntryContent()}</ReactMarkdown>
+              </MarkdownHeading>
             </EntryContent>
             
             {location && location.latitude && location.longitude && (
