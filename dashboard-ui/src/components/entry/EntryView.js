@@ -190,6 +190,12 @@ const SectionTitle = styled.h2`
 `;
 
 const EntryView = ({ onReturn }) => {
+  // Ensure onReturn is a function to prevent errors
+  const handleReturn = () => {
+    if (typeof onReturn === 'function') {
+      onReturn();
+    }
+  };
   const { selectedEntry, setSelectedEntry } = useData();
   
   // Handle timeline entry selection
@@ -234,7 +240,7 @@ const EntryView = ({ onReturn }) => {
   
   return (
     <EntryViewContainer>
-      <ReturnButton onClick={onReturn}>
+      <ReturnButton onClick={handleReturn}>
         Return to Dashboard
       </ReturnButton>
       
