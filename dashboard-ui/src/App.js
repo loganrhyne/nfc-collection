@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { DataProvider } from './context/DataContext';
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -19,11 +19,11 @@ function Dashboard() {
   const navigate = useNavigate();
   
   // Handle entry selection
-  const handleEntrySelection = (entry) => {
+  const handleEntrySelection = useCallback((entry) => {
     if (entry && entry.uuid) {
       navigate(`/entry/${entry.uuid}`);
     }
-  };
+  }, [navigate]);
   
   // Content for the left column (filters)
   const leftColumnContent = (
@@ -79,12 +79,31 @@ function EntryDetailView() {
   const { entryId } = useParams();
   const navigate = useNavigate();
   
-  // Handle return to dashboard
-  const handleReturnToDashboard = () => {
-    navigate('/');
-  };
+  // Handle return to dashboard - with state to prevent loops
+  const handleReturnToDashboard = useCallback(() => {
+    // Force a complete state reset and route change
+    navigate('/', { 
+      replace: true,  // Replace history entry instead of pushing
+      state: { 
+        resetView: true  // Flag to indicate a full reset
+      }
+    });
+  }, [navigate]);
   
   return <EntryView entryId={entryId} onReturn={handleReturnToDashboard} />;
+}
+
+// Wrapper around DataProvider to handle shared state between routes
+function AppContent() {
+  return (
+    <div className="App">
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/entry/:entryId" element={<EntryDetailView />} />
+      </Routes>
+      <NfcHandler />
+    </div>
+  );
 }
 
 /**
@@ -94,13 +113,7 @@ function App() {
   return (
     <Router>
       <DataProvider>
-        <div className="App">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/entry/:entryId" element={<EntryDetailView />} />
-          </Routes>
-          <NfcHandler />
-        </div>
+        <AppContent />
       </DataProvider>
     </Router>
   );

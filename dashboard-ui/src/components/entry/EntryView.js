@@ -205,6 +205,11 @@ const EntryView = ({ entryId, onReturn }) => {
   // Handle timeline entry selection - allows navigation between entries without going back to dashboard
   const handleEntrySelect = (entry) => {
     setSelectedEntry(entry);
+    
+    // Update URL to match selected entry without triggering a page reload
+    if (entry && entry.uuid && entry.uuid !== entryId) {
+      window.history.replaceState(null, '', `/entry/${entry.uuid}`);
+    }
   };
   
   // Check if no entry is selected
@@ -245,7 +250,12 @@ const EntryView = ({ entryId, onReturn }) => {
   
   return (
     <EntryViewContainer>
-      <ReturnButton onClick={onReturn}>
+      <ReturnButton onClick={() => {
+        // Clear selected entry before returning to dashboard
+        setSelectedEntry(null);
+        // Call the return function passed from parent
+        if (onReturn) onReturn();
+      }}>
         Return to Dashboard
       </ReturnButton>
       
