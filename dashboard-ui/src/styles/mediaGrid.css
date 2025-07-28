@@ -1,0 +1,139 @@
+/* 
+ * Media Grid Styling
+ * This stylesheet provides styling for media grids in journal entries
+ */
+
+.media-grid {
+  display: grid;
+  gap: 16px;
+  margin: 24px 0;
+  width: 100%;
+  border-radius: 8px;
+}
+
+/* Grid layouts based on the number of media items */
+.media-grid.media-count-1 {
+  grid-template-columns: 1fr;
+}
+
+.media-grid.media-count-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.media-grid.media-count-3 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* First item spans entire first row in a 3-item grid */
+.media-grid.media-count-3 > *:first-child {
+  grid-column: 1 / -1;
+}
+
+.media-grid.media-count-4 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.media-grid.media-count-5, 
+.media-grid.media-count-6 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* For larger collections */
+.media-grid.media-count-7,
+.media-grid.media-count-8,
+.media-grid.media-count-9 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Media orientation classes */
+.media-item.landscape {
+  aspect-ratio: var(--aspect-ratio, 16/9);
+}
+
+.media-item.portrait {
+  aspect-ratio: var(--aspect-ratio, 3/4);
+}
+
+.media-item.landscape.wide {
+  aspect-ratio: var(--aspect-ratio, 21/9);
+}
+
+/* Basic styling for all media items */
+.media-item {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s, box-shadow 0.3s;
+  background-color: #f5f5f5;
+  position: relative;
+}
+
+.media-item:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Images */
+.media-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Videos */
+.media-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* PDF */
+.media-item.pdf {
+  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.pdf-placeholder {
+  text-align: center;
+  padding: 20px;
+}
+
+.pdf-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+/* Media focus/selected state */
+.media-item.selected {
+  outline: 3px solid #2196f3;
+  transform: scale(1.02);
+}
+
+/* Media item loading state */
+.media-item.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  background-color: #f0f0f0;
+}
+
+.loading-indicator {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #eee;
+  border-top: 3px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

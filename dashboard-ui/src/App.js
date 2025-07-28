@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import './styles/mediaGrid.css';
 import { BrowserRouter as Router, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { DataProvider } from './context/DataContext';
 import DashboardLayout from './components/layout/DashboardLayout';

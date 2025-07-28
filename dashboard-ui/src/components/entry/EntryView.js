@@ -4,6 +4,9 @@ import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
 import VerticalTimeline from '../timeline/VerticalTimeline';
 import ReactMarkdown from 'react-markdown';
+import MediaRenderer from '../media/MediaRenderer';
+import { processMediaReferences } from '../../utils/mediaProcessing';
+import { getPhotoPath } from '../../utils/mediaPath';
 
 const EntryViewContainer = styled.div`
   display: flex;
@@ -166,7 +169,7 @@ const PhotoPlaceholderContainer = styled.div`
 // Photo component that handles loading and errors safely
 const PhotoPlaceholder = ({ photo }) => {
   const [imageError, setImageError] = useState(false);
-  const imagePath = `/collection_data/photos/${photo.md5}.${photo.type}`;
+  const imagePath = getPhotoPath(photo);
   
   if (imageError) {
     return (
@@ -311,13 +314,24 @@ const EntryView = ({ entryId, onReturn }) => {
     });
   };
   
-  // Process JSON richText field into markdown format if available
+  // Process entry content, handling media references and markdown formatting
   const processEntryContent = () => {
-    if (text) {
-      return text.replace(/\\\\/g, '\\');
-    } else {
-      return '';
-    }
+    if (!text) return { processedText: '', mediaGroups: [] };
+    
+    // First replace escaped backslashes
+    const cleanedText = text.replace(/\\\\/g, '\\');
+    
+    // Process media references in the text
+    const allMedia = [
+      ...(photos || []),
+      ...(videos || []),
+      ...(pdfAttachments || [])
+    ];
+    
+    // Process media references
+    const { text: processedText, mediaGroups } = processMediaReferences(cleanedText, allMedia);
+    
+    return { processedText, mediaGroups };
   };
   
   return (
@@ -370,9 +384,23 @@ const EntryView = ({ entryId, onReturn }) => {
             </EntryHeader>
             
             <EntryContent>
-              <MarkdownHeading color={colorScheme[type] || '#333'}>
-                <ReactMarkdown>{processEntryContent()}</ReactMarkdown>
-              </MarkdownHeading>
+              {/* Process the content to extract media references and format markdown */}
+              {(() => {
+                const { processedText, mediaGroups } = processEntryContent();
+                
+                return (
+                  <>
+                    <MarkdownHeading color={colorScheme[type] || '#333'}>
+                      <ReactMarkdown>{processedText}</ReactMarkdown>
+                    </MarkdownHeading>
+                    
+                    {/* Render media groups that were extracted from the text */}
+                    {mediaGroups.map((group, index) => (
+                      <MediaRenderer key={index} mediaItems={group} />
+                    ))}
+                  </>
+                );
+              })()}
             </EntryContent>
             
             {location && location.latitude && location.longitude && (
@@ -387,34 +415,27 @@ const EntryView = ({ entryId, onReturn }) => {
               </LocationSection>
             )}
             
+            {/* Photos section with MediaRenderer */}
             {(photos && photos.length > 0) && (
               <MediaContainer>
                 <ContentSectionTitle>Photos</ContentSectionTitle>
-                <PhotosGrid>
-                  {photos.map((photo) => (
-                    <PhotoPlaceholder key={photo.identifier} photo={photo} />
-                  ))}
-                </PhotosGrid>
+                <MediaRenderer mediaItems={photos} />
               </MediaContainer>
             )}
             
+            {/* Videos section with MediaRenderer */}
             {(videos && videos.length > 0) && (
               <MediaContainer>
                 <ContentSectionTitle>Videos</ContentSectionTitle>
-                <div>
-                  {/* Video rendering would go here */}
-                  {videos.length} video(s) available
-                </div>
+                <MediaRenderer mediaItems={videos} />
               </MediaContainer>
             )}
             
+            {/* PDF documents section with MediaRenderer */}
             {(pdfAttachments && pdfAttachments.length > 0) && (
               <MediaContainer>
                 <ContentSectionTitle>Documents</ContentSectionTitle>
-                <div>
-                  {/* PDF rendering would go here */}
-                  {pdfAttachments.length} document(s) available
-                </div>
+                <MediaRenderer mediaItems={pdfAttachments} />
               </MediaContainer>
             )}
           </EntryContainer>
