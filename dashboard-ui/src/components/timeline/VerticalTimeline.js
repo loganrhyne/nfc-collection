@@ -174,16 +174,13 @@ const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
     }
   }, [selectedEntry, onEntrySelect]);
   
-  // Define a custom hook for scrolling selected entries with enhanced debugging
+  // Define a custom hook for scrolling selected entries
   const scrollSelectedEntryIntoView = useCallback(() => {
-    console.log('Attempting to scroll selected entry into view with offset:', initialScrollOffset);
     if (!selectedEntry) {
-      console.log('No selected entry to scroll to');
       return;
     }
     
     if (!timelineContainerRef.current) {
-      console.log('Timeline container ref is not available');
       return;
     }
     
@@ -191,102 +188,56 @@ const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
       // First find the target element
       const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
       if (!selectedElement) {
-        console.warn(`Could not find element for entry ${selectedEntry.uuid} - DOM element may not exist yet`);
         return;
       }
       
-      // Get the necessary measurements and log detailed values for debugging
-      const container = timelineContainerRef.current;
+      // Get all timeline entries to find the previous entry
+      const allEntries = document.querySelectorAll('[id^="timeline-entry-"]');
+      let previousEntryHeight = 0;
+      let currentIndex = -1;
       
-      // DETAILED DEBUG LOGGING
-      console.log('DEBUG: ScrollableContainer', {
-        containerRef: container,
-        scrollHeight: container.scrollHeight,
-        clientHeight: container.clientHeight,
-        scrollTop: container.scrollTop,
-        className: container.className,
-        style: container.style,
-        overflow: getComputedStyle(container).overflow
-      });
-
-      console.log('DEBUG: SelectedElement', {
-        element: selectedElement,
-        offsetTop: selectedElement.offsetTop,
-        offsetHeight: selectedElement.offsetHeight
-      });
-      
-      // Use the initialScrollOffset prop to control positioning
-      // This allows different instances of this component to use different offsets
-      console.log(`Using scroll offset: ${initialScrollOffset}px`);
-      const newScrollTop = selectedElement.offsetTop - initialScrollOffset;
-      
-      // Force the container to be scrollable if it's not
-      if (getComputedStyle(container).overflow !== 'auto' && 
-          getComputedStyle(container).overflow !== 'scroll') {
-        console.log('Container is not scrollable! Forcing overflow:auto');
-        container.style.overflow = 'auto';
+      // Find the index of the selected entry
+      for (let i = 0; i < allEntries.length; i++) {
+        if (allEntries[i].id === `timeline-entry-${selectedEntry.uuid}`) {
+          currentIndex = i;
+          break;
+        }
       }
       
-      // Do the actual scrolling
-      console.log(`Setting container.scrollTop = ${newScrollTop}`);
+      // If we found the current entry and there's a previous entry,
+      // get its height to use for offsetting
+      if (currentIndex > 0) {
+        previousEntryHeight = allEntries[currentIndex - 1].offsetHeight + 24; // entry height + gap
+        console.log(`Found previous entry with height: ${previousEntryHeight}px`);
+      } else {
+        // No previous entry, use a default offset
+        previousEntryHeight = 100; // reasonable default
+        console.log('No previous entry, using default offset');
+      }
       
-      // Try FOUR different methods to ensure something works
+      // Account for the sticky header - get its height
+      const stickyHeader = document.querySelector('.timeline-sticky-header');
+      let headerHeight = 0;
+      if (stickyHeader) {
+        headerHeight = stickyHeader.offsetHeight;
+        console.log(`Found sticky header with height: ${headerHeight}px`);
+      }
       
-      // Method 1: Direct scrollTop assignment (most reliable)
-      console.log('Method 1: Setting scrollTop directly');
-      container.scrollTop = newScrollTop;
+      // Calculate scroll position to show previous entry (if it exists)
+      const container = timelineContainerRef.current;
+      const newScrollTop = selectedElement.offsetTop - headerHeight - previousEntryHeight;
       
-      // Method 2: Use scrollTo with immediate behavior
-      console.log('Method 2: Using scrollTo with auto behavior');
+      // Do the scrolling with smooth animation
       container.scrollTo({
         top: newScrollTop,
-        behavior: 'auto' // Try 'auto' instead of 'smooth'
+        behavior: 'smooth'
       });
       
-      // Method 3: Use scrollTo with smooth behavior after a slight delay
-      setTimeout(() => {
-        console.log('Method 3: Using scrollTo with smooth behavior');
-        container.scrollTo({
-          top: newScrollTop,
-          behavior: 'smooth'
-        });
-      }, 50);
-      
-      // Method 4: As absolute last resort, try scrollIntoView
-      setTimeout(() => {
-        console.log('Method 4: Using native scrollIntoView');
-        try {
-          // Force a different scroll offset by calculating a different position
-          const scrollOffset = initialScrollOffset * 2; // Try a larger offset
-          window.scrollBy(0, -scrollOffset); // Scroll up by offset first
-          selectedElement.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
-          });
-          window.scrollBy(0, -scrollOffset); // Scroll up again to create space
-        } catch (e) {
-          console.error('Final scrollIntoView failed:', e);
-        }
-      }, 100);
-      
-      // Log attempt details
-      console.log('DEBUG: Scroll attempt complete:', {
-        entryUuid: selectedEntry.uuid,
-        newScrollTop,
-        containerScrollTopAfter: container.scrollTop
-      });
-      
-      // Set up additional check to verify if scrolling actually happened
-      setTimeout(() => {
-        console.log('DEBUG: After timeout check:', {
-          containerFinalScrollTop: container?.scrollTop || 'container no longer available'
-        });
-      }, 500);
-      
+      console.log(`Scrolling to position ${newScrollTop} to show entry with previous entry visible`);
     } catch (error) {
       console.error('Error scrolling to selected entry:', error);
     }
-  }, [selectedEntry, initialScrollOffset]);
+  }, [selectedEntry]);
 
   
   // Trigger the scroll when selected entry changes

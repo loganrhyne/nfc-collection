@@ -404,7 +404,7 @@ const EntryView = ({ entryId, onReturn }) => {
       </MainContentArea>
       
       <RightColumn id="entry-timeline-container">
-        <SectionTitle>Journal Entries</SectionTitle>
+        <SectionTitle className="timeline-sticky-header">Journal Entries</SectionTitle>
         <div style={{ padding: '16px' }}>
           <VerticalTimeline 
             onEntrySelect={handleEntrySelect}
