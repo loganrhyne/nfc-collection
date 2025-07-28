@@ -174,40 +174,91 @@ const VerticalTimeline = ({ onEntrySelect }) => {
     }
   }, [selectedEntry, onEntrySelect]);
   
-  // Define a custom hook for scrolling selected entries
+  // Define a custom hook for scrolling selected entries with enhanced debugging
   const scrollSelectedEntryIntoView = useCallback(() => {
-    if (!selectedEntry || !timelineContainerRef.current) return;
+    if (!selectedEntry) {
+      console.log('No selected entry to scroll to');
+      return;
+    }
+    
+    if (!timelineContainerRef.current) {
+      console.log('Timeline container ref is not available');
+      return;
+    }
     
     try {
       // First find the target element
       const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
-      if (!selectedElement) return;
+      if (!selectedElement) {
+        console.warn(`Could not find element for entry ${selectedEntry.uuid} - DOM element may not exist yet`);
+        return;
+      }
       
-      // Get the necessary measurements
+      // Get the necessary measurements and log detailed values for debugging
       const container = timelineContainerRef.current;
       
-      // Calculate the top position of the element relative to the container
-      const containerRect = container.getBoundingClientRect();
-      const elementRect = selectedElement.getBoundingClientRect();
+      // DETAILED DEBUG LOGGING
+      console.log('DEBUG: ScrollableContainer', {
+        containerRef: container,
+        scrollHeight: container.scrollHeight,
+        clientHeight: container.clientHeight,
+        scrollTop: container.scrollTop,
+        className: container.className,
+        style: container.style,
+        overflow: getComputedStyle(container).overflow
+      });
+
+      console.log('DEBUG: SelectedElement', {
+        element: selectedElement,
+        offsetTop: selectedElement.offsetTop,
+        offsetHeight: selectedElement.offsetHeight
+      });
       
-      // Calculate the exact scroll position to place element properly
-      const offset = elementRect.top - containerRect.top;
-      const scrollPosition = container.scrollTop + offset - 80; // 80px from top for "second-from-top" position
+      // Try a VERY direct approach - use offsetTop
+      const newScrollTop = selectedElement.offsetTop - 80; // 80px from top
+      
+      // Force the container to be scrollable if it's not
+      if (getComputedStyle(container).overflow !== 'auto' && 
+          getComputedStyle(container).overflow !== 'scroll') {
+        console.log('Container is not scrollable! Forcing overflow:auto');
+        container.style.overflow = 'auto';
+      }
       
       // Do the actual scrolling
+      console.log(`Setting container.scrollTop = ${newScrollTop}`);
+      
+      // Try two methods:
+      // 1. Direct scrollTop assignment
+      container.scrollTop = newScrollTop;
+      
+      // 2. Use scrollTo with smooth behavior
       container.scrollTo({
-        top: scrollPosition,
+        top: newScrollTop,
         behavior: 'smooth'
       });
       
-      console.log('Scrolling to entry:', {
-        entry: selectedEntry.uuid,
-        position: scrollPosition
+      // Also try scrollIntoView as fallback with direct DOM reference
+      selectedElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      // Log attempt details
+      console.log('DEBUG: Scroll attempt complete:', {
+        entryUuid: selectedEntry.uuid,
+        newScrollTop,
+        containerScrollTopAfter: container.scrollTop
       });
+      
+      // Set up additional check to verify if scrolling actually happened
+      setTimeout(() => {
+        console.log('DEBUG: After timeout check:', {
+          containerFinalScrollTop: container?.scrollTop || 'container no longer available'
+        });
+      }, 500);
+      
     } catch (error) {
       console.error('Error scrolling to selected entry:', error);
     }
   }, [selectedEntry]);
+
   
   // Trigger the scroll when selected entry changes
   useEffect(() => {
@@ -228,7 +279,11 @@ const VerticalTimeline = ({ onEntrySelect }) => {
   }
   
   return (
-    <TimelineContainer ref={timelineContainerRef} className="timeline-container">
+    <TimelineContainer 
+      ref={timelineContainerRef} 
+      className="timeline-container"
+      style={{ overflowY: 'auto', height: 'calc(100% - 16px)' }} // Force scrollability
+    >
       <TimelineLayout>
         {/* Static timeline that never changes */}
         <VerticalLine />
