@@ -176,41 +176,58 @@ const VerticalTimeline = ({ onEntrySelect }) => {
   
   // Scroll to position selected entry as second-from-top
   useEffect(() => {
-    if (!selectedEntry || !timelineContainerRef.current) return;
+    // Only proceed if we have a selected entry
+    if (!selectedEntry) return;
     
     // Give DOM time to update after selection changes
-    setTimeout(() => {
-      // Find the DOM element for the selected entry
-      const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
-      if (!selectedElement) return;
-      
-      // Get container's scroll properties
-      const containerRect = timelineContainerRef.current.getBoundingClientRect();
-      const containerTop = containerRect.top;
-      
-      // Calculate position for the selected entry (second from top)
-      // We'll use the top of the container plus some padding
-      const desiredPosition = containerTop + 24; // Add padding from top
-      
-      // Get current position of the selected element
-      const selectedRect = selectedElement.getBoundingClientRect();
-      
-      // Calculate the scroll adjustment needed
-      const scrollAdjustment = selectedRect.top - desiredPosition;
-      
-      // Apply smooth scrolling
-      timelineContainerRef.current.scrollBy({
-        top: scrollAdjustment,
-        behavior: 'smooth'
-      });
-      
-      console.log('Scrolling timeline:', {
-        selectedEntry: selectedEntry.uuid,
-        containerTop,
-        selectedTop: selectedRect.top,
-        adjustment: scrollAdjustment
-      });
-    }, 100); // Short delay to ensure DOM is updated
+    const timeoutId = setTimeout(() => {
+      try {
+        // Safely check for DOM elements
+        if (!timelineContainerRef.current) {
+          console.log('Timeline container ref is null');
+          return;
+        }
+        
+        // Find the DOM element for the selected entry
+        const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
+        if (!selectedElement) {
+          console.log(`Could not find element for entry ${selectedEntry.uuid}`);
+          return;
+        }
+        
+        // Get container's scroll properties
+        const containerRect = timelineContainerRef.current.getBoundingClientRect();
+        const containerTop = containerRect.top;
+        
+        // Calculate position for the selected entry (second from top)
+        // We'll use the top of the container plus some padding
+        const desiredPosition = containerTop + 24; // Add padding from top
+        
+        // Get current position of the selected element
+        const selectedRect = selectedElement.getBoundingClientRect();
+        
+        // Calculate the scroll adjustment needed
+        const scrollAdjustment = selectedRect.top - desiredPosition;
+        
+        // Apply smooth scrolling
+        timelineContainerRef.current.scrollBy({
+          top: scrollAdjustment,
+          behavior: 'smooth'
+        });
+        
+        console.log('Scrolling timeline:', {
+          selectedEntry: selectedEntry.uuid,
+          containerTop,
+          selectedTop: selectedRect.top,
+          adjustment: scrollAdjustment
+        });
+      } catch (error) {
+        console.error('Error during timeline scrolling:', error);
+      }
+    }, 300); // Longer delay to ensure DOM is fully updated
+    
+    // Clean up timeout if component unmounts
+    return () => clearTimeout(timeoutId);
   }, [selectedEntry]);
   
   // Sort entries by date (newest first)
