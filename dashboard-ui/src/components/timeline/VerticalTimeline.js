@@ -4,9 +4,8 @@ import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
 
 const TimelineContainer = styled.div`
-  height: calc(100% - 16px);
-  overflow-y: auto;
-  padding: 20px 16px 20px 0;
+  height: 100%;
+  padding: 0 16px 20px 0;
 `;
 
 // Main timeline layout
@@ -172,7 +171,7 @@ const VerticalTimeline = ({ onEntrySelect }) => {
     }
   }, [selectedEntry, onEntrySelect]);
   
-  // Scroll to position selected entry in the middle of the viewport
+  // Scroll to position selected entry in the viewport
   useEffect(() => {
     // Only proceed if we have a selected entry
     if (!selectedEntry) return;
@@ -187,54 +186,40 @@ const VerticalTimeline = ({ onEntrySelect }) => {
           return;
         }
         
-        // Get the container and its dimensions
-        const container = timelineContainerRef.current;
-        if (!container) return;
-        
-        // Get dimensions needed for calculation
-        const containerHeight = container.clientHeight;
-        const entryHeight = selectedElement.offsetHeight;
-        
-        // Get the header element (SectionTitle in EntryView.js)
-        let headerElement = document.querySelector('#entry-timeline-container > h2');
-        
-        // If we can't find it directly, try a more general selector for the sticky header
-        if (!headerElement) {
-          const containerParent = document.querySelector('.timeline-container')?.parentNode;
-          if (containerParent) {
-            headerElement = containerParent.querySelector('h2');
-          }
+        // Get the scrollable container (which is now the parent TimelineContentContainer)
+        const scrollContainer = document.querySelector('#entry-timeline-container > div:last-child');
+        if (!scrollContainer) {
+          console.log('Could not find scrollable container');
+          return;
         }
         
-        const headerHeight = headerElement ? headerElement.offsetHeight : 0;
-        console.log('Header element found:', !!headerElement);
+        // Ensure we're targeting the right container
+        console.log('Found scroll container:', scrollContainer);
         
-        // Calculate the offset needed to position the entry in the middle
-        // Formula: Middle of container - Half of entry height - header height - header padding
-        const headerPadding = 16; // From the padding in EntryView.js
-        const middleOffset = (containerHeight / 2) - (entryHeight / 2) - headerHeight - headerPadding;
+        // Get dimensions needed for calculation
+        const containerHeight = scrollContainer.clientHeight;
+        const entryHeight = selectedElement.offsetHeight;
         
-        console.log(`Container height: ${containerHeight}, Entry height: ${entryHeight}, Header height: ${headerHeight}, Header padding: ${headerPadding}, Offset: ${middleOffset}`);
+        // Calculate the offset to center the entry in the viewport
+        const middleOffset = (containerHeight / 2) - (entryHeight / 2);
         
-        // First scroll the entry to the top of the view
-        selectedElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-          inline: 'nearest'
+        console.log(`Container height: ${containerHeight}, Entry height: ${entryHeight}, Offset: ${middleOffset}`);
+        
+        // Get the element's position relative to the scrollable container
+        const entryRect = selectedElement.getBoundingClientRect();
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const relativeTop = entryRect.top - containerRect.top;
+        
+        // Calculate the ideal scroll position
+        const idealScrollTop = scrollContainer.scrollTop + relativeTop - middleOffset;
+        
+        // Scroll to the ideal position
+        scrollContainer.scrollTo({
+          top: idealScrollTop,
+          behavior: 'smooth'
         });
         
-        // After the initial scroll, adjust to center the entry
-        setTimeout(() => {
-          if (container) {
-            // Scroll up by middle offset to center the entry
-            container.scrollBy({
-              top: -middleOffset,
-              behavior: 'smooth'
-            });
-            
-            console.log(`Centering entry with offset: ${-middleOffset}px`);
-          }
-        }, 300);
+        console.log(`Scrolling to position: ${idealScrollTop}px`);
         
       } catch (error) {
         console.error('Error during timeline scrolling:', error);

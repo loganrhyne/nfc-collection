@@ -222,12 +222,13 @@ const NoEntryMessage = styled.div`
 const RightColumn = styled.div`
   width: 350px;
   height: 100%;
-  overflow-y: auto;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
   background-color: #fff;
   border-left: 1px solid #e0e0e0;
   box-shadow: -4px 0 8px rgba(0, 0, 0, 0.05);
   z-index: 1;
+  overflow: hidden; /* Remove scrolling from the container itself */
 `;
 
 const SectionTitle = styled.h2`
@@ -238,9 +239,14 @@ const SectionTitle = styled.h2`
   border-bottom: 1px solid #eee;
   background-color: #fff;
   font-weight: 500;
-  position: sticky;
-  top: 0;
   z-index: 10;
+  flex: 0 0 auto; /* Don't allow this to shrink or grow */
+`;
+
+const TimelineContentContainer = styled.div`
+  flex: 1;
+  overflow-y: auto; /* Only this container scrolls */
+  padding: 16px;
 `;
 
 const EntryView = ({ entryId, onReturn }) => {
@@ -405,9 +411,9 @@ const EntryView = ({ entryId, onReturn }) => {
       
       <RightColumn id="entry-timeline-container">
         <SectionTitle>Journal Entries</SectionTitle>
-        <div style={{ padding: '16px' }}>
+        <TimelineContentContainer>
           <VerticalTimeline onEntrySelect={handleEntrySelect} />
-        </div>
+        </TimelineContentContainer>
       </RightColumn>
     </EntryViewContainer>
   );
