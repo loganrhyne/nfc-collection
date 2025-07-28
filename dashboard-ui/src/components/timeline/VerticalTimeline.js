@@ -132,22 +132,6 @@ const TimelineLocation = styled.div`
   color: #444;
 `;
 
-const ViewEntryButton = styled.button`
-  background-color: #1976d2;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  margin-top: 8px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
-  
-  &:hover {
-    background-color: #1565c0;
-  }
-`;
 
 const EmptyState = styled.div`
   display: flex;
@@ -231,17 +215,6 @@ const VerticalTimeline = ({ onEntrySelect }) => {
                   {entry.location?.placeName || entry.location?.localityName}
                   {entry.location?.country ? `, ${entry.location.country}` : ''}
                 </TimelineLocation>
-                
-                {isSelected && (
-                  <ViewEntryButton 
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent triggering card click again
-                      if (onEntrySelect) onEntrySelect(entry);
-                    }}
-                  >
-                    View Entry
-                  </ViewEntryButton>
-                )}
               </TimelineCard>
             );
           })}
