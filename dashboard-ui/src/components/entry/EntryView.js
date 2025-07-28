@@ -333,7 +333,26 @@ const EntryView = ({ entryId, onReturn }) => {
                       src={`/collection_data/photos/${photo.md5}.${photo.type}`}
                       alt=""
                       onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/150?text=Photo+Not+Found';
+                        // Replace with inline SVG placeholder instead of external URL
+                        e.target.outerHTML = `<div style="
+                          width: 100%;
+                          height: 200px;
+                          background-color: #f0f0f0;
+                          border-radius: 8px;
+                          display: flex;
+                          align-items: center;
+                          justify-content: center;
+                          font-size: 14px;
+                          color: #666;
+                          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                          text-align: center;
+                          padding: 20px;
+                        ">
+                          <div>
+                            <div style="font-size: 24px; margin-bottom: 8px;">📷</div>
+                            <div>Photo preview not available</div>
+                          </div>
+                        </div>`;
                       }}
                     />
                   ))}

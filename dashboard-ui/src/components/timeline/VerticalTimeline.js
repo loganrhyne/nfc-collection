@@ -147,6 +147,13 @@ const VerticalTimeline = ({ onEntrySelect }) => {
   // Reference to the timeline container for scrolling
   const timelineContainerRef = useRef(null);
   
+  // Set the ref on component mount
+  useEffect(() => {
+    if (!timelineContainerRef.current) {
+      timelineContainerRef.current = document.querySelector('.timeline-container');
+    }
+  }, []);
+  
   // Format date for display
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -176,30 +183,39 @@ const VerticalTimeline = ({ onEntrySelect }) => {
   useEffect(() => {
     if (!selectedEntry || !timelineContainerRef.current) return;
     
-    // Find the DOM element for the selected entry
-    const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
-    if (!selectedElement) return;
-    
-    // Get container's scroll properties
-    const containerRect = timelineContainerRef.current.getBoundingClientRect();
-    const containerTop = containerRect.top;
-    
-    // Calculate position for the selected entry (second from top)
-    // We'll use the top of the container plus the height of one entry plus some padding
-    const entryHeight = selectedElement.offsetHeight;
-    const desiredPosition = containerTop + entryHeight + 24; // Add extra padding (24px)
-    
-    // Get current position of the selected element
-    const selectedRect = selectedElement.getBoundingClientRect();
-    
-    // Calculate the scroll adjustment needed
-    const scrollAdjustment = selectedRect.top - desiredPosition;
-    
-    // Apply smooth scrolling
-    timelineContainerRef.current.scrollBy({
-      top: scrollAdjustment,
-      behavior: 'smooth'
-    });
+    // Give DOM time to update after selection changes
+    setTimeout(() => {
+      // Find the DOM element for the selected entry
+      const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
+      if (!selectedElement) return;
+      
+      // Get container's scroll properties
+      const containerRect = timelineContainerRef.current.getBoundingClientRect();
+      const containerTop = containerRect.top;
+      
+      // Calculate position for the selected entry (second from top)
+      // We'll use the top of the container plus some padding
+      const desiredPosition = containerTop + 24; // Add padding from top
+      
+      // Get current position of the selected element
+      const selectedRect = selectedElement.getBoundingClientRect();
+      
+      // Calculate the scroll adjustment needed
+      const scrollAdjustment = selectedRect.top - desiredPosition;
+      
+      // Apply smooth scrolling
+      timelineContainerRef.current.scrollBy({
+        top: scrollAdjustment,
+        behavior: 'smooth'
+      });
+      
+      console.log('Scrolling timeline:', {
+        selectedEntry: selectedEntry.uuid,
+        containerTop,
+        selectedTop: selectedRect.top,
+        adjustment: scrollAdjustment
+      });
+    }, 100); // Short delay to ensure DOM is updated
   }, [selectedEntry]);
   
   // Sort entries by date (newest first)
@@ -214,7 +230,7 @@ const VerticalTimeline = ({ onEntrySelect }) => {
   }
   
   return (
-    <TimelineContainer>
+    <TimelineContainer ref={timelineContainerRef} className="timeline-container">
       <TimelineLayout>
         {/* Static timeline that never changes */}
         <VerticalLine />
@@ -226,6 +242,7 @@ const VerticalTimeline = ({ onEntrySelect }) => {
             return (
               <TimelineCard
                 key={entry.uuid}
+                id={`timeline-entry-${entry.uuid}`}
                 onClick={() => handleItemClick(entry)}
                 selected={isSelected}
               >
