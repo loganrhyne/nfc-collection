@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
@@ -141,6 +141,52 @@ const PhotoItem = styled.img`
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
   }
 `;
+
+const PhotoPlaceholderContainer = styled.div`
+  width: 100%;
+  height: 200px;
+  background-color: #f0f0f0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #666;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  padding: 20px;
+  transition: transform 0.3s;
+  
+  &:hover {
+    transform: scale(1.03);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  }
+`;
+
+// Photo component that handles loading and errors safely
+const PhotoPlaceholder = ({ photo }) => {
+  const [imageError, setImageError] = useState(false);
+  const imagePath = `/collection_data/photos/${photo.md5}.${photo.type}`;
+  
+  if (imageError) {
+    return (
+      <PhotoPlaceholderContainer>
+        <div>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>📷</div>
+          <div>Photo preview not available</div>
+        </div>
+      </PhotoPlaceholderContainer>
+    );
+  }
+  
+  return (
+    <PhotoItem 
+      src={imagePath}
+      alt=""
+      onError={() => setImageError(true)}
+    />
+  );
+};
 
 const ContentSectionTitle = styled.h2`
   font-size: 1.4rem;
@@ -328,33 +374,7 @@ const EntryView = ({ entryId, onReturn }) => {
                 <ContentSectionTitle>Photos</ContentSectionTitle>
                 <PhotosGrid>
                   {photos.map((photo) => (
-                    <PhotoItem 
-                      key={photo.identifier} 
-                      src={`/collection_data/photos/${photo.md5}.${photo.type}`}
-                      alt=""
-                      onError={(e) => {
-                        // Replace with inline SVG placeholder instead of external URL
-                        e.target.outerHTML = `<div style="
-                          width: 100%;
-                          height: 200px;
-                          background-color: #f0f0f0;
-                          border-radius: 8px;
-                          display: flex;
-                          align-items: center;
-                          justify-content: center;
-                          font-size: 14px;
-                          color: #666;
-                          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                          text-align: center;
-                          padding: 20px;
-                        ">
-                          <div>
-                            <div style="font-size: 24px; margin-bottom: 8px;">📷</div>
-                            <div>Photo preview not available</div>
-                          </div>
-                        </div>`;
-                      }}
-                    />
+                    <PhotoPlaceholder key={photo.identifier} photo={photo} />
                   ))}
                 </PhotosGrid>
               </MediaContainer>

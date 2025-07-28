@@ -147,12 +147,7 @@ const VerticalTimeline = ({ onEntrySelect }) => {
   // Reference to the timeline container for scrolling
   const timelineContainerRef = useRef(null);
   
-  // Set the ref on component mount
-  useEffect(() => {
-    if (!timelineContainerRef.current) {
-      timelineContainerRef.current = document.querySelector('.timeline-container');
-    }
-  }, []);
+  // We don't need this effect since we're setting the ref directly on the container
   
   // Format date for display
   const formatDate = (dateString) => {
