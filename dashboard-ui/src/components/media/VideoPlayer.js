@@ -3,7 +3,8 @@ import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 import '@videojs/http-streaming';
 import 'videojs-contrib-quality-levels';
-import { transcodeVideo, needsTranscoding, releaseTranscodedVideo } from '../../utils/videoTranscoder';
+import videoTranscoder from '../../utils/videoTranscoder';
+const { transcodeVideo, needsTranscoding, releaseTranscodedVideo } = videoTranscoder;
 
 /**
  * Custom Video.js player component with enhanced format support

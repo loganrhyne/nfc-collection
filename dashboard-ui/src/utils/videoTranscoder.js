@@ -1,10 +1,13 @@
-import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 
 // Create a singleton FFmpeg instance
-const ffmpeg = createFFmpeg({
-  log: true,
-  corePath: 'https://unpkg.com/@ffmpeg/core@0.10.0/dist/ffmpeg-core.js'
-});
+const ffmpeg = new FFmpeg();
+
+// Configuration
+const config = {
+  log: true
+};
 
 // Flag to track if FFmpeg has been loaded
 let ffmpegLoaded = false;
@@ -16,6 +19,7 @@ let ffmpegLoaded = false;
 const ensureFFmpegLoaded = async () => {
   if (!ffmpegLoaded) {
     try {
+      // Load using the latest API
       await ffmpeg.load();
       ffmpegLoaded = true;
       console.log('FFmpeg loaded successfully');
@@ -69,18 +73,18 @@ export const transcodeVideo = async (videoUrl, options = {}) => {
     const videoData = await fetchFile(videoUrl);
     
     // Write the file to FFmpeg's virtual filesystem
-    ffmpeg.FS('writeFile', filename, videoData);
+    await ffmpeg.writeFile(filename, videoData);
     
     // Set up progress tracking
     if (onProgress) {
-      ffmpeg.setProgress(({ ratio }) => {
-        onProgress(ratio);
+      ffmpeg.on('progress', ({ progress }) => {
+        onProgress(progress);
       });
     }
     
     // Run FFmpeg command to transcode the video
     console.log('Starting transcoding process...');
-    await ffmpeg.run(
+    await ffmpeg.exec([
       '-i', filename,               // Input file
       '-c:v', 'libx264',            // Video codec
       '-preset', 'fast',            // Encoding preset (fast)
@@ -88,12 +92,12 @@ export const transcodeVideo = async (videoUrl, options = {}) => {
       '-f', outputFormat,           // Force output format
       '-movflags', 'faststart',     // Optimize for web playback
       outputFilename                // Output filename
-    );
+    ]);
     
     console.log('Transcoding completed successfully');
     
     // Read the result
-    const data = ffmpeg.FS('readFile', outputFilename);
+    const data = await ffmpeg.readFile(outputFilename);
     
     // Create a URL for the transcoded video
     const blob = new Blob([data.buffer], { type: `video/${outputFormat}` });
@@ -145,8 +149,10 @@ export const needsTranscoding = (format) => {
   return problematicFormats.includes(lowerFormat);
 };
 
-export default {
+const videoTranscoder = {
   transcodeVideo,
   releaseTranscodedVideo,
   needsTranscoding
 };
+
+export default videoTranscoder;
