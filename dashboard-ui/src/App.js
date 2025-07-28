@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
 import './styles/mediaGrid.css';
+import './styles/videoPlayer.css';
 import { logEnvironmentInfo } from './utils/debug';
 import { BrowserRouter as Router, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { DataProvider } from './context/DataContext';
