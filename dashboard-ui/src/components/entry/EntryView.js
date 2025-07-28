@@ -219,7 +219,11 @@ const NoEntryMessage = styled.div`
   padding: 32px;
 `;
 
-const RightColumn = styled.div`
+/**
+ * Timeline sidebar that contains a list of journal entries.
+ * Uses a flex column layout with fixed header and scrollable content.
+ */
+const TimelineSidebar = styled.aside`
   width: 350px;
   height: 100%;
   display: flex;
@@ -228,10 +232,14 @@ const RightColumn = styled.div`
   border-left: 1px solid #e0e0e0;
   box-shadow: -4px 0 8px rgba(0, 0, 0, 0.05);
   z-index: 1;
-  overflow: hidden; /* Remove scrolling from the container itself */
+  overflow: hidden;
 `;
 
-const SectionTitle = styled.h2`
+/**
+ * Fixed header for the timeline sidebar.
+ * Set as flex: 0 0 auto to ensure it doesn't grow or shrink.
+ */
+const SidebarHeader = styled.h2`
   font-size: 1.2rem;
   margin: 0;
   color: #333;
@@ -240,12 +248,16 @@ const SectionTitle = styled.h2`
   background-color: #fff;
   font-weight: 500;
   z-index: 10;
-  flex: 0 0 auto; /* Don't allow this to shrink or grow */
+  flex: 0 0 auto;
 `;
 
-const TimelineContentContainer = styled.div`
+/**
+ * Scrollable container for the timeline content.
+ * Takes up all remaining space in the sidebar with flex: 1.
+ */
+const ScrollableTimelineContainer = styled.div`
   flex: 1;
-  overflow-y: auto; /* Only this container scrolls */
+  overflow-y: auto;
   padding: 16px;
 `;
 
@@ -409,12 +421,12 @@ const EntryView = ({ entryId, onReturn }) => {
         )}
       </MainContentArea>
       
-      <RightColumn id="entry-timeline-container">
-        <SectionTitle>Journal Entries</SectionTitle>
-        <TimelineContentContainer>
+      <TimelineSidebar id="entry-timeline-sidebar">
+        <SidebarHeader>Journal Entries</SidebarHeader>
+        <ScrollableTimelineContainer id="timeline-scroll-container">
           <VerticalTimeline onEntrySelect={handleEntrySelect} />
-        </TimelineContentContainer>
-      </RightColumn>
+        </ScrollableTimelineContainer>
+      </TimelineSidebar>
     </EntryViewContainer>
   );
 };

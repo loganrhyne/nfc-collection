@@ -3,21 +3,31 @@ import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
 
+/**
+ * Container for the timeline component that fits within the scrollable area.
+ */
 const TimelineContainer = styled.div`
   height: 100%;
   padding: 0 16px 20px 0;
 `;
 
-// Main timeline layout
+/**
+ * Main timeline layout container.
+ * Provides relative positioning for the vertical line and entries.
+ * Left padding creates space for the timeline vertical line and dots.
+ */
 const TimelineLayout = styled.div`
   position: relative;
-  padding-left: 40px; /* Space for timeline and dot */
+  padding-left: 40px;
 `;
 
-// Vertical line that runs through the timeline
+/**
+ * Vertical line that runs through the timeline.
+ * Uses a gradient to fade at the top and bottom.
+ */
 const VerticalLine = styled.div`
   position: absolute;
-  left: 16px; /* Centered line position */
+  left: 16px;
   top: 0;
   bottom: 0;
   width: 2px;
@@ -30,51 +40,56 @@ const VerticalLine = styled.div`
   );
 `;
 
-// Timeline entries wrapper
+/**
+ * Container for all timeline entry cards.
+ * Uses flex layout with consistent spacing between entries.
+ */
 const TimelineEntries = styled.div`
   display: flex;
   flex-direction: column;
   gap: 24px;
 `;
 
-// Card container with consistent box model
+/**
+ * Timeline entry card component.
+ * 
+ * Features:
+ * - Consistent box model with border-box sizing
+ * - Visual states for selected/unselected
+ * - Smooth transitions between states
+ * - Hover effects
+ */
 const TimelineCard = styled.div`
   display: flex;
   flex-direction: column;
   position: relative;
   cursor: pointer;
   margin: 0;
-  /* 
-   * Using box-sizing: border-box and fixed border width 
-   * to prevent layout shifts when border appears
-   */
   box-sizing: border-box;
   border: 1px solid transparent;
   border-radius: 8px;
-  background-color: #fff;
+  background-color: ${props => props.selected ? '#f0f7ff' : '#fff'};
   padding: 12px 16px;
   
-  /* Box shadow always present but varies in intensity */
+  /* Dynamic shadow based on selection state */
   box-shadow: ${props => 
     props.selected 
       ? '0 3px 10px rgba(0, 0, 0, 0.15)' 
       : '0 1px 3px rgba(0, 0, 0, 0.08)'
   };
   
-  /* Visual state changes */
-  background-color: ${props => 
-    props.selected ? '#f0f7ff' : '#fff'
-  };
-  
+  /* Dynamic border based on selection state */
   border-color: ${props => 
     props.selected ? 'rgba(66, 153, 225, 0.5)' : 'transparent'
   };
   
+  /* Smooth transitions */
   transition: 
     background-color 0.15s ease-in-out,
     box-shadow 0.15s ease-in-out,
     border-color 0.15s ease-in-out;
     
+  /* Hover effect */
   &:hover {
     box-shadow: ${props => 
       props.selected 
@@ -84,30 +99,32 @@ const TimelineCard = styled.div`
   }
 `;
 
-// Timeline indicator dot with perfect centering
+/**
+ * Timeline indicator dot that appears on the vertical line.
+ * 
+ * Features:
+ * - Perfect horizontal alignment with the timeline using transform
+ * - Positioned relative to its parent card
+ * - Concentric circles effect with box-shadow
+ * - Dynamic color based on entry type
+ */
 const TimelineDot = styled.div`
   position: absolute;
-  /* Dot is positioned relative to the card */
   left: -40px; 
-  top: 16px; /* Aligns with first line of text */
-  
-  /* Fixed size for consistent alignment */
+  top: 16px;
   width: 12px;
   height: 12px;
-  
-  /* Center the dot perfectly on the timeline */
   transform: translateX(10px);
-  
-  /* Visual styling */
   border-radius: 50%;
   background-color: ${props => props.color || '#ccc'};
-  
-  /* Creates concentric circles effect */
   box-shadow: 0 0 0 2px white, 0 0 0 4px #e0e0e0;
   z-index: 2;
 `;
 
-// Content elements
+/**
+ * Timeline entry content components.
+ * Each component handles a specific part of the entry display.  
+ */
 const TimelineDate = styled.div`
   font-size: 0.8rem;
   color: #666;
@@ -131,7 +148,9 @@ const TimelineLocation = styled.div`
   color: #444;
 `;
 
-
+/**
+ * Empty state display when no entries are available.
+ */
 const EmptyState = styled.div`
   display: flex;
   align-items: center;
@@ -140,13 +159,23 @@ const EmptyState = styled.div`
   color: #666;
 `;
 
+/**
+ * VerticalTimeline component displays a chronological list of journal entries
+ * with visual timeline elements and highlights the selected entry.
+ * 
+ * @param {Object} props - Component props
+ * @param {Function} props.onEntrySelect - Callback when an entry is selected
+ */
 const VerticalTimeline = ({ onEntrySelect }) => {
   const { entries, selectedEntry, setSelectedEntry } = useData();
-  
-  // Reference to the timeline container for scrolling
   const timelineContainerRef = useRef(null);
   
-  // Format date for display
+  /**
+   * Formats a date string for display in the timeline
+   * 
+   * @param {string} dateString - ISO date string
+   * @returns {string} Formatted date
+   */
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -156,7 +185,11 @@ const VerticalTimeline = ({ onEntrySelect }) => {
     });
   };
   
-  // Handle timeline item click
+  /**
+   * Handles a click on a timeline entry
+   * 
+   * @param {Object} entry - The journal entry that was clicked
+   */
   const handleItemClick = (entry) => {
     setSelectedEntry(entry);
     if (onEntrySelect) {
@@ -164,69 +197,64 @@ const VerticalTimeline = ({ onEntrySelect }) => {
     }
   };
   
-  // When selectedEntry changes, notify parent if needed
+  // Notify parent component when selected entry changes
   useEffect(() => {
     if (selectedEntry && onEntrySelect) {
       onEntrySelect(selectedEntry);
     }
   }, [selectedEntry, onEntrySelect]);
   
-  // Scroll to position selected entry in the viewport
+  /**
+   * Centers the selected entry in the timeline viewport.
+   * 
+   * The approach:
+   * 1. Find the selected timeline entry element by ID
+   * 2. Find the scrollable container (parent ScrollableTimelineContainer)
+   * 3. Calculate the relative position of the entry within the container
+   * 4. Calculate the ideal scroll position to center the entry
+   * 5. Smoothly scroll to that position
+   */
   useEffect(() => {
-    // Only proceed if we have a selected entry
     if (!selectedEntry) return;
     
-    // Use short timeout to ensure the DOM is updated
+    // Short delay to ensure DOM is ready
     const timeoutId = setTimeout(() => {
       try {
-        // Find the selected element using its ID
-        const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
-        if (!selectedElement) {
-          console.log(`Could not find element for entry ${selectedEntry.uuid}`);
-          return;
-        }
+        // Get the entry element
+        const entryId = `timeline-entry-${selectedEntry.uuid}`;
+        const selectedElement = document.getElementById(entryId);
+        if (!selectedElement) return;
         
-        // Get the scrollable container (which is now the parent TimelineContentContainer)
-        const scrollContainer = document.querySelector('#entry-timeline-container > div:last-child');
-        if (!scrollContainer) {
-          console.log('Could not find scrollable container');
-          return;
-        }
+        // Find the scrollable container - use the ID we defined in EntryView.js
+        const scrollContainer = document.querySelector('#timeline-scroll-container');
+        if (!scrollContainer) return;
         
-        // Ensure we're targeting the right container
-        console.log('Found scroll container:', scrollContainer);
-        
-        // Get dimensions needed for calculation
+        // Get the dimensions for centering calculation
         const containerHeight = scrollContainer.clientHeight;
         const entryHeight = selectedElement.offsetHeight;
         
-        // Calculate the offset to center the entry in the viewport
+        // Calculate vertical center offset
         const middleOffset = (containerHeight / 2) - (entryHeight / 2);
         
-        console.log(`Container height: ${containerHeight}, Entry height: ${entryHeight}, Offset: ${middleOffset}`);
-        
-        // Get the element's position relative to the scrollable container
+        // Get positions for relative positioning calculation
         const entryRect = selectedElement.getBoundingClientRect();
         const containerRect = scrollContainer.getBoundingClientRect();
         const relativeTop = entryRect.top - containerRect.top;
         
-        // Calculate the ideal scroll position
+        // Calculate the ideal scroll position that centers the entry
         const idealScrollTop = scrollContainer.scrollTop + relativeTop - middleOffset;
         
-        // Scroll to the ideal position
+        // Perform the scroll with animation
         scrollContainer.scrollTo({
           top: idealScrollTop,
           behavior: 'smooth'
         });
-        
-        console.log(`Scrolling to position: ${idealScrollTop}px`);
-        
       } catch (error) {
-        console.error('Error during timeline scrolling:', error);
+        // Silently handle errors to prevent UI disruption
+        console.error('Timeline scrolling error:', error);
       }
     }, 100);
     
-    // Clean up timeout if component unmounts
     return () => clearTimeout(timeoutId);
   }, [selectedEntry]);
   
@@ -235,51 +263,54 @@ const VerticalTimeline = ({ onEntrySelect }) => {
     new Date(b.creationDate) - new Date(a.creationDate)
   );
   
+  // Show empty state if no entries
   if (sortedEntries.length === 0) {
-    return (
-      <EmptyState>No entries to display</EmptyState>
-    );
+    return <EmptyState>No entries to display</EmptyState>;
   }
+  
+  /**
+   * Renders a single timeline entry card
+   * 
+   * @param {Object} entry - The journal entry to render
+   * @returns {JSX.Element} The rendered card component
+   */
+  const renderTimelineCard = (entry) => {
+    const isSelected = selectedEntry?.uuid === entry.uuid;
+    const entryColor = colorScheme[entry.type] || '#999';
+    const locationName = entry.location?.placeName || entry.location?.localityName;
+    const locationCountry = entry.location?.country ? `, ${entry.location.country}` : '';
+    
+    return (
+      <TimelineCard
+        key={entry.uuid}
+        id={`timeline-entry-${entry.uuid}`}
+        onClick={() => handleItemClick(entry)}
+        selected={isSelected}
+      >
+        <TimelineDot color={entryColor} />
+        
+        <TimelineDate>
+          {formatDate(entry.creationDate)}
+        </TimelineDate>
+        <TimelineType color={entryColor}>
+          {entry.type}
+        </TimelineType>
+        <TimelineTitle>
+          {entry.title}
+        </TimelineTitle>
+        <TimelineLocation>
+          {locationName}{locationCountry}
+        </TimelineLocation>
+      </TimelineCard>
+    );
+  };
   
   return (
     <TimelineContainer ref={timelineContainerRef} className="timeline-container">
       <TimelineLayout>
-        {/* Static timeline that never changes */}
         <VerticalLine />
-        
-        {/* Entries positioned relative to the timeline */}
         <TimelineEntries>
-          {sortedEntries.map(entry => {
-            const isSelected = selectedEntry?.uuid === entry.uuid;
-            return (
-              <TimelineCard
-                key={entry.uuid}
-                id={`timeline-entry-${entry.uuid}`}
-                onClick={() => handleItemClick(entry)}
-                selected={isSelected}
-              >
-                {/* Timeline connector dot */}
-                <TimelineDot
-                  color={colorScheme[entry.type] || '#999'}
-                />
-                
-                {/* Entry content */}
-                <TimelineDate>
-                  {formatDate(entry.creationDate)}
-                </TimelineDate>
-                <TimelineType color={colorScheme[entry.type] || '#999'}>
-                  {entry.type}
-                </TimelineType>
-                <TimelineTitle>
-                  {entry.title}
-                </TimelineTitle>
-                <TimelineLocation>
-                  {entry.location?.placeName || entry.location?.localityName}
-                  {entry.location?.country ? `, ${entry.location.country}` : ''}
-                </TimelineLocation>
-              </TimelineCard>
-            );
-          })}
+          {sortedEntries.map(renderTimelineCard)}
         </TimelineEntries>
       </TimelineLayout>
     </TimelineContainer>
