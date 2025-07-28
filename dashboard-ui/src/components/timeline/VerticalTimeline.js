@@ -34,18 +34,16 @@ const TimelineItem = styled.div`
   background-color: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: box-shadow 0.2s, background-color 0.2s, border 0.2s;
   
   &:hover {
-    transform: translateX(5px);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   }
   
   ${props => props.selected && `
     background-color: #f0f7ff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(66, 153, 225, 0.5);
-    transform: translateX(5px);
   `}
 `;
 
@@ -62,7 +60,6 @@ const TimelineDot = styled.div`
   box-shadow: 0 0 0 2px #e0e0e0;
   z-index: 2;
   transition: all 0.2s;
-  transform: translateX(-${props => props.selected ? '0px' : '0px'});
 `;
 
 const TimelineDate = styled.div`
