@@ -25,14 +25,17 @@ export const getMediaPath = (media) => {
   
   // Generate path based on media type
   let mediaDir = '';
-  if (type === 'photo') {
+  
+  // Determine the correct directory for this media type
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'photo'].includes(type.toLowerCase())) {
     mediaDir = 'photos';
-  } else if (type === 'video') {
+  } else if (['mp4', 'mov', 'avi', 'webm', 'mkv', 'wmv', 'video'].includes(type.toLowerCase())) {
     mediaDir = 'videos';
-  } else if (type === 'pdf') {
+  } else if (['pdf'].includes(type.toLowerCase())) {
     mediaDir = 'pdfs';
   } else {
-    mediaDir = `${type}s`; // Fallback pluralization
+    console.warn(`⚠️ Unknown media type: ${type}, defaulting to photos directory`);
+    mediaDir = 'photos';
   }
   
   const path = `${BASE_MEDIA_PATH}/${mediaDir}/${md5}.${type}`;
@@ -81,6 +84,7 @@ export const getVideoPath = (video) => {
     return '';
   }
   
+  // Always use the videos directory regardless of format
   const path = `${BASE_MEDIA_PATH}/videos/${md5}.${type}`;
   console.log(`🎬 Video path generated: ${path}`);
   return path;

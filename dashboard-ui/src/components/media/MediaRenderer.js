@@ -244,7 +244,17 @@ const MediaVideo = ({ mediaPath, mediaItem }) => {
       onLoadedData={handleLoadedData}
       onError={handleError}
     >
-      <source src={mediaPath} type={`video/${mediaItem.type}`} />
+      {/* Map file extension to MIME type */}
+      <source 
+        src={mediaPath} 
+        type={mediaItem.type === 'mov' ? 'video/quicktime' : 
+              mediaItem.type === 'mp4' ? 'video/mp4' : 
+              mediaItem.type === 'webm' ? 'video/webm' : 
+              mediaItem.type === 'avi' ? 'video/x-msvideo' : 
+              mediaItem.type === 'mkv' ? 'video/x-matroska' : 
+              mediaItem.type === 'wmv' ? 'video/x-ms-wmv' : 
+              `video/${mediaItem.type}`} 
+      />
       Your browser does not support the video tag.
     </video>
   );
@@ -406,13 +416,20 @@ const MediaRenderer = ({ mediaItems, onMediaClick }) => {
         
         // Get the appropriate path based on media type
         let mediaPath;
-        if (type === 'photo') {
+        // Handle various media types and determine the appropriate directory
+        const videoFormats = ['mp4', 'mov', 'avi', 'webm', 'mkv', 'wmv'];
+        const imageFormats = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'];
+        
+        if (type === 'photo' || imageFormats.includes(type.toLowerCase())) {
           mediaPath = getPhotoPath(item);
-        } else if (type === 'video') {
+          console.log(`📷 Treating ${type} as a photo`);  
+        } else if (type === 'video' || videoFormats.includes(type.toLowerCase())) {
           mediaPath = getVideoPath(item);
+          console.log(`🎬 Treating ${type} as a video`);  
         } else if (type === 'pdf') {
           mediaPath = getPdfPath(item);
         } else {
+          console.warn(`⚠️ Unknown media type: ${type}, using general path`);  
           mediaPath = getMediaPath(item);
         }
         
@@ -423,11 +440,13 @@ const MediaRenderer = ({ mediaItems, onMediaClick }) => {
             style={{ '--aspect-ratio': aspectRatio }}
             onClick={() => onMediaClick && onMediaClick(item)}
           >
-            {type === 'photo' && (
+            {/* Handle both explicit photo type and recognized image formats */}
+            {(type === 'photo' || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(type.toLowerCase())) && (
               <MediaImage src={mediaPath} mediaItem={item} />
             )}
             
-            {type === 'video' && (
+            {/* Handle both explicit video type and recognized video formats */}
+            {(type === 'video' || ['mp4', 'mov', 'avi', 'webm', 'mkv', 'wmv'].includes(type.toLowerCase())) && (
               <MediaVideo mediaPath={mediaPath} mediaItem={item} />
             )}
             
