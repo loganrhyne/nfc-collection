@@ -58,28 +58,8 @@ function Dashboard() {
   );
 
   // Content for the right column (always the timeline)
-  // We use a container with the header for proper scrolling calculations
   const rightColumnContent = (
-    <>
-      <div className="timeline-sticky-header" style={{
-        position: 'sticky',
-        top: 0,
-        padding: '16px 20px',
-        borderBottom: '1px solid #eee',
-        backgroundColor: 'white',
-        zIndex: 10,
-        fontWeight: 500,
-        fontSize: '1.2rem'
-      }}>
-        Journal Entries
-      </div>
-      <div style={{ padding: '16px' }}>
-        <VerticalTimeline 
-          onEntrySelect={handleNavigateToEntryView}
-          initialScrollOffset={120} 
-        />
-      </div>
-    </>
+    <VerticalTimeline onEntrySelect={handleNavigateToEntryView} />
   );
 
   return (

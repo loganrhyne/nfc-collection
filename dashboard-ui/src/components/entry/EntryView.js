@@ -404,12 +404,9 @@ const EntryView = ({ entryId, onReturn }) => {
       </MainContentArea>
       
       <RightColumn id="entry-timeline-container">
-        <SectionTitle className="timeline-sticky-header">Journal Entries</SectionTitle>
+        <SectionTitle>Journal Entries</SectionTitle>
         <div style={{ padding: '16px' }}>
-          <VerticalTimeline 
-            onEntrySelect={handleEntrySelect}
-            initialScrollOffset={120} // Using a much larger offset to test scrolling
-          />
+          <VerticalTimeline onEntrySelect={handleEntrySelect} />
         </div>
       </RightColumn>
     </EntryViewContainer>

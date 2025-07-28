@@ -1,14 +1,12 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
 
 const TimelineContainer = styled.div`
-  height: calc(100% - 16px) !important;
-  overflow-y: auto !important;
+  height: calc(100% - 16px);
+  overflow-y: auto;
   padding: 20px 16px 20px 0;
-  display: flex;
-  flex-direction: column;
 `;
 
 // Main timeline layout
@@ -143,13 +141,11 @@ const EmptyState = styled.div`
   color: #666;
 `;
 
-const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
+const VerticalTimeline = ({ onEntrySelect }) => {
   const { entries, selectedEntry, setSelectedEntry } = useData();
   
   // Reference to the timeline container for scrolling
   const timelineContainerRef = useRef(null);
-  
-  // We don't need this effect since we're setting the ref directly on the container
   
   // Format date for display
   const formatDate = (dateString) => {
@@ -176,127 +172,49 @@ const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
     }
   }, [selectedEntry, onEntrySelect]);
   
-  // Define a custom hook for scrolling selected entries
-  const scrollSelectedEntryIntoView = useCallback(() => {
-    if (!selectedEntry) {
-      console.log('No selected entry to scroll to');
-      return;
-    }
+  // Scroll to position selected entry as second-from-top
+  useEffect(() => {
+    // Only proceed if we have a selected entry
+    if (\!selectedEntry) return;
     
-    if (!timelineContainerRef.current) {
-      console.log('Timeline container ref is not available');
-      return;
-    }
-    
-    try {
-      // First find the target element
-      const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
-      if (!selectedElement) {
-        console.warn(`Could not find element for entry ${selectedEntry.uuid} - DOM element may not exist yet`);
-        return;
-      }
-      
-      // Get all timeline entries to find the previous entry
-      const allEntries = document.querySelectorAll('[id^="timeline-entry-"]');
-      let previousEntryHeight = 0;
-      let currentIndex = -1;
-      
-      // Find the index of the selected entry
-      for (let i = 0; i < allEntries.length; i++) {
-        if (allEntries[i].id === `timeline-entry-${selectedEntry.uuid}`) {
-          currentIndex = i;
-          break;
+    // Use short timeout to ensure the DOM is updated
+    const timeoutId = setTimeout(() => {
+      try {
+        // Find the selected element using its ID
+        const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
+        if (\!selectedElement) {
+          console.log(`Could not find element for entry ${selectedEntry.uuid}`);
+          return;
         }
-      }
-      
-      // If we found the current entry and there's a previous entry,
-      // get its height to use for offsetting
-      if (currentIndex > 0) {
-        previousEntryHeight = allEntries[currentIndex - 1].offsetHeight + 24; // entry height + gap
-        console.log(`Found previous entry with height: ${previousEntryHeight}px`);
-      } else {
-        // No previous entry, use a default offset
-        previousEntryHeight = 100; // reasonable default
-        console.log('No previous entry, using default offset');
-      }
-      
-      // Account for the sticky header - get its height
-      const stickyHeader = document.querySelector('.timeline-sticky-header');
-      let headerHeight = 0;
-      if (stickyHeader) {
-        headerHeight = stickyHeader.offsetHeight;
-        console.log(`Found sticky header with height: ${headerHeight}px`);
-      }
-      
-      // Calculate scroll position to show previous entry (if it exists)
-      const container = timelineContainerRef.current;
-      const newScrollTop = selectedElement.offsetTop - headerHeight - previousEntryHeight;
-      
-      console.log('DEBUG: Container:', {
-        scrollable: getComputedStyle(container).overflowY,
-        scrollHeight: container.scrollHeight,
-        clientHeight: container.clientHeight,
-        currentScrollTop: container.scrollTop,
-        newScrollTop: newScrollTop
-      });
-      
-      // Try multiple approaches to ensure scrolling works
-      
-      // 1. Direct property setting - most immediate
-      console.log('Method 1: Setting scrollTop directly');
-      container.scrollTop = newScrollTop;
-      
-      // 2. Use scrollTo with auto behavior
-      console.log('Method 2: Using scrollTo with auto behavior');
-      container.scrollTo({
-        top: newScrollTop,
-        behavior: 'auto'
-      });
-      
-      // 3. Try again with smooth animation after a slight delay
-      setTimeout(() => {
-        console.log('Method 3: Using scrollTo with smooth behavior');
-        container.scrollTo({
-          top: newScrollTop,
-          behavior: 'smooth'
+        
+        // Use the browser-native scrollIntoView API
+        // This is the most robust way to handle scrolling
+        selectedElement.scrollIntoView({
+          behavior: 'smooth',  // Use smooth scrolling animation
+          block: 'start',     // Align to the top of the viewport
+          inline: 'nearest'   // Don't adjust horizontal position
         });
         
-        // Log the current scroll position
-        console.log(`Current scrollTop after attempt: ${container.scrollTop}`);
+        // After scrollIntoView, apply a small offset to show some content above
+        // This creates the "second from top" position effect
+        setTimeout(() => {
+          if (timelineContainerRef.current) {
+            timelineContainerRef.current.scrollBy({
+              top: -100, // Negative value to scroll back up slightly
+              behavior: 'smooth'
+            });
+          }
+        }, 300);
         
-        // If scrolling didn't work, try more aggressive approach
-        if (Math.abs(container.scrollTop - newScrollTop) > 50) {
-          console.log('Scrolling did not succeed, trying forceful approach');
-          
-          // Force the container to be scrollable
-          container.style.overflowY = 'auto';
-          container.style.height = 'calc(100% - 16px)';
-          
-          // Try again with direct assignment
-          container.scrollTop = newScrollTop;
-        }
-      }, 100);
-      
-      console.log(`Attempting to scroll to position ${newScrollTop}`);
-    } catch (error) {
-      console.error('Error scrolling to selected entry:', error);
-    }
+        console.log(`Scrolling entry ${selectedEntry.uuid} into view`);
+      } catch (error) {
+        console.error('Error during timeline scrolling:', error);
+      }
+    }, 100);
+    
+    // Clean up timeout if component unmounts
+    return () => clearTimeout(timeoutId);
   }, [selectedEntry]);
-
-  
-  // Trigger the scroll when selected entry changes
-  useEffect(() => {
-    // Short timeout to ensure DOM is ready
-    const timeoutId = setTimeout(scrollSelectedEntryIntoView, 200);
-    
-    // Try again after a longer delay as a fallback
-    const secondAttemptId = setTimeout(scrollSelectedEntryIntoView, 500);
-    
-    return () => {
-      clearTimeout(timeoutId);
-      clearTimeout(secondAttemptId);
-    };
-  }, [selectedEntry, scrollSelectedEntryIntoView]);
   
   // Sort entries by date (newest first)
   const sortedEntries = [...entries].sort((a, b) => 
@@ -310,11 +228,7 @@ const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
   }
   
   return (
-    <TimelineContainer 
-      ref={timelineContainerRef} 
-      className="timeline-container"
-      style={{ overflowY: 'auto', height: 'calc(100% - 16px)' }} // Force scrollability
-    >
+    <TimelineContainer ref={timelineContainerRef} className="timeline-container">
       <TimelineLayout>
         {/* Static timeline that never changes */}
         <VerticalLine />
@@ -359,3 +273,4 @@ const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
 };
 
 export default VerticalTimeline;
+EOF < /dev/null
