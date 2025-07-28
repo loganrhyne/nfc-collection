@@ -214,8 +214,10 @@ const VerticalTimeline = ({ onEntrySelect }) => {
         offsetHeight: selectedElement.offsetHeight
       });
       
-      // Try a VERY direct approach - use offsetTop
-      const newScrollTop = selectedElement.offsetTop - 80; // 80px from top
+      // Calculate the appropriate scroll position
+      // We want the selected entry to be visible with just a bit of padding at the top
+      // Use a smaller offset to keep more of the element in view
+      const newScrollTop = selectedElement.offsetTop - 20; // 20px from top
       
       // Force the container to be scrollable if it's not
       if (getComputedStyle(container).overflow !== 'auto' && 
