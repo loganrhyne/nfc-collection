@@ -23,6 +23,6 @@ yarn-debug.log*
 yarn-error.log*
 
 # Media files
-/public/collection_data/photos/
-/public/collection_data/videos/
-/public/collection_data/pdfs/
+/data/photos/
+/data/videos/
+/data/pdfs/

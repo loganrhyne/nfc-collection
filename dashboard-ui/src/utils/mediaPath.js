@@ -8,6 +8,9 @@
  * @param {Object} media - Media item with type and identifier
  * @returns {string} - Path to the media file
  */
+// Base path for media files inside the dashboard-ui directory
+const BASE_MEDIA_PATH = '/data';
+
 export const getMediaPath = (media) => {
   if (!media) {
     console.warn('📡 getMediaPath called with null media');
@@ -20,8 +23,19 @@ export const getMediaPath = (media) => {
     return '';
   }
   
-  // In production, media files are served from the data directory
-  const path = `/collection_data/${type}s/${md5}.${type}`;
+  // Generate path based on media type
+  let mediaDir = '';
+  if (type === 'photo') {
+    mediaDir = 'photos';
+  } else if (type === 'video') {
+    mediaDir = 'videos';
+  } else if (type === 'pdf') {
+    mediaDir = 'pdfs';
+  } else {
+    mediaDir = `${type}s`; // Fallback pluralization
+  }
+  
+  const path = `${BASE_MEDIA_PATH}/${mediaDir}/${md5}.${type}`;
   console.log(`💾 Media path generated: ${path}`);
   return path;
 };
@@ -44,7 +58,7 @@ export const getPhotoPath = (photo) => {
     return '';
   }
   
-  const path = `/collection_data/photos/${md5}.${type}`;
+  const path = `${BASE_MEDIA_PATH}/photos/${md5}.${type}`;
   console.log(`📷 Photo path generated: ${path}`);
   return path;
 };
@@ -67,7 +81,7 @@ export const getVideoPath = (video) => {
     return '';
   }
   
-  const path = `/collection_data/videos/${md5}.${type}`;
+  const path = `${BASE_MEDIA_PATH}/videos/${md5}.${type}`;
   console.log(`🎬 Video path generated: ${path}`);
   return path;
 };
@@ -90,7 +104,7 @@ export const getPdfPath = (pdf) => {
     return '';
   }
   
-  const path = `/collection_data/pdfs/${md5}.pdf`;
+  const path = `${BASE_MEDIA_PATH}/pdfs/${md5}.pdf`;
   console.log(`📄 PDF path generated: ${path}`);
   return path;
 };

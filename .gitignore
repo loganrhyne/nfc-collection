@@ -215,6 +215,6 @@ dashboard-ui-build/
 collection_data/
 
 # Media files
-data/photos/
-data/videos/
-data/pdfs/
+dashboard-ui/data/photos/
+dashboard-ui/data/videos/
+dashboard-ui/data/pdfs/
