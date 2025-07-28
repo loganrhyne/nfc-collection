@@ -172,7 +172,7 @@ const VerticalTimeline = ({ onEntrySelect }) => {
     }
   }, [selectedEntry, onEntrySelect]);
   
-  // Scroll to position selected entry as second-from-top
+  // Scroll to position selected entry in the middle of the viewport
   useEffect(() => {
     // Only proceed if we have a selected entry
     if (!selectedEntry) return;
@@ -187,26 +187,40 @@ const VerticalTimeline = ({ onEntrySelect }) => {
           return;
         }
         
-        // Use the browser-native scrollIntoView API
-        // This is the most robust way to handle scrolling
+        // Get the container and its dimensions
+        const container = timelineContainerRef.current;
+        if (!container) return;
+        
+        // Get dimensions needed for calculation
+        const containerHeight = container.clientHeight;
+        const entryHeight = selectedElement.offsetHeight;
+        
+        // Calculate the offset needed to position the entry in the middle
+        // Formula: Middle of container - Half of entry height
+        const middleOffset = (containerHeight / 2) - (entryHeight / 2);
+        
+        console.log(`Container height: ${containerHeight}, Entry height: ${entryHeight}, Offset: ${middleOffset}`);
+        
+        // First scroll the entry to the top of the view
         selectedElement.scrollIntoView({
-          behavior: 'smooth',  // Use smooth scrolling animation
-          block: 'start',     // Align to the top of the viewport
-          inline: 'nearest'   // Don't adjust horizontal position
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'nearest'
         });
         
-        // After scrollIntoView, apply a small offset to show some content above
-        // This creates the "second from top" position effect
+        // After the initial scroll, adjust to center the entry
         setTimeout(() => {
-          if (timelineContainerRef.current) {
-            timelineContainerRef.current.scrollBy({
-              top: -100, // Negative value to scroll back up slightly
+          if (container) {
+            // Scroll up by middle offset to center the entry
+            container.scrollBy({
+              top: -middleOffset,
               behavior: 'smooth'
             });
+            
+            console.log(`Centering entry with offset: ${-middleOffset}px`);
           }
         }, 300);
         
-        console.log(`Scrolling entry ${selectedEntry.uuid} into view`);
       } catch (error) {
         console.error('Error during timeline scrolling:', error);
       }
