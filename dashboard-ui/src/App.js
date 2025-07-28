@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import './styles/mediaGrid.css';
+import { logEnvironmentInfo } from './utils/debug';
 import { BrowserRouter as Router, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { DataProvider } from './context/DataContext';
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -111,6 +112,11 @@ function AppContent() {
  * Main app component that sets up routes
  */
 function App() {
+  // Log environment information on startup
+  useEffect(() => {
+    logEnvironmentInfo();
+    console.log('🔍 Data files should be in:', `${window.location.origin}/data/`);
+  }, []);
   return (
     <Router>
       <DataProvider>

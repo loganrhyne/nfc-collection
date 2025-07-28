@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getMediaPath, getPhotoPath, getVideoPath, getPdfPath } from '../../utils/mediaPath';
+import { diagnosePaths } from '../../utils/fileChecker';
 import styled from 'styled-components';
 import '../../styles/mediaGrid.css';
 
@@ -141,6 +142,11 @@ const MediaImage = ({ src, mediaItem }) => {
       width: mediaItem.width, 
       height: mediaItem.height 
     });
+    
+    // Diagnose path issues
+    if (src && src.startsWith('/data/')) {
+      diagnosePaths(src.substring(1)); // Remove leading slash
+    }
   }, [src, mediaItem]);
   
   const handleLoad = () => {
