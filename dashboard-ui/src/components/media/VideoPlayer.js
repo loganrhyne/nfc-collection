@@ -168,7 +168,8 @@ const VideoPlayer = ({
   const getMimeType = (fileType) => {
     const type = fileType?.toLowerCase();
     const mimeTypes = {
-      'mov': 'video/quicktime',
+      // For MOV files, try video/mp4 first as browsers often handle this better than video/quicktime
+      'mov': 'video/mp4',
       'mp4': 'video/mp4',
       'webm': 'video/webm',
       'avi': 'video/x-msvideo',
@@ -255,11 +256,13 @@ const VideoPlayer = ({
           {transcodedSrc ? (
             <source src={transcodedSrc} type="video/mp4" />
           ) : type && type.toLowerCase() === 'mov' ? (
-            // For MOV files, try multiple source formats
+            // For MOV files, try multiple source formats in order of most compatible first
             <>
               <source src={src} type="video/mp4" />
+              <source src={src} type="video/mp4; codecs='avc1.42E01E, mp4a.40.2'" />
               <source src={src} type="video/quicktime" />
-              <source src={src} type="application/x-mpegURL" />
+              <source src={src} type="video/*" /> {/* Try generic video type as fallback */}
+              <source src={src} type="application/octet-stream" /> {/* Last resort */}
             </>
           ) : (
             // For other video types use the standard approach

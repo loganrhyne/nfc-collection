@@ -204,8 +204,14 @@ const MediaImage = ({ src, mediaItem }) => {
  * Uses Video.js for enhanced format support
  */
 const MediaVideo = ({ mediaPath, mediaItem }) => {
+  // For MOV files, try to use a modified path with MP4 extension but keep the actual file path
+  // This can trick the browser into using the MP4 MIME type handler
+  const displayPath = mediaItem.type?.toLowerCase() === 'mov' 
+    ? mediaPath.replace(/\.mov$/i, '.mp4') 
+    : mediaPath;
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [nativeFallback, setNativeFallback] = useState(false);
   
   useEffect(() => {
     console.log(`🎬 Attempting to load video: ${mediaPath}`);
@@ -254,6 +260,11 @@ const MediaVideo = ({ mediaPath, mediaItem }) => {
       console.log(`- Can play MOV/QuickTime: ${videoElement.canPlayType('video/quicktime') || 'no/unknown'}`);
       console.log(`- Can play MP4: ${videoElement.canPlayType('video/mp4') || 'no/unknown'}`);
       console.log(`- Can play MP4 with H.264: ${videoElement.canPlayType('video/mp4; codecs="avc1.42E01E"') || 'no/unknown'}`);
+      
+      // Try native video player with different MIME type as fallback
+      console.log('Trying native player fallback with alternate MIME type');
+      setNativeFallback(true);
+      return; // Don't set error yet
     }
     
     setError(true);
@@ -311,12 +322,59 @@ const MediaVideo = ({ mediaPath, mediaItem }) => {
       </div>
     );
   }
+
+  // If native fallback is enabled, use native HTML5 video element with different MIME types
+  if (nativeFallback) {
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <video 
+          controls 
+          muted
+          preload="metadata"
+          playsInline
+          style={{ 
+            width: '100%', 
+            height: '100%',
+            opacity: loaded ? 1 : 0.5 
+          }}
+          onLoadedData={() => {
+            console.log('Native video player loaded successfully with alternate MIME type');
+            setLoaded(true);
+          }}
+          onError={(e) => {
+            console.error('Native video player also failed', e);
+            setError(true);
+          }}
+        >
+          {/* Try multiple MIME types for MOV files */}
+          <source src={mediaPath} type="video/mp4" />
+          <source src={mediaPath} type="video/mp4; codecs='avc1.42E01E, mp4a.40.2'" />
+          <source src={mediaPath} type="video/quicktime" />
+          <source src={mediaPath} type="video/*" />
+          Your browser does not support this video format.
+        </video>
+        
+        {!loaded && !error && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            zIndex: 1
+          }}>
+            <div className="loading-indicator"></div>
+          </div>
+        )}
+      </div>
+    );
+  }
   
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <VideoPlayer 
-        src={mediaPath}
-        type={mediaItem.type}
+        src={displayPath} /* Use the modified path for MOV files */
+        type={mediaItem.type === 'mov' ? 'mp4' : mediaItem.type} /* Present it as MP4 to VideoJS */
         mediaItem={mediaItem}
         onReady={handlePlayerReady}
         onError={handlePlayerError}
