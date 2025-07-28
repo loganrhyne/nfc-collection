@@ -29,6 +29,15 @@ export const isValidFilterValue = (dimension, value) => {
       // Search can be any non-empty string
       return typeof value === 'string' && value.trim().length > 0;
       
+    case 'geo':
+      // Geo filter must be an object with south, west, north, east numeric coordinates
+      return typeof value === 'object' && 
+             value !== null &&
+             typeof value.south === 'number' &&
+             typeof value.west === 'number' &&
+             typeof value.north === 'number' &&
+             typeof value.east === 'number';
+      
     default:
       return false;
   }
@@ -76,6 +85,23 @@ export const validateFilterLogic = (dimension, value, entries) => {
         entry.title?.toLowerCase().includes(searchLower) || 
         entry.text?.toLowerCase().includes(searchLower)
       );
+      break;
+      
+    case 'geo':
+      // Filter entries by geographic bounds
+      const { south, west, north, east } = value;
+      
+      matchingEntries = entries.filter(entry => {
+        if (!entry.location || typeof entry.location.latitude !== 'number' || 
+            typeof entry.location.longitude !== 'number') {
+          return false;
+        }
+        
+        const lat = entry.location.latitude;
+        const lng = entry.location.longitude;
+        
+        return lat >= south && lat <= north && lng >= west && lng <= east;
+      });
       break;
   }
   
@@ -179,6 +205,30 @@ export const sanitizeFilterValue = (dimension, value) => {
       if (typeof value !== 'string') return null;
       // Remove potentially problematic characters
       return value.trim().replace(/[<>]/g, '');
+    
+    case 'geo':
+      // Validate geo filter object
+      if (typeof value !== 'object' || value === null) return null;
+      
+      // Ensure all required properties are numbers
+      const { south, west, north, east } = value;
+      if (typeof south !== 'number' || typeof west !== 'number' ||
+          typeof north !== 'number' || typeof east !== 'number') {
+        return null;
+      }
+      
+      // Validate coordinate ranges
+      if (south < -90 || south > 90 || north < -90 || north > 90 ||
+          west < -180 || west > 180 || east < -180 || east > 180) {
+        return null;
+      }
+      
+      // Ensure south is less than north
+      if (south > north) {
+        return null;
+      }
+      
+      return { south, west, north, east };
       
     default:
       return null;

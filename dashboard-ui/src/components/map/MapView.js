@@ -229,9 +229,6 @@ const MapView = () => {
   
   // State for area selection mode
   const [areaSelectionMode, setAreaSelectionMode] = useState(false);
-  // State for active geographic filter
-  const [geoFilter, setGeoFilter] = useState(null);
-  
   // Calculate map bounds based on entry locations
   const getMapBounds = useCallback(() => {
     if (!entries.length) return [[0, 0], [0, 0]];
@@ -263,8 +260,9 @@ const MapView = () => {
     ];
   }, [entries]);
   
-  // Use geoFilter bounds if active, otherwise calculate from entries
-  const bounds = geoFilter?.bounds || getMapBounds();
+  // Always calculate bounds from the filtered entries - the map should always 
+  // show the current filtered set, regardless of how the filtering was done
+  const bounds = getMapBounds();
   
   // Handle marker click to show entry details
   const handleMarkerClick = (entry) => {
@@ -273,18 +271,6 @@ const MapView = () => {
   
   // Handle area selection completed
   const handleAreaSelectionComplete = useCallback((bounds) => {
-    // Create a geographic filter from the selected area
-    const newGeoFilter = {
-      type: 'geo',
-      bounds: [
-        [bounds.getSouth(), bounds.getWest()],
-        [bounds.getNorth(), bounds.getEast()]
-      ]
-    };
-    
-    // Apply the filter
-    setGeoFilter(newGeoFilter);
-    
     // Set area selection mode to false after selecting
     setAreaSelectionMode(false);
     
@@ -300,7 +286,6 @@ const MapView = () => {
   
   // Clear the geographic filter
   const clearGeoFilter = useCallback(() => {
-    setGeoFilter(null);
     // Clear the geo filter in the context
     setFilter('geo', null);
   }, [setFilter]);
@@ -346,9 +331,12 @@ const MapView = () => {
         <MapTileSelector />
         
         {/* Render existing geographic filter if present */}
-        {geoFilter && (
+        {filters.geo && (
           <Rectangle
-            bounds={geoFilter.bounds}
+            bounds={[
+              [filters.geo.south, filters.geo.west],
+              [filters.geo.north, filters.geo.east]
+            ]}
             pathOptions={{
               color: '#1976d2',
               weight: 2,
@@ -393,7 +381,7 @@ const MapView = () => {
         
         <ControlButton 
           onClick={clearGeoFilter}
-          disabled={!geoFilter}
+          disabled={!filters.geo}
           title="Clear area filter"
         >
           Clear Area Filter
