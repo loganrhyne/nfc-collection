@@ -147,6 +147,20 @@ const ActiveFilters = () => {
         </FilterBadge>
       )}
       
+      {filters.geo && (
+        <FilterBadge 
+          color="#e3f2fd"
+          onClick={() => setFilter('geo', null)}
+        >
+          <FilterLabel>
+            Map Area:
+            {filterSources.geo && <SourceTag>{filterSources.geo}</SourceTag>}
+          </FilterLabel>
+          Selected Area
+          <RemoveIcon>×</RemoveIcon>
+        </FilterBadge>
+      )}
+      
       {hasActiveFilters && (
         <ClearAll onClick={resetFilters}>
           Clear all

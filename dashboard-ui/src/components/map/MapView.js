@@ -284,11 +284,6 @@ const MapView = () => {
     }, 'map', 'selection');
   }, [setFilter]);
   
-  // Clear the geographic filter
-  const clearGeoFilter = useCallback(() => {
-    // Clear the geo filter in the context
-    setFilter('geo', null);
-  }, [setFilter]);
   
   // Toggle area selection mode
   const toggleAreaSelection = useCallback(() => {
@@ -377,14 +372,6 @@ const MapView = () => {
           title={areaSelectionMode ? 'Cancel selection' : 'Select area'}
         >
           {areaSelectionMode ? 'Cancel Selection' : 'Select Area'}
-        </ControlButton>
-        
-        <ControlButton 
-          onClick={clearGeoFilter}
-          disabled={!filters.geo}
-          title="Clear area filter"
-        >
-          Clear Area Filter
         </ControlButton>
       </MapControls>
     </MapWrapper>
