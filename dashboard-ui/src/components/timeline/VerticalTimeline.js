@@ -175,14 +175,14 @@ const VerticalTimeline = ({ onEntrySelect }) => {
   // Scroll to position selected entry as second-from-top
   useEffect(() => {
     // Only proceed if we have a selected entry
-    if (\!selectedEntry) return;
+    if (!selectedEntry) return;
     
     // Use short timeout to ensure the DOM is updated
     const timeoutId = setTimeout(() => {
       try {
         // Find the selected element using its ID
         const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
-        if (\!selectedElement) {
+        if (!selectedElement) {
           console.log(`Could not find element for entry ${selectedEntry.uuid}`);
           return;
         }
@@ -273,4 +273,4 @@ const VerticalTimeline = ({ onEntrySelect }) => {
 };
 
 export default VerticalTimeline;
-EOF < /dev/null
+
