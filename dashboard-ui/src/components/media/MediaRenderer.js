@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getMediaPath, getPhotoPath, getVideoPath, getPdfPath } from '../../utils/mediaPath';
 import styled from 'styled-components';
 import '../../styles/mediaGrid.css';
@@ -127,6 +127,184 @@ const getOrientationClass = (width, height) => {
 };
 
 /**
+ * Component for rendering images with logging and error handling
+ */
+const MediaImage = ({ src, mediaItem }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+  
+  useEffect(() => {
+    console.log(`🖼️ Attempting to load image: ${src}`);
+    console.log('Image metadata:', { 
+      md5: mediaItem.md5, 
+      type: mediaItem.type, 
+      width: mediaItem.width, 
+      height: mediaItem.height 
+    });
+  }, [src, mediaItem]);
+  
+  const handleLoad = () => {
+    console.log(`✅ Successfully loaded image: ${src}`);
+    setLoaded(true);
+  };
+  
+  const handleError = () => {
+    console.error(`❌ Failed to load image: ${src}`);
+    setError(true);
+  };
+  
+  if (error) {
+    return (
+      <div className="media-item-error">
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>📷</div>
+          <div>Image not found</div>
+          <div style={{ fontSize: '12px', marginTop: '8px', color: '#666' }}>
+            {mediaItem.md5}.{mediaItem.type}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <>
+      <img 
+        src={src} 
+        alt="" 
+        onLoad={handleLoad} 
+        onError={handleError} 
+        style={{ opacity: loaded ? 1 : 0.3 }}
+      />
+      {!loaded && !error && (
+        <div className="loading-indicator-container" style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none'
+        }}>
+          <div className="loading-indicator"></div>
+        </div>
+      )}
+    </>
+  );
+};
+
+/**
+ * Component for rendering videos with logging and error handling
+ */
+const MediaVideo = ({ mediaPath, mediaItem }) => {
+  const [error, setError] = useState(false);
+  const videoRef = useRef(null);
+  
+  useEffect(() => {
+    console.log(`🎬 Attempting to load video: ${mediaPath}`);
+    console.log('Video metadata:', { 
+      md5: mediaItem.md5, 
+      type: mediaItem.type,
+      width: mediaItem.width,
+      height: mediaItem.height
+    });
+  }, [mediaPath, mediaItem]);
+  
+  const handleLoadedData = () => {
+    console.log(`✅ Successfully loaded video: ${mediaPath}`);
+    console.log(`Video dimensions: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
+  };
+  
+  const handleError = () => {
+    console.error(`❌ Failed to load video: ${mediaPath}`);
+    setError(true);
+  };
+  
+  if (error) {
+    return (
+      <div className="media-item-error">
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎬</div>
+          <div>Video not found</div>
+          <div style={{ fontSize: '12px', marginTop: '8px', color: '#666' }}>
+            {mediaItem.md5}.{mediaItem.type}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <video 
+      ref={videoRef}
+      controls 
+      muted
+      onLoadedData={handleLoadedData}
+      onError={handleError}
+    >
+      <source src={mediaPath} type={`video/${mediaItem.type}`} />
+      Your browser does not support the video tag.
+    </video>
+  );
+};
+
+/**
+ * Component for rendering PDFs with logging and error handling
+ */
+const MediaPdf = ({ mediaPath, mediaItem }) => {
+  const [error, setError] = useState(false);
+  
+  useEffect(() => {
+    console.log(`📄 Attempting to load PDF: ${mediaPath}`);
+    console.log('PDF metadata:', { 
+      md5: mediaItem.md5, 
+      type: mediaItem.type 
+    });
+    
+    // Check if PDF exists by trying to fetch it
+    fetch(mediaPath, { method: 'HEAD' })
+      .then(response => {
+        if (response.ok) {
+          console.log(`✅ PDF file exists: ${mediaPath}`);
+        } else {
+          console.error(`❌ PDF file not found: ${mediaPath}`);
+          setError(true);
+        }
+      })
+      .catch(err => {
+        console.error(`❌ Error checking PDF file: ${mediaPath}`, err);
+        setError(true);
+      });
+  }, [mediaPath, mediaItem]);
+  
+  if (error) {
+    return (
+      <div className="media-item-error">
+        <div style={{ padding: '20px', textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', marginBottom: '8px' }}>📄</div>
+          <div>PDF not found</div>
+          <div style={{ fontSize: '12px', marginTop: '8px', color: '#666' }}>
+            {mediaItem.md5}.pdf
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="pdf-placeholder">
+      <div className="pdf-icon">📄</div>
+      <div>PDF Document</div>
+      <a href={mediaPath} target="_blank" rel="noopener noreferrer">
+        <button style={{ marginTop: '12px', padding: '8px 16px' }}>Open PDF</button>
+      </a>
+    </div>
+  );
+};
+
+/**
  * Renders a single media item (image, video, PDF)
  * 
  * @param {Object} props - Component props
@@ -246,24 +424,15 @@ const MediaRenderer = ({ mediaItems, onMediaClick }) => {
             onClick={() => onMediaClick && onMediaClick(item)}
           >
             {type === 'photo' && (
-              <img src={mediaPath} alt="" />
+              <MediaImage src={mediaPath} mediaItem={item} />
             )}
             
             {type === 'video' && (
-              <video controls muted>
-                <source src={mediaPath} type={`video/${item.type}`} />
-                Your browser does not support the video tag.
-              </video>
+              <MediaVideo mediaPath={mediaPath} mediaItem={item} />
             )}
             
             {type === 'pdf' && (
-              <div className="pdf-placeholder">
-                <div className="pdf-icon">📄</div>
-                <div>PDF Document</div>
-                <a href={mediaPath} target="_blank" rel="noopener noreferrer">
-                  <button style={{ marginTop: '12px', padding: '8px 16px' }}>Open PDF</button>
-                </a>
-              </div>
+              <MediaPdf mediaPath={mediaPath} mediaItem={item} />
             )}
           </div>
         );
