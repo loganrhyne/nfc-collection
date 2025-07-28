@@ -203,6 +203,7 @@ const MediaImage = ({ src, mediaItem }) => {
  */
 const MediaVideo = ({ mediaPath, mediaItem }) => {
   const [error, setError] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const videoRef = useRef(null);
   
   useEffect(() => {
@@ -213,16 +214,52 @@ const MediaVideo = ({ mediaPath, mediaItem }) => {
       width: mediaItem.width,
       height: mediaItem.height
     });
+    
+    // Check if the video file exists using fetch
+    const checkVideoExists = async () => {
+      try {
+        const response = await fetch(mediaPath, { method: 'HEAD' });
+        if (response.ok) {
+          console.log(`✅ Video file exists: ${mediaPath}`);
+        } else {
+          console.error(`❌ Video file not found: ${mediaPath} (${response.status}: ${response.statusText})`);
+          setError(true);
+        }
+      } catch (err) {
+        console.error(`❌ Error checking video file: ${mediaPath}`, err);
+        setError(true);
+      }
+    };
+    
+    checkVideoExists();
   }, [mediaPath, mediaItem]);
   
   const handleLoadedData = () => {
     console.log(`✅ Successfully loaded video: ${mediaPath}`);
-    console.log(`Video dimensions: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
+    if (videoRef.current) {
+      console.log(`Video dimensions: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
+    }
+    setLoaded(true);
   };
   
-  const handleError = () => {
-    console.error(`❌ Failed to load video: ${mediaPath}`);
+  const handleError = (e) => {
+    console.error(`❌ Failed to load video: ${mediaPath}`, e);
     setError(true);
+  };
+  
+  // Get the appropriate MIME type for the video
+  const getMimeType = (fileType) => {
+    const type = fileType.toLowerCase();
+    const mimeTypes = {
+      'mov': 'video/quicktime',
+      'mp4': 'video/mp4',
+      'webm': 'video/webm',
+      'avi': 'video/x-msvideo',
+      'mkv': 'video/x-matroska',
+      'wmv': 'video/x-ms-wmv'
+    };
+    
+    return mimeTypes[type] || `video/${type}`;
   };
   
   if (error) {
@@ -230,36 +267,67 @@ const MediaVideo = ({ mediaPath, mediaItem }) => {
       <div className="media-item-error">
         <div style={{ padding: '20px', textAlign: 'center' }}>
           <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎬</div>
-          <div>Video not found</div>
+          <div>Video not found or format not supported</div>
           <div style={{ fontSize: '12px', marginTop: '8px', color: '#666' }}>
             {mediaItem.md5}.{mediaItem.type}
           </div>
+          <a 
+            href={mediaPath} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-block',
+              marginTop: '12px',
+              padding: '6px 12px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              borderRadius: '4px',
+              textDecoration: 'none'
+            }}
+          >
+            Download Video
+          </a>
         </div>
       </div>
     );
   }
   
   return (
-    <video 
-      ref={videoRef}
-      controls 
-      muted
-      onLoadedData={handleLoadedData}
-      onError={handleError}
-    >
-      {/* Map file extension to MIME type */}
-      <source 
-        src={mediaPath} 
-        type={mediaItem.type === 'mov' ? 'video/quicktime' : 
-              mediaItem.type === 'mp4' ? 'video/mp4' : 
-              mediaItem.type === 'webm' ? 'video/webm' : 
-              mediaItem.type === 'avi' ? 'video/x-msvideo' : 
-              mediaItem.type === 'mkv' ? 'video/x-matroska' : 
-              mediaItem.type === 'wmv' ? 'video/x-ms-wmv' : 
-              `video/${mediaItem.type}`} 
-      />
-      Your browser does not support the video tag.
-    </video>
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <video 
+        ref={videoRef}
+        controls 
+        muted
+        preload="metadata"
+        playsInline
+        style={{ 
+          width: '100%', 
+          height: '100%',
+          opacity: loaded ? 1 : 0.5 
+        }}
+        onLoadedData={handleLoadedData}
+        onError={handleError}
+      >
+        {/* Map file extension to MIME type */}
+        <source 
+          src={mediaPath} 
+          type={getMimeType(mediaItem.type)} 
+        />
+        Your browser does not support this video format.
+      </video>
+      
+      {!loaded && !error && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none'
+        }}>
+          <div className="loading-indicator"></div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -354,13 +422,10 @@ const MediaItem = ({ media, onClick }) => {
         />
       </BaseMediaItem>
     );
-  } else if (type === 'video' || mimeType?.startsWith('video/')) {
+  } else if (type === 'video' || mimeType?.startsWith('video/') || ['mov', 'mp4', 'avi', 'webm', 'mkv', 'wmv'].includes(type.toLowerCase())) {
     return (
       <BaseMediaItem className={orientation} style={{ '--aspect-ratio': aspectRatio }}>
-        <StyledVideo controls muted>
-          <source src={mediaPath} type={mimeType || `video/${type}`} />
-          Your browser does not support the video tag.
-        </StyledVideo>
+        <MediaVideo mediaPath={mediaPath} mediaItem={media} />
       </BaseMediaItem>
     );
   } else if (type === 'pdf' || mimeType === 'application/pdf') {
