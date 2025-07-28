@@ -367,16 +367,19 @@ const MapView = () => {
                     style={{
                       marginTop: '8px',
                       padding: '6px 12px',
-                      backgroundColor: '#1976d2',
-                      color: 'white',
-                      border: 'none',
+                      backgroundColor: 'white',
+                      color: '#333',
+                      border: '1px solid #ddd',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '500'
+                      fontSize: '0.9rem',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
                     }}
                   >
-                    View Entry
+                    <span style={{ marginRight: '6px' }}>→</span> View Entry
                   </button>
                 </div>
               </Popup>
