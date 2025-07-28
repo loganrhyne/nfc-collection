@@ -194,32 +194,29 @@ const VerticalTimeline = ({ onEntrySelect }) => {
           console.log(`Could not find element for entry ${selectedEntry.uuid}`);
           return;
         }
+
+        // Instead of using relative positioning, calculate where the entry should be
+        // in relation to the container's scrollTop property
         
-        // Get container's scroll properties
-        const containerRect = timelineContainerRef.current.getBoundingClientRect();
-        const containerTop = containerRect.top;
+        // Get the relative position of the selected element within its container
+        const containerTop = timelineContainerRef.current.offsetTop;
+        const selectedTop = selectedElement.offsetTop;
         
-        // Calculate position for the selected entry (second from top)
-        // We'll use the top of the container plus some padding
-        const desiredPosition = containerTop + 24; // Add padding from top
+        // Calculate the desired scroll position with factor of 1.8 entry heights
+        const entryHeight = selectedElement.offsetHeight;
+        const desiredScrollTop = selectedTop - containerTop - (entryHeight * 1.8); // Position at 1.8x entry height
         
-        // Get current position of the selected element
-        const selectedRect = selectedElement.getBoundingClientRect();
-        
-        // Calculate the scroll adjustment needed
-        const scrollAdjustment = selectedRect.top - desiredPosition;
-        
-        // Apply smooth scrolling
-        timelineContainerRef.current.scrollBy({
-          top: scrollAdjustment,
+        // Apply smooth scrolling using scrollTop
+        timelineContainerRef.current.scrollTo({
+          top: desiredScrollTop,
           behavior: 'smooth'
         });
         
-        console.log('Scrolling timeline:', {
+        console.log('Scrolling timeline with direct method:', {
           selectedEntry: selectedEntry.uuid,
-          containerTop,
-          selectedTop: selectedRect.top,
-          adjustment: scrollAdjustment
+          containerOffsetTop: containerTop,
+          elementOffsetTop: selectedTop,
+          scrollTo: desiredScrollTop
         });
       } catch (error) {
         console.error('Error during timeline scrolling:', error);
