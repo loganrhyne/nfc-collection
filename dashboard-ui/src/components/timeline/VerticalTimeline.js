@@ -12,7 +12,7 @@ const TimelineContainer = styled.div`
 // Main timeline layout
 const TimelineLayout = styled.div`
   position: relative;
-  padding-left: 32px; /* Space for timeline and dot */
+  padding-left: 40px; /* Space for timeline and dot */
 `;
 
 // Vertical line that runs through the timeline
