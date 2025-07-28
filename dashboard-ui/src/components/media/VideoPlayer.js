@@ -1,21 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 import '@videojs/http-streaming';
 import 'videojs-contrib-quality-levels';
-import videoTranscoder from '../../utils/videoTranscoder';
-const { transcodeVideo, needsTranscoding, releaseTranscodedVideo } = videoTranscoder;
+import mediaService from '../../services/mediaService';
+import mediaErrorService from '../../services/mediaErrorService';
 
 /**
  * Custom Video.js player component with enhanced format support
  * 
- * @param {Object} props - Component props
- * @param {string} props.src - Source URL for the video
- * @param {string} props.type - MIME type of the video
- * @param {string} props.poster - Optional poster image URL
- * @param {Object} props.mediaItem - Original media item data
- * @param {Function} props.onReady - Callback when player is ready
- * @param {Function} props.onError - Callback when player encounters an error
+ * @component
  */
 const VideoPlayer = ({ 
   src, 
@@ -25,12 +20,12 @@ const VideoPlayer = ({
   onReady, 
   onError 
 }) => {
+  const videoRef = useRef(null);
+  const playerRef = useRef(null);
   const [isTranscoding, setIsTranscoding] = useState(false);
   const [transcodingProgress, setTranscodingProgress] = useState(0);
   const [transcodedSrc, setTranscodedSrc] = useState(null);
   const [transcodingError, setTranscodingError] = useState(null);
-  const videoRef = useRef(null);
-  const playerRef = useRef(null);
 
   useEffect(() => {
     // Make sure Video.js player is only initialized once
@@ -40,7 +35,10 @@ const VideoPlayer = ({
       
       if (!videoElement) return;
 
-      // Initialize Video.js player with enhanced options for MOV support
+      const mimeType = mediaService.getMimeType(type);
+      console.log(`🎥 Initializing video player for: ${src} (${mimeType})`);
+      
+      // Initialize Video.js player with enhanced options for format support
       const player = playerRef.current = videojs(videoElement, {
         controls: true,
         autoplay: false,
@@ -64,121 +62,105 @@ const VideoPlayer = ({
         },
         sources: [{
           src: src,
-          type: typeof getMimeType(type) === 'string' ? getMimeType(type) : 'video/mp4'
+          type: mimeType
         }]
       }, () => {
-        console.log('Video.js player initialized for:', src);
+        console.log('✅ Video.js player initialized');
         
         // Add event listeners
         player.on('ready', () => {
-          console.log('Video.js player ready');
+          console.log('✅ Video.js player ready');
           if (onReady) onReady(player);
         });
 
         player.on('error', (error) => {
-          console.error('Video.js player error:', error);
-          
-          // Try to display more detailed error info
-          const errorObj = player.error();
-          if (errorObj) {
-            console.error(`Video.js error code: ${errorObj.code}, message: ${errorObj.message}`);
-            
-            // If it's a format error (code 4), try additional sources for MOV
-            if (errorObj.code === 4 && type?.toLowerCase() === 'mov') {
-              console.log('Trying alternative source formats for MOV file...');
-              
-              // Try alternative source
-              player.src([
-                { src: src, type: 'video/mp4' },
-                { src: src, type: 'video/quicktime' },
-                { src: src, type: 'application/x-mpegURL' }
-              ]);
-              
-              // Try to play with the new sources
-              player.load();
-              player.play().catch(playErr => {
-                console.error('Failed to play with alternative sources:', playErr);
-                console.log('Attempting to transcode the video on the fly...');
-                
-                // Try to transcode the video
-                setIsTranscoding(true);
-                
-                transcodeVideo(src, {
-                  outputFormat: 'mp4',
-                  onProgress: (progress) => {
-                    console.log(`Transcoding progress: ${Math.round(progress * 100)}%`);
-                    setTranscodingProgress(progress);
-                  }
-                }).then(transcodedUrl => {
-                  console.log('Transcoding completed, setting new source:', transcodedUrl);
-                  setTranscodedSrc(transcodedUrl);
-                  
-                  // Update player source
-                  player.src({ src: transcodedUrl, type: 'video/mp4' });
-                  player.load();
-                  player.play().catch(finalErr => {
-                    console.error('Failed to play even after transcoding:', finalErr);
-                    if (onError) onError(finalErr);
-                  });
-                  
-                  setIsTranscoding(false);
-                }).catch(transcodingErr => {
-                  console.error('Failed to transcode video:', transcodingErr);
-                  setTranscodingError(transcodingErr.message || 'Transcoding failed');
-                  setIsTranscoding(false);
-                  if (onError) onError(errorObj);
-                });
-                
-                return; // Exit early to avoid triggering onError yet
-              });
-              
-              return; // Exit early to avoid triggering onError yet
-            }
-          }
-          
-          if (onError) onError(error);
+          handlePlayerError(player, error);
         });
       });
 
-      // Add a class to identify our video player type for styling
+      // Add a class to identify our video player for styling
       player.addClass('vjs-custom-player');
     }
   }, [onReady, onError, src, type]);
 
+  /**
+   * Handle errors from the Video.js player
+   * 
+   * @param {Object} player - Video.js player instance
+   * @param {Error} error - Error object from Video.js
+   */
+  const handlePlayerError = (player, error) => {
+    const playerError = player.error();
+    const errorObj = mediaErrorService.createErrorFromMediaEvent(
+      error,
+      { ...mediaItem, src, type }
+    );
+    
+    mediaErrorService.logMediaError(errorObj);
+    
+    // Handle problematic formats with special care
+    if (mediaService.isProblematicFormat(type)) {
+      console.log('⚠️ Problematic format detected, attempting alternative strategies');
+      
+      // Log browser compatibility information
+      const compatInfo = mediaService.getBrowserCompatInfo(type);
+      console.log('📊 Browser format compatibility:', compatInfo);
+      
+      // If it's a format error (code 4), try alternative strategies
+      if (playerError?.code === 4) {
+        console.log('🔄 Trying alternative sources for format compatibility');
+        
+        // Get alternative MIME types to try
+        const altMimeTypes = mediaService.getAlternativeMimeTypes(type);
+        if (altMimeTypes.length > 0) {
+          // Create an array of sources to try
+          const sources = altMimeTypes.map(mimeType => ({
+            src,
+            type: mimeType
+          }));
+          
+          // Update player with alternative sources
+          player.src(sources);
+          player.load();
+          
+          player.one('canplay', () => {
+            console.log('✅ Alternative source playback successful');
+          });
+          
+          player.play().catch(playErr => {
+            console.error('❌ Failed to play with alternative sources:', playErr);
+            
+            // If everything failed, report the error
+            if (onError) onError(errorObj);
+          });
+          
+          return; // Exit early to avoid triggering onError yet
+        }
+      }
+    }
+    
+    // If we reach here, we couldn't recover
+    if (onError) onError(errorObj);
+  };
+
   // Dispose the Video.js player when the component unmounts
   useEffect(() => {
-    const player = playerRef.current;
-
     return () => {
+      // Clean up Video.js player
+      const player = playerRef.current;
       if (player && !player.isDisposed()) {
-        console.log('Disposing Video.js player');
+        console.log('🧹 Disposing Video.js player');
         player.dispose();
         playerRef.current = null;
       }
       
-      // Also clean up transcoded video if any
+      // Clean up transcoded source if any
       if (transcodedSrc) {
-        console.log('Releasing transcoded video');
-        releaseTranscodedVideo(transcodedSrc);
+        console.log('🧹 Revoking transcoded video URL');
+        URL.revokeObjectURL(transcodedSrc);
       }
     };
   }, [transcodedSrc]);
-
-  // Get the appropriate MIME type with better codec specifications for MOV files
-  const getMimeType = (fileType) => {
-    const type = fileType?.toLowerCase();
-    const mimeTypes = {
-      // For MOV files, try video/mp4 first as browsers often handle this better than video/quicktime
-      'mov': 'video/mp4',
-      'mp4': 'video/mp4',
-      'webm': 'video/webm',
-      'avi': 'video/x-msvideo',
-      'mkv': 'video/x-matroska',
-      'wmv': 'video/x-ms-wmv'
-    };
-    
-    return mimeTypes[type] || `video/${type}`;
-  };
 
   // Show transcoding UI if transcoding is in progress
   if (isTranscoding) {
@@ -189,7 +171,7 @@ const VideoPlayer = ({
             Converting Video Format
           </div>
           <div style={{ fontSize: '14px', marginBottom: '20px', textAlign: 'center', opacity: 0.7 }}>
-            MOV format detected. Converting to MP4 for better compatibility...
+            {type?.toUpperCase()} format detected. Converting to MP4 for better compatibility...
           </div>
         </div>
         
@@ -252,21 +234,17 @@ const VideoPlayer = ({
           className="video-js vjs-big-play-centered"
           playsInline
         >
-          {/* Use transcoded source if available, otherwise use original */}
+          {/* Use transcoded source if available, otherwise use original with multiple source options */}
           {transcodedSrc ? (
             <source src={transcodedSrc} type="video/mp4" />
-          ) : type && type.toLowerCase() === 'mov' ? (
-            // For MOV files, try multiple source formats in order of most compatible first
-            <>
-              <source src={src} type="video/mp4" />
-              <source src={src} type="video/mp4; codecs='avc1.42E01E, mp4a.40.2'" />
-              <source src={src} type="video/quicktime" />
-              <source src={src} type="video/*" /> {/* Try generic video type as fallback */}
-              <source src={src} type="application/octet-stream" /> {/* Last resort */}
-            </>
+          ) : mediaService.isProblematicFormat(type) ? (
+            // For problematic formats, try multiple source formats
+            mediaService.getAlternativeMimeTypes(type).map((mimeType, index) => (
+              <source key={index} src={src} type={mimeType} />
+            ))
           ) : (
-            // For other video types use the standard approach
-            <source src={src} type={getMimeType(type)} />
+            // For standard formats use the regular MIME type
+            <source src={src} type={mediaService.getMimeType(type)} />
           )}
           <p className="vjs-no-js">
             To view this video please enable JavaScript, and consider upgrading to a
@@ -276,6 +254,34 @@ const VideoPlayer = ({
       </div>
     </div>
   );
+};
+
+VideoPlayer.propTypes = {
+  /** Source URL for the video */
+  src: PropTypes.string.isRequired,
+  
+  /** MIME type of the video */
+  type: PropTypes.string,
+  
+  /** Optional poster image URL */
+  poster: PropTypes.string,
+  
+  /** Original media item data */
+  mediaItem: PropTypes.object,
+  
+  /** Callback when player is ready */
+  onReady: PropTypes.func,
+  
+  /** Callback when player encounters an error */
+  onError: PropTypes.func
+};
+
+VideoPlayer.defaultProps = {
+  type: '',
+  poster: '',
+  mediaItem: {},
+  onReady: () => {},
+  onError: () => {}
 };
 
 export default VideoPlayer;
