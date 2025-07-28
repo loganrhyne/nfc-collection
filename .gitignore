@@ -213,3 +213,8 @@ dashboard-ui-build/
 
 # Dashboard deployment
 collection_data/
+
+# Media files
+data/photos/
+data/videos/
+data/pdfs/
