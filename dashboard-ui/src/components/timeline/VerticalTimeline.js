@@ -195,11 +195,26 @@ const VerticalTimeline = ({ onEntrySelect }) => {
         const containerHeight = container.clientHeight;
         const entryHeight = selectedElement.offsetHeight;
         
-        // Calculate the offset needed to position the entry in the middle
-        // Formula: Middle of container - Half of entry height
-        const middleOffset = (containerHeight / 2) - (entryHeight / 2);
+        // Get the header element (SectionTitle in EntryView.js)
+        let headerElement = document.querySelector('#entry-timeline-container > h2');
         
-        console.log(`Container height: ${containerHeight}, Entry height: ${entryHeight}, Offset: ${middleOffset}`);
+        // If we can't find it directly, try a more general selector for the sticky header
+        if (!headerElement) {
+          const containerParent = document.querySelector('.timeline-container')?.parentNode;
+          if (containerParent) {
+            headerElement = containerParent.querySelector('h2');
+          }
+        }
+        
+        const headerHeight = headerElement ? headerElement.offsetHeight : 0;
+        console.log('Header element found:', !!headerElement);
+        
+        // Calculate the offset needed to position the entry in the middle
+        // Formula: Middle of container - Half of entry height - header height - header padding
+        const headerPadding = 16; // From the padding in EntryView.js
+        const middleOffset = (containerHeight / 2) - (entryHeight / 2) - headerHeight - headerPadding;
+        
+        console.log(`Container height: ${containerHeight}, Entry height: ${entryHeight}, Header height: ${headerHeight}, Header padding: ${headerPadding}, Offset: ${middleOffset}`);
         
         // First scroll the entry to the top of the view
         selectedElement.scrollIntoView({
