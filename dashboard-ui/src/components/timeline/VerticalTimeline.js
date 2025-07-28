@@ -4,9 +4,11 @@ import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
 
 const TimelineContainer = styled.div`
-  height: calc(100% - 16px);
-  overflow-y: auto;
+  height: calc(100% - 16px) !important;
+  overflow-y: auto !important;
   padding: 20px 16px 20px 0;
+  display: flex;
+  flex-direction: column;
 `;
 
 // Main timeline layout
@@ -177,10 +179,12 @@ const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
   // Define a custom hook for scrolling selected entries
   const scrollSelectedEntryIntoView = useCallback(() => {
     if (!selectedEntry) {
+      console.log('No selected entry to scroll to');
       return;
     }
     
     if (!timelineContainerRef.current) {
+      console.log('Timeline container ref is not available');
       return;
     }
     
@@ -188,6 +192,7 @@ const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
       // First find the target element
       const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
       if (!selectedElement) {
+        console.warn(`Could not find element for entry ${selectedEntry.uuid} - DOM element may not exist yet`);
         return;
       }
       
@@ -227,13 +232,52 @@ const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
       const container = timelineContainerRef.current;
       const newScrollTop = selectedElement.offsetTop - headerHeight - previousEntryHeight;
       
-      // Do the scrolling with smooth animation
-      container.scrollTo({
-        top: newScrollTop,
-        behavior: 'smooth'
+      console.log('DEBUG: Container:', {
+        scrollable: getComputedStyle(container).overflowY,
+        scrollHeight: container.scrollHeight,
+        clientHeight: container.clientHeight,
+        currentScrollTop: container.scrollTop,
+        newScrollTop: newScrollTop
       });
       
-      console.log(`Scrolling to position ${newScrollTop} to show entry with previous entry visible`);
+      // Try multiple approaches to ensure scrolling works
+      
+      // 1. Direct property setting - most immediate
+      console.log('Method 1: Setting scrollTop directly');
+      container.scrollTop = newScrollTop;
+      
+      // 2. Use scrollTo with auto behavior
+      console.log('Method 2: Using scrollTo with auto behavior');
+      container.scrollTo({
+        top: newScrollTop,
+        behavior: 'auto'
+      });
+      
+      // 3. Try again with smooth animation after a slight delay
+      setTimeout(() => {
+        console.log('Method 3: Using scrollTo with smooth behavior');
+        container.scrollTo({
+          top: newScrollTop,
+          behavior: 'smooth'
+        });
+        
+        // Log the current scroll position
+        console.log(`Current scrollTop after attempt: ${container.scrollTop}`);
+        
+        // If scrolling didn't work, try more aggressive approach
+        if (Math.abs(container.scrollTop - newScrollTop) > 50) {
+          console.log('Scrolling did not succeed, trying forceful approach');
+          
+          // Force the container to be scrollable
+          container.style.overflowY = 'auto';
+          container.style.height = 'calc(100% - 16px)';
+          
+          // Try again with direct assignment
+          container.scrollTop = newScrollTop;
+        }
+      }, 100);
+      
+      console.log(`Attempting to scroll to position ${newScrollTop}`);
     } catch (error) {
       console.error('Error scrolling to selected entry:', error);
     }
@@ -243,8 +287,15 @@ const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
   // Trigger the scroll when selected entry changes
   useEffect(() => {
     // Short timeout to ensure DOM is ready
-    const timeoutId = setTimeout(scrollSelectedEntryIntoView, 100);
-    return () => clearTimeout(timeoutId);
+    const timeoutId = setTimeout(scrollSelectedEntryIntoView, 200);
+    
+    // Try again after a longer delay as a fallback
+    const secondAttemptId = setTimeout(scrollSelectedEntryIntoView, 500);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(secondAttemptId);
+    };
   }, [selectedEntry, scrollSelectedEntryIntoView]);
   
   // Sort entries by date (newest first)
