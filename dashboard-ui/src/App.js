@@ -18,8 +18,8 @@ import './App.css';
 function Dashboard() {
   const navigate = useNavigate();
   
-  // Handle entry selection
-  const handleEntrySelection = useCallback((entry) => {
+  // Handle navigation to entry view (separate from selection)
+  const handleNavigateToEntryView = useCallback((entry) => {
     if (entry && entry.uuid) {
       navigate(`/entry/${entry.uuid}`);
     }
@@ -59,7 +59,7 @@ function Dashboard() {
 
   // Content for the right column (always the timeline)
   const rightColumnContent = (
-    <VerticalTimeline onEntrySelect={handleEntrySelection} />
+    <VerticalTimeline onEntrySelect={handleNavigateToEntryView} />
   );
 
   return (

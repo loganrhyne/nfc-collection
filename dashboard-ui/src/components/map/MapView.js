@@ -264,8 +264,9 @@ const MapView = () => {
   // show the current filtered set, regardless of how the filtering was done
   const bounds = getMapBounds();
   
-  // Handle marker click to show entry details
-  const handleMarkerClick = (entry) => {
+  // Handle marker click to select entry in timeline without navigation
+  // This will be called from the popup's "View Entry" button
+  const handleViewEntryClick = (entry) => {
     setSelectedEntry(entry);
   };
   
@@ -348,15 +349,35 @@ const MapView = () => {
               key={entry.uuid}
               position={[entry.location.latitude, entry.location.longitude]}
               icon={getEntryIcon(entry.type)}
-              eventHandlers={{
-                click: () => handleMarkerClick(entry),
-              }}
             >
               <Popup>
-                <div>
-                  <h3>{entry.title}</h3>
-                  <p>{entry.type} - {entry.region}</p>
-                  <p>{new Date(entry.creationDate).toLocaleDateString()}</p>
+                <div style={{ textAlign: 'left', padding: '4px 0' }}>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>{entry.title}</h3>
+                  <p style={{ margin: '4px 0', fontSize: '14px' }}>
+                    <strong>Type:</strong> <span style={{ color: colorScheme[entry.type] || '#333' }}>{entry.type}</span>
+                  </p>
+                  <p style={{ margin: '4px 0', fontSize: '14px' }}>
+                    <strong>Region:</strong> {entry.region}
+                  </p>
+                  <p style={{ margin: '4px 0', fontSize: '14px' }}>
+                    <strong>Date:</strong> {new Date(entry.creationDate).toLocaleDateString()}
+                  </p>
+                  <button 
+                    onClick={() => handleViewEntryClick(entry)}
+                    style={{
+                      marginTop: '8px',
+                      padding: '6px 12px',
+                      backgroundColor: '#1976d2',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    View Entry
+                  </button>
                 </div>
               </Popup>
             </Marker>
