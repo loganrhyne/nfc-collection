@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
@@ -144,6 +144,9 @@ const EmptyState = styled.div`
 const VerticalTimeline = ({ onEntrySelect }) => {
   const { entries, selectedEntry, setSelectedEntry } = useData();
   
+  // Reference to the timeline container for scrolling
+  const timelineContainerRef = useRef(null);
+  
   // Format date for display
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -168,6 +171,36 @@ const VerticalTimeline = ({ onEntrySelect }) => {
       onEntrySelect(selectedEntry);
     }
   }, [selectedEntry, onEntrySelect]);
+  
+  // Scroll to position selected entry as second-from-top
+  useEffect(() => {
+    if (!selectedEntry || !timelineContainerRef.current) return;
+    
+    // Find the DOM element for the selected entry
+    const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
+    if (!selectedElement) return;
+    
+    // Get container's scroll properties
+    const containerRect = timelineContainerRef.current.getBoundingClientRect();
+    const containerTop = containerRect.top;
+    
+    // Calculate position for the selected entry (second from top)
+    // We'll use the top of the container plus the height of one entry plus some padding
+    const entryHeight = selectedElement.offsetHeight;
+    const desiredPosition = containerTop + entryHeight + 24; // Add extra padding (24px)
+    
+    // Get current position of the selected element
+    const selectedRect = selectedElement.getBoundingClientRect();
+    
+    // Calculate the scroll adjustment needed
+    const scrollAdjustment = selectedRect.top - desiredPosition;
+    
+    // Apply smooth scrolling
+    timelineContainerRef.current.scrollBy({
+      top: scrollAdjustment,
+      behavior: 'smooth'
+    });
+  }, [selectedEntry]);
   
   // Sort entries by date (newest first)
   const sortedEntries = [...entries].sort((a, b) => 
