@@ -141,7 +141,7 @@ const EmptyState = styled.div`
   color: #666;
 `;
 
-const VerticalTimeline = ({ onEntrySelect }) => {
+const VerticalTimeline = ({ onEntrySelect, initialScrollOffset = 20 }) => {
   const { entries, selectedEntry, setSelectedEntry } = useData();
   
   // Reference to the timeline container for scrolling
@@ -176,6 +176,7 @@ const VerticalTimeline = ({ onEntrySelect }) => {
   
   // Define a custom hook for scrolling selected entries with enhanced debugging
   const scrollSelectedEntryIntoView = useCallback(() => {
+    console.log('Attempting to scroll selected entry into view with offset:', initialScrollOffset);
     if (!selectedEntry) {
       console.log('No selected entry to scroll to');
       return;
@@ -214,10 +215,10 @@ const VerticalTimeline = ({ onEntrySelect }) => {
         offsetHeight: selectedElement.offsetHeight
       });
       
-      // Calculate the appropriate scroll position
-      // We want the selected entry to be visible with just a bit of padding at the top
-      // Use a smaller offset to keep more of the element in view
-      const newScrollTop = selectedElement.offsetTop - 20; // 20px from top
+      // Use the initialScrollOffset prop to control positioning
+      // This allows different instances of this component to use different offsets
+      console.log(`Using scroll offset: ${initialScrollOffset}px`);
+      const newScrollTop = selectedElement.offsetTop - initialScrollOffset;
       
       // Force the container to be scrollable if it's not
       if (getComputedStyle(container).overflow !== 'auto' && 
@@ -229,18 +230,44 @@ const VerticalTimeline = ({ onEntrySelect }) => {
       // Do the actual scrolling
       console.log(`Setting container.scrollTop = ${newScrollTop}`);
       
-      // Try two methods:
-      // 1. Direct scrollTop assignment
+      // Try FOUR different methods to ensure something works
+      
+      // Method 1: Direct scrollTop assignment (most reliable)
+      console.log('Method 1: Setting scrollTop directly');
       container.scrollTop = newScrollTop;
       
-      // 2. Use scrollTo with smooth behavior
+      // Method 2: Use scrollTo with immediate behavior
+      console.log('Method 2: Using scrollTo with auto behavior');
       container.scrollTo({
         top: newScrollTop,
-        behavior: 'smooth'
+        behavior: 'auto' // Try 'auto' instead of 'smooth'
       });
       
-      // Also try scrollIntoView as fallback with direct DOM reference
-      selectedElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Method 3: Use scrollTo with smooth behavior after a slight delay
+      setTimeout(() => {
+        console.log('Method 3: Using scrollTo with smooth behavior');
+        container.scrollTo({
+          top: newScrollTop,
+          behavior: 'smooth'
+        });
+      }, 50);
+      
+      // Method 4: As absolute last resort, try scrollIntoView
+      setTimeout(() => {
+        console.log('Method 4: Using native scrollIntoView');
+        try {
+          // Force a different scroll offset by calculating a different position
+          const scrollOffset = initialScrollOffset * 2; // Try a larger offset
+          window.scrollBy(0, -scrollOffset); // Scroll up by offset first
+          selectedElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+          window.scrollBy(0, -scrollOffset); // Scroll up again to create space
+        } catch (e) {
+          console.error('Final scrollIntoView failed:', e);
+        }
+      }, 100);
       
       // Log attempt details
       console.log('DEBUG: Scroll attempt complete:', {
@@ -259,7 +286,7 @@ const VerticalTimeline = ({ onEntrySelect }) => {
     } catch (error) {
       console.error('Error scrolling to selected entry:', error);
     }
-  }, [selectedEntry]);
+  }, [selectedEntry, initialScrollOffset]);
 
   
   // Trigger the scroll when selected entry changes

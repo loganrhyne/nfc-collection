@@ -59,7 +59,10 @@ function Dashboard() {
 
   // Content for the right column (always the timeline)
   const rightColumnContent = (
-    <VerticalTimeline onEntrySelect={handleNavigateToEntryView} />
+    <VerticalTimeline 
+      onEntrySelect={handleNavigateToEntryView}
+      initialScrollOffset={120} // Using larger offset to test scrolling
+    />
   );
 
   return (
