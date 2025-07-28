@@ -36,7 +36,8 @@ export const DataProvider = ({ children, entryIdFromUrl }) => {
     type: null,
     region: null,
     quarter: null,
-    search: ''
+    search: '',
+    geo: null  // New geographic filter
   });
   
   // Track which chart set each filter to better communicate the source
@@ -436,7 +437,8 @@ export const DataProvider = ({ children, entryIdFromUrl }) => {
       type: null,
       region: null,
       quarter: null,
-      search: ''
+      search: '',
+      geo: null
     });
     
     // Clear all filter sources and metadata

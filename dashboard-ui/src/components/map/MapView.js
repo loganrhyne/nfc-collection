@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Rectangle } from 'react-leaflet';
 import MapTileSelector from './MapTileSelector';
 import L from 'leaflet';
 import { useData } from '../../context/DataContext';
@@ -13,11 +13,52 @@ import 'leaflet/dist/leaflet.css';
 const MapWrapper = styled.div`
   height: 100%;
   width: 100%;
+  position: relative;
   
   .leaflet-container {
     height: 100%;
     width: 100%;
     border-radius: 8px;
+  }
+`;
+
+const MapControls = styled.div`
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  background-color: white;
+  padding: 5px;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+`;
+
+const ControlButton = styled.button`
+  padding: 6px 10px;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    background-color: #f5f5f5;
+  }
+  
+  &.active {
+    background-color: #e1f5fe;
+    border-color: #2196f3;
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 `;
 
@@ -54,14 +95,18 @@ const getEntryIcon = (type) => {
 };
 
 /**
- * BoundsFitter component - updates map bounds when entries change
+ * BoundsFitter component - updates map bounds when entries change and handles area selection
  * Uses the useMap hook to access the Leaflet map instance and update its bounds
  */
-const BoundsFitter = ({ bounds }) => {
+const BoundsFitter = ({ bounds, areaSelectionMode, onSelectionComplete }) => {
   const map = useMap();
+  const [startPoint, setStartPoint] = useState(null);
+  const [currentPoint, setCurrentPoint] = useState(null);
+  const [selectionActive, setSelectionActive] = useState(false);
   
+  // Handle map bounds update
   useEffect(() => {
-    if (bounds && bounds[0] && bounds[1]) {
+    if (bounds && bounds[0] && bounds[1] && !areaSelectionMode) {
       // Convert to Leaflet bounds format
       const leafletBounds = L.latLngBounds(bounds);
       
@@ -75,16 +120,120 @@ const BoundsFitter = ({ bounds }) => {
         });
       }
     }
-  }, [bounds, map]);
+  }, [bounds, map, areaSelectionMode]);
 
-  return null;  // This is a utility component with no visual output
+  // Set up map event handlers for area selection
+  useEffect(() => {
+    if (!map) return;
+    
+    // Enable or disable dragging based on selection mode
+    if (areaSelectionMode) {
+      map.dragging.disable();
+      map.getContainer().style.cursor = 'crosshair';
+    } else {
+      map.dragging.enable();
+      map.getContainer().style.cursor = '';
+      setStartPoint(null);
+      setCurrentPoint(null);
+      setSelectionActive(false);
+    }
+    
+    // Define the event handlers
+    const handleMouseDown = (e) => {
+      if (areaSelectionMode) {
+        setStartPoint(e.latlng);
+        setCurrentPoint(e.latlng);
+        setSelectionActive(true);
+      }
+    };
+    
+    const handleMouseMove = (e) => {
+      if (areaSelectionMode && selectionActive) {
+        setCurrentPoint(e.latlng);
+      }
+    };
+    
+    const handleMouseUp = (e) => {
+      if (areaSelectionMode && selectionActive && startPoint) {
+        setSelectionActive(false);
+        
+        // Create bounds from the two points
+        const bounds = L.latLngBounds(
+          L.latLng(
+            Math.min(startPoint.lat, e.latlng.lat),
+            Math.min(startPoint.lng, e.latlng.lng)
+          ),
+          L.latLng(
+            Math.max(startPoint.lat, e.latlng.lat),
+            Math.max(startPoint.lng, e.latlng.lng)
+          )
+        );
+        
+        // Call the callback with the bounds
+        if (onSelectionComplete && bounds.isValid()) {
+          onSelectionComplete(bounds);
+        }
+      }
+    };
+    
+    // Add the event listeners
+    if (areaSelectionMode) {
+      map.on('mousedown', handleMouseDown);
+      map.on('mousemove', handleMouseMove);
+      map.on('mouseup', handleMouseUp);
+    }
+    
+    // Clean up
+    return () => {
+      map.off('mousedown', handleMouseDown);
+      map.off('mousemove', handleMouseMove);
+      map.off('mouseup', handleMouseUp);
+    };
+  }, [map, areaSelectionMode, onSelectionComplete, startPoint, selectionActive]);
+
+  // Render selection rectangle if selection is active
+  return (
+    <>
+      {areaSelectionMode && startPoint && currentPoint && (
+        <Rectangle
+          bounds={[
+            [
+              Math.min(startPoint.lat, currentPoint.lat),
+              Math.min(startPoint.lng, currentPoint.lng)
+            ],
+            [
+              Math.max(startPoint.lat, currentPoint.lat),
+              Math.max(startPoint.lng, currentPoint.lng)
+            ]
+          ]}
+          pathOptions={{
+            color: '#1976d2',
+            weight: 2,
+            fillOpacity: 0.2,
+            opacity: 0.7
+          }}
+        />
+      )}
+    </>
+  );
 };
 
 const MapView = () => {
-  const { entries, filters, setSelectedEntry } = useData();
+  const { 
+    entries, 
+    filters, 
+    setSelectedEntry, 
+    setFilter,
+    resetFilters 
+  } = useData();
+  
+  // State for area selection mode
+  const [areaSelectionMode, setAreaSelectionMode] = useState(false);
+  // State for active geographic filter
+  const [geoFilter, setGeoFilter] = useState(null);
   
   // Calculate map bounds based on entry locations
-  const getMapBounds = () => {
+  const getMapBounds = useCallback(() => {
     if (!entries.length) return [[0, 0], [0, 0]];
     
     const validEntries = entries.filter(entry => 
@@ -112,15 +261,58 @@ const MapView = () => {
       [minLat - latPadding, minLng - lngPadding],
       [maxLat + latPadding, maxLng + lngPadding]
     ];
-  };
+  }, [entries]);
   
-  // Keep track of current bounds
-  const bounds = getMapBounds();
+  // Use geoFilter bounds if active, otherwise calculate from entries
+  const bounds = geoFilter?.bounds || getMapBounds();
   
   // Handle marker click to show entry details
   const handleMarkerClick = (entry) => {
     setSelectedEntry(entry);
   };
+  
+  // Handle area selection completed
+  const handleAreaSelectionComplete = useCallback((bounds) => {
+    // Create a geographic filter from the selected area
+    const newGeoFilter = {
+      type: 'geo',
+      bounds: [
+        [bounds.getSouth(), bounds.getWest()],
+        [bounds.getNorth(), bounds.getEast()]
+      ]
+    };
+    
+    // Apply the filter
+    setGeoFilter(newGeoFilter);
+    
+    // Set area selection mode to false after selecting
+    setAreaSelectionMode(false);
+    
+    // Set a special filter to trigger the context update
+    // We use a custom filter format here that will be handled in the context
+    setFilter('geo', {
+      south: bounds.getSouth(),
+      west: bounds.getWest(),
+      north: bounds.getNorth(),
+      east: bounds.getEast()
+    }, 'map', 'selection');
+  }, [setFilter]);
+  
+  // Clear the geographic filter
+  const clearGeoFilter = useCallback(() => {
+    setGeoFilter(null);
+    // Clear the geo filter in the context
+    setFilter('geo', null);
+  }, [setFilter]);
+  
+  // Toggle area selection mode
+  const toggleAreaSelection = useCallback(() => {
+    setAreaSelectionMode(prev => !prev);
+    // If turning off selection mode, also clear any current rectangle being drawn
+    if (areaSelectionMode) {
+      // We don't clear the filter here, just the selection mode
+    }
+  }, [areaSelectionMode]);
   
   // If no entries with valid locations, show a message
   if (!entries.some(entry => entry.location && entry.location.latitude && entry.location.longitude)) {
@@ -144,11 +336,29 @@ const MapView = () => {
         style={{ height: '100%', width: '100%' }}
       >
         {/* BoundsFitter updates the map bounds when entries change */}
-        <BoundsFitter bounds={bounds} />
+        <BoundsFitter 
+          bounds={bounds} 
+          areaSelectionMode={areaSelectionMode} 
+          onSelectionComplete={handleAreaSelectionComplete} 
+        />
         
         {/* MapTileSelector provides tile layer selection UI and renders the active tile layer */}
         <MapTileSelector />
         
+        {/* Render existing geographic filter if present */}
+        {geoFilter && (
+          <Rectangle
+            bounds={geoFilter.bounds}
+            pathOptions={{
+              color: '#1976d2',
+              weight: 2,
+              fillOpacity: 0.1,
+              opacity: 0.5
+            }}
+          />
+        )}
+        
+        {/* Render markers for entries */}
         {entries.map((entry) => (
           entry.location && entry.location.latitude && entry.location.longitude ? (
             <Marker
@@ -170,6 +380,25 @@ const MapView = () => {
           ) : null
         ))}
       </MapContainer>
+      
+      {/* Map controls */}
+      <MapControls>
+        <ControlButton 
+          onClick={toggleAreaSelection}
+          className={areaSelectionMode ? 'active' : ''}
+          title={areaSelectionMode ? 'Cancel selection' : 'Select area'}
+        >
+          {areaSelectionMode ? 'Cancel Selection' : 'Select Area'}
+        </ControlButton>
+        
+        <ControlButton 
+          onClick={clearGeoFilter}
+          disabled={!geoFilter}
+          title="Clear area filter"
+        >
+          Clear Area Filter
+        </ControlButton>
+      </MapControls>
     </MapWrapper>
   );
 };

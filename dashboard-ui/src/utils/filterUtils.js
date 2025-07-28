@@ -5,7 +5,7 @@
 /**
  * Valid dimensions for filtering
  */
-export const FILTER_DIMENSIONS = ['type', 'region', 'quarter', 'search'];
+export const FILTER_DIMENSIONS = ['type', 'region', 'quarter', 'search', 'geo'];
 
 /**
  * Check if a dimension is valid for filtering
@@ -44,6 +44,26 @@ export const applyFilter = (entries, dimension, value) => {
         entry.title?.toLowerCase().includes(searchLower) || 
         entry.text?.toLowerCase().includes(searchLower)
       );
+    
+    case 'geo':
+      // Filter entries by geographic bounds
+      if (!value || typeof value !== 'object') return entries;
+      const { south, west, north, east } = value;
+      if (typeof south !== 'number' || typeof west !== 'number' || 
+          typeof north !== 'number' || typeof east !== 'number') return entries;
+
+      // Filter entries that have valid locations within the bounds
+      return entries.filter(entry => {
+        if (!entry.location || typeof entry.location.latitude !== 'number' || 
+            typeof entry.location.longitude !== 'number') {
+          return false;
+        }
+        
+        const lat = entry.location.latitude;
+        const lng = entry.location.longitude;
+        
+        return lat >= south && lat <= north && lng >= west && lng <= east;
+      });
     
     default:
       return entries;
@@ -108,6 +128,10 @@ export const formatFilterValue = (dimension, value) => {
     case 'search':
       // For search, add quotes around the search term
       return `"${value}"`;
+    
+    case 'geo':
+      // For geographic filter, just return a simple indicator
+      return 'Selected Area';
       
     default:
       return value;
@@ -129,6 +153,8 @@ export const getDimensionDisplayName = (dimension) => {
       return 'Quarter';
     case 'search':
       return 'Search';
+    case 'geo':
+      return 'Map Area';
     default:
       return dimension;
   }
