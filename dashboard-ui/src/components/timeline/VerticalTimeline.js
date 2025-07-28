@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
@@ -174,58 +174,47 @@ const VerticalTimeline = ({ onEntrySelect }) => {
     }
   }, [selectedEntry, onEntrySelect]);
   
-  // Scroll to position selected entry as second-from-top
-  useEffect(() => {
-    // Only proceed if we have a selected entry
-    if (!selectedEntry) return;
+  // Define a custom hook for scrolling selected entries
+  const scrollSelectedEntryIntoView = useCallback(() => {
+    if (!selectedEntry || !timelineContainerRef.current) return;
     
-    // Give DOM time to update after selection changes
-    const timeoutId = setTimeout(() => {
-      try {
-        // Safely check for DOM elements
-        if (!timelineContainerRef.current) {
-          console.log('Timeline container ref is null');
-          return;
-        }
-        
-        // Find the DOM element for the selected entry
-        const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
-        if (!selectedElement) {
-          console.log(`Could not find element for entry ${selectedEntry.uuid}`);
-          return;
-        }
-
-        // Instead of using relative positioning, calculate where the entry should be
-        // in relation to the container's scrollTop property
-        
-        // Get the relative position of the selected element within its container
-        const containerTop = timelineContainerRef.current.offsetTop;
-        const selectedTop = selectedElement.offsetTop;
-        
-        // Calculate the desired scroll position with factor of 1.8 entry heights
-        const entryHeight = selectedElement.offsetHeight;
-        const desiredScrollTop = selectedTop - containerTop - (entryHeight * 1.8); // Position at 1.8x entry height
-        
-        // Apply smooth scrolling using scrollTop
-        timelineContainerRef.current.scrollTo({
-          top: desiredScrollTop,
-          behavior: 'smooth'
-        });
-        
-        console.log('Scrolling timeline with direct method:', {
-          selectedEntry: selectedEntry.uuid,
-          containerOffsetTop: containerTop,
-          elementOffsetTop: selectedTop,
-          scrollTo: desiredScrollTop
-        });
-      } catch (error) {
-        console.error('Error during timeline scrolling:', error);
-      }
-    }, 300); // Longer delay to ensure DOM is fully updated
-    
-    // Clean up timeout if component unmounts
-    return () => clearTimeout(timeoutId);
+    try {
+      // First find the target element
+      const selectedElement = document.getElementById(`timeline-entry-${selectedEntry.uuid}`);
+      if (!selectedElement) return;
+      
+      // Get the necessary measurements
+      const container = timelineContainerRef.current;
+      
+      // Calculate the top position of the element relative to the container
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = selectedElement.getBoundingClientRect();
+      
+      // Calculate the exact scroll position to place element properly
+      const offset = elementRect.top - containerRect.top;
+      const scrollPosition = container.scrollTop + offset - 80; // 80px from top for "second-from-top" position
+      
+      // Do the actual scrolling
+      container.scrollTo({
+        top: scrollPosition,
+        behavior: 'smooth'
+      });
+      
+      console.log('Scrolling to entry:', {
+        entry: selectedEntry.uuid,
+        position: scrollPosition
+      });
+    } catch (error) {
+      console.error('Error scrolling to selected entry:', error);
+    }
   }, [selectedEntry]);
+  
+  // Trigger the scroll when selected entry changes
+  useEffect(() => {
+    // Short timeout to ensure DOM is ready
+    const timeoutId = setTimeout(scrollSelectedEntryIntoView, 100);
+    return () => clearTimeout(timeoutId);
+  }, [selectedEntry, scrollSelectedEntryIntoView]);
   
   // Sort entries by date (newest first)
   const sortedEntries = [...entries].sort((a, b) => 
