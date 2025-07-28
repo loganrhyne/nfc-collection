@@ -244,6 +244,45 @@ const MediaVideo = ({ mediaPath, mediaItem }) => {
   
   const handleError = (e) => {
     console.error(`❌ Failed to load video: ${mediaPath}`, e);
+    
+    // Provide more detailed diagnostics for MOV files
+    if (mediaItem.type.toLowerCase() === 'mov') {
+      console.warn(`🚨 MOV format detected: ${mediaItem.type}`);
+      console.warn('📝 Many browsers have limited support for QuickTime MOV format.');
+      console.warn('📝 Suggested solutions:');
+      console.warn('  1. Convert MOV files to MP4 format for better browser compatibility');
+      console.warn('  2. Ensure proper MIME types are set on your server');
+      console.warn('  3. Check if your browser supports QuickTime format');
+      
+      // Check browser capabilities and codecs
+      const videoElement = document.createElement('video');
+      console.log('Browser video support diagnostics:');
+      console.log(`- Can play MOV/QuickTime: ${videoElement.canPlayType('video/quicktime') || 'no/unknown'}`);
+      console.log(`- Can play MP4: ${videoElement.canPlayType('video/mp4') || 'no/unknown'}`);
+      console.log(`- Can play MP4 with H.264: ${videoElement.canPlayType('video/mp4; codecs="avc1.42E01E"') || 'no/unknown'}`);
+      console.log(`- Can play MOV with H.264: ${videoElement.canPlayType('video/quicktime; codecs="avc1.42E01E"') || 'no/unknown'}`);
+      
+      // Check if MediaSource Extensions are supported
+      if ('MediaSource' in window) {
+        console.log('✅ MediaSource API is supported in this browser');
+        if (MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E, mp4a.40.2"')) {
+          console.log('✅ H.264 video codec is supported');
+        } else {
+          console.warn('❌ H.264 video codec is NOT supported');
+        }
+      } else {
+        console.warn('❌ MediaSource API is NOT supported in this browser');
+      }
+      
+      // Try to fetch error details from event
+      if (e && e.target) {
+        console.warn('Video element error details:');
+        console.warn(`- Error code: ${e.target.error ? e.target.error.code : 'unknown'}`);
+        console.warn(`- NetworkState: ${e.target.networkState}`);
+        console.warn(`- ReadyState: ${e.target.readyState}`);
+      }
+    }
+    
     setError(true);
   };
   
@@ -263,30 +302,62 @@ const MediaVideo = ({ mediaPath, mediaItem }) => {
   };
   
   if (error) {
+    const isMOV = mediaItem.type.toLowerCase() === 'mov';
+    
     return (
       <div className="media-item-error">
         <div style={{ padding: '20px', textAlign: 'center' }}>
           <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎬</div>
-          <div>Video not found or format not supported</div>
+          
+          {isMOV ? (
+            <>
+              <div>QuickTime MOV format not supported in browser</div>
+              <div style={{ fontSize: '13px', margin: '8px 0', color: '#666' }}>
+                Most browsers have limited support for MOV files.
+                <div style={{ marginTop: '4px' }}>Try converting to MP4 format for better compatibility.</div>
+              </div>
+            </>
+          ) : (
+            <div>Video format not supported by your browser</div>
+          )}
+          
           <div style={{ fontSize: '12px', marginTop: '8px', color: '#666' }}>
             {mediaItem.md5}.{mediaItem.type}
           </div>
-          <a 
-            href={mediaPath} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-block',
-              marginTop: '12px',
-              padding: '6px 12px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              borderRadius: '4px',
-              textDecoration: 'none'
-            }}
-          >
-            Download Video
-          </a>
+          
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '12px' }}>
+            <a 
+              href={mediaPath} 
+              download={`${mediaItem.md5}.${mediaItem.type}`}
+              style={{
+                display: 'inline-block',
+                padding: '6px 12px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                borderRadius: '4px',
+                textDecoration: 'none'
+              }}
+            >
+              Download Video
+            </a>
+            {isMOV && (
+              <a 
+                href={mediaPath}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-block',
+                  padding: '6px 12px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  borderRadius: '4px',
+                  textDecoration: 'none'
+                }}
+              >
+                Open in New Tab
+              </a>
+            )}
+          </div>
         </div>
       </div>
     );
