@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getMediaPath, getPhotoPath, getVideoPath, getPdfPath } from '../../utils/mediaPath';
-import { diagnosePaths } from '../../utils/fileChecker';
+// Debug utilities removed - using standard paths now
 import styled from 'styled-components';
 import '../../styles/mediaGrid.css';
 
@@ -143,10 +143,7 @@ const MediaImage = ({ src, mediaItem }) => {
       height: mediaItem.height 
     });
     
-    // Diagnose path issues
-    if (src && src.startsWith('/data/')) {
-      diagnosePaths(src.substring(1)); // Remove leading slash
-    }
+    // Standard path diagnostics removed - using public directory now
   }, [src, mediaItem]);
   
   const handleLoad = () => {
@@ -422,21 +419,23 @@ const MediaRenderer = ({ mediaItems, onMediaClick }) => {
         
         // Get the appropriate path based on media type
         let mediaPath;
-        // Handle various media types and determine the appropriate directory
+        // Handle various media types - all media files are now in public/data directories
         const videoFormats = ['mp4', 'mov', 'avi', 'webm', 'mkv', 'wmv'];
         const imageFormats = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'];
         
         if (type === 'photo' || imageFormats.includes(type.toLowerCase())) {
           mediaPath = getPhotoPath(item);
-          console.log(`📷 Treating ${type} as a photo`);  
+          console.log(`📷 Photo path: ${mediaPath}`);  
         } else if (type === 'video' || videoFormats.includes(type.toLowerCase())) {
           mediaPath = getVideoPath(item);
-          console.log(`🎬 Treating ${type} as a video`);  
+          console.log(`🎬 Video path: ${mediaPath}`);  
         } else if (type === 'pdf') {
           mediaPath = getPdfPath(item);
+          console.log(`📄 PDF path: ${mediaPath}`);  
         } else {
-          console.warn(`⚠️ Unknown media type: ${type}, using general path`);  
+          // Default to media path
           mediaPath = getMediaPath(item);
+          console.log(`💾 General media path: ${mediaPath}`);  
         }
         
         return (

@@ -8,27 +8,9 @@
  * @param {Object} media - Media item with type and identifier
  * @returns {string} - Path to the media file
  */
-// Base path for media files - will try different paths in a fallback sequence
-const getBasePath = () => {
-  // Different possible locations for the data directory
-  const possiblePaths = [
-    './data',           // Relative path in development
-    '/data',            // Absolute path from webroot
-    '../data',          // One level up
-    '/public/data',     // In public folder
-    '/dashboard-ui/data' // Full path
-  ];
-  
-  // In development mode, we'll try relative paths first
-  if (process.env.NODE_ENV === 'development') {
-    return possiblePaths[0];
-  }
-  
-  // In production, we'll use absolute paths
-  return possiblePaths[1];
-};
-
-const BASE_MEDIA_PATH = getBasePath();
+// Base path for media files in the public directory
+// This is the standard location for static assets in React apps
+const BASE_MEDIA_PATH = '/data';
 
 export const getMediaPath = (media) => {
   if (!media) {

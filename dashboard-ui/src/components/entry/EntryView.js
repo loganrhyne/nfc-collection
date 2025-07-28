@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import MediaRenderer from '../media/MediaRenderer';
 import { processMediaReferences } from '../../utils/mediaProcessing';
 import { getPhotoPath } from '../../utils/mediaPath';
-import MediaPathDebugger from '../debug/MediaPathDebugger';
+// Debug components removed - using standard paths now
 
 const EntryViewContainer = styled.div`
   display: flex;
@@ -422,10 +422,7 @@ const EntryView = ({ entryId, onReturn }) => {
                 <ContentSectionTitle>Photos</ContentSectionTitle>
                 <MediaRenderer mediaItems={photos} />
                 
-                {/* Add media path debugger for the first photo */}
-                {process.env.NODE_ENV === 'development' && photos[0] && (
-                  <MediaPathDebugger md5={photos[0].md5} type={photos[0].type} />
-                )}
+                {/* Debug components removed - using standard paths now */}
               </MediaContainer>
             )}
             

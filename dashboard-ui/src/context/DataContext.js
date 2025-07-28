@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import journalData from '../data/journal.json';
+// Will load journal data dynamically from the public directory
 import { processEntries } from '../utils/dataProcessing';
 import { 
   isValidDimension, 
@@ -59,22 +59,40 @@ export const DataProvider = ({ children, entryIdFromUrl }) => {
   const [gridMapping, setGridMapping] = useState({});
   const [selectedEntry, setSelectedEntry] = useState(null);
 
-  // Process journal data on component mount
+  // Process journal data on component mount - load dynamically from public directory
   useEffect(() => {
-    const processed = processEntries(journalData.entries);
-    setEntries(processed);
-    setFilteredEntries(processed);
+    // Fetch journal data from the public directory
+    const loadJournalData = async () => {
+      try {
+        const response = await fetch('/data/journal.json');
+        if (!response.ok) {
+          console.error('Failed to load journal data:', response.status, response.statusText);
+          return;
+        }
+        
+        const journalData = await response.json();
+        console.log('✅ Journal data loaded successfully');
+        
+        const processed = processEntries(journalData.entries);
+        setEntries(processed);
+        setFilteredEntries(processed);
+        
+        // If an entry ID was provided in the URL, find and select that entry
+        if (entryIdFromUrl) {
+          const entryFromUrl = processed.find(entry => entry.uuid === entryIdFromUrl);
+          if (entryFromUrl) {
+            setSelectedEntry(entryFromUrl);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading journal data:', error);
+      }
+    };
+    
+    loadJournalData();
     
     // TODO: Load grid mapping from storage or API
     // For now we'll use an empty object
-    
-    // If an entry ID was provided in the URL, find and select that entry
-    if (entryIdFromUrl) {
-      const entryFromUrl = processed.find(entry => entry.uuid === entryIdFromUrl);
-      if (entryFromUrl) {
-        setSelectedEntry(entryFromUrl);
-      }
-    }
   }, [entryIdFromUrl]);
 
   /**
