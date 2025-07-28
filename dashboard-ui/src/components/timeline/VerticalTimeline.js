@@ -6,65 +6,119 @@ import colorScheme from '../../utils/colorScheme';
 const TimelineContainer = styled.div`
   height: calc(100% - 16px);
   overflow-y: auto;
+  padding: 20px 16px 20px 0;
+`;
+
+// Main timeline layout
+const TimelineLayout = styled.div`
   position: relative;
-  padding: 20px 10px 20px 0;
+  padding-left: 32px; /* Space for timeline and dot */
 `;
 
 // Vertical line that runs through the timeline
 const VerticalLine = styled.div`
   position: absolute;
-  left: 30px;
+  left: 16px; /* Centered line position */
   top: 0;
   bottom: 0;
   width: 2px;
-  background: linear-gradient(to bottom, transparent, #e0e0e0 20px, #e0e0e0 calc(100% - 20px), transparent);
-  z-index: 1;
+  background: linear-gradient(
+    to bottom, 
+    transparent, 
+    #e0e0e0 20px, 
+    #e0e0e0 calc(100% - 20px), 
+    transparent
+  );
 `;
 
-const TimelineList = styled.div`
-  position: relative;
-  padding-left: 60px; // Increased space for the vertical line and dot
+// Timeline entries wrapper
+const TimelineEntries = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 `;
 
-const TimelineItem = styled.div`
+// Card container with consistent box model
+const TimelineCard = styled.div`
+  display: flex;
+  flex-direction: column;
   position: relative;
-  margin-bottom: 24px;
-  padding: 12px 16px;
+  cursor: pointer;
+  margin: 0;
+  /* 
+   * Using box-sizing: border-box and fixed border width 
+   * to prevent layout shifts when border appears
+   */
+  box-sizing: border-box;
+  border: 1px solid transparent;
   border-radius: 8px;
   background-color: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-  cursor: pointer;
-  transition: box-shadow 0.2s, background-color 0.2s, border 0.2s;
+  padding: 12px 16px;
   
+  /* Box shadow always present but varies in intensity */
+  box-shadow: ${props => 
+    props.selected 
+      ? '0 3px 10px rgba(0, 0, 0, 0.15)' 
+      : '0 1px 3px rgba(0, 0, 0, 0.08)'
+  };
+  
+  /* Visual state changes */
+  background-color: ${props => 
+    props.selected ? '#f0f7ff' : '#fff'
+  };
+  
+  border-color: ${props => 
+    props.selected ? 'rgba(66, 153, 225, 0.5)' : 'transparent'
+  };
+  
+  transition: 
+    background-color 0.15s ease-in-out,
+    box-shadow 0.15s ease-in-out,
+    border-color 0.15s ease-in-out;
+    
   &:hover {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: ${props => 
+      props.selected 
+        ? '0 3px 10px rgba(0, 0, 0, 0.15)' 
+        : '0 3px 8px rgba(0, 0, 0, 0.1)'
+    };
   }
-  
-  ${props => props.selected && `
-    background-color: #f0f7ff;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(66, 153, 225, 0.5);
-  `}
 `;
 
-// Colored circle indicator
+// Timeline indicator dot with perfect centering
 const TimelineDot = styled.div`
   position: absolute;
-  left: -39px; // Adjusted to center with vertical line
-  top: 15px;
-  width: 16px;
-  height: 16px;
+  /* Dot is positioned relative to the card */
+  left: -40px; 
+  top: 16px; /* Aligns with first line of text */
+  
+  /* Fixed size for consistent alignment */
+  width: 12px;
+  height: 12px;
+  
+  /* Center the dot perfectly on the timeline */
+  transform: translateX(10px);
+  
+  /* Visual styling */
   border-radius: 50%;
   background-color: ${props => props.color || '#ccc'};
-  border: 2px solid white;
-  box-shadow: 0 0 0 2px #e0e0e0;
+  
+  /* Creates concentric circles effect */
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #e0e0e0;
   z-index: 2;
-  transition: all 0.2s;
 `;
 
+// Content elements
 const TimelineDate = styled.div`
   font-size: 0.8rem;
   color: #666;
+  margin-bottom: 4px;
+`;
+
+const TimelineType = styled.div`
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: ${props => props.color || '#999'};
   margin-bottom: 4px;
 `;
 
@@ -76,13 +130,6 @@ const TimelineTitle = styled.div`
 const TimelineLocation = styled.div`
   font-size: 0.85rem;
   color: #444;
-`;
-
-const TimelineType = styled.div`
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: ${props => props.color || '#999'};
-  margin-bottom: 4px;
 `;
 
 const EmptyState = styled.div`
@@ -134,32 +181,44 @@ const VerticalTimeline = ({ onEntrySelect }) => {
   
   return (
     <TimelineContainer>
-      <VerticalLine />
-      <TimelineList>
-        {sortedEntries.map(entry => (
-          <TimelineItem
-            key={entry.uuid}
-            onClick={() => handleItemClick(entry)}
-            selected={selectedEntry?.uuid === entry.uuid}
-          >
-            <TimelineDot 
-            color={colorScheme[entry.type] || '#999'}
-            selected={selectedEntry?.uuid === entry.uuid}
-          />
-            <TimelineDate>
-              {formatDate(entry.creationDate)}
-            </TimelineDate>
-            <TimelineType color={colorScheme[entry.type] || '#999'}>
-              {entry.type}
-            </TimelineType>
-            <TimelineTitle>{entry.title}</TimelineTitle>
-            <TimelineLocation>
-              {entry.location?.placeName || entry.location?.localityName}
-              {entry.location?.country ? `, ${entry.location.country}` : ''}
-            </TimelineLocation>
-          </TimelineItem>
-        ))}
-      </TimelineList>
+      <TimelineLayout>
+        {/* Static timeline that never changes */}
+        <VerticalLine />
+        
+        {/* Entries positioned relative to the timeline */}
+        <TimelineEntries>
+          {sortedEntries.map(entry => {
+            const isSelected = selectedEntry?.uuid === entry.uuid;
+            return (
+              <TimelineCard
+                key={entry.uuid}
+                onClick={() => handleItemClick(entry)}
+                selected={isSelected}
+              >
+                {/* Timeline connector dot */}
+                <TimelineDot
+                  color={colorScheme[entry.type] || '#999'}
+                />
+                
+                {/* Entry content */}
+                <TimelineDate>
+                  {formatDate(entry.creationDate)}
+                </TimelineDate>
+                <TimelineType color={colorScheme[entry.type] || '#999'}>
+                  {entry.type}
+                </TimelineType>
+                <TimelineTitle>
+                  {entry.title}
+                </TimelineTitle>
+                <TimelineLocation>
+                  {entry.location?.placeName || entry.location?.localityName}
+                  {entry.location?.country ? `, ${entry.location.country}` : ''}
+                </TimelineLocation>
+              </TimelineCard>
+            );
+          })}
+        </TimelineEntries>
+      </TimelineLayout>
     </TimelineContainer>
   );
 };
