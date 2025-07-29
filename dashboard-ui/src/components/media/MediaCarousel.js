@@ -92,11 +92,6 @@ const NavButton = styled.button`
     opacity: 1;
     background: rgba(255, 255, 255, 0.2);
   }
-  
-  &:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
 `;
 
 /**
@@ -203,14 +198,14 @@ const MediaCarousel = ({ mediaItems, startIndex = 0, onClose }) => {
     const handleKeyDown = (e) => {
       switch (e.key) {
         case 'ArrowLeft':
-          if (currentIndex > 0) {
-            setCurrentIndex(currentIndex - 1);
-          }
+          setCurrentIndex((prevIndex) => 
+            prevIndex === 0 ? mediaItems.length - 1 : prevIndex - 1
+          );
           break;
         case 'ArrowRight':
-          if (currentIndex < mediaItems.length - 1) {
-            setCurrentIndex(currentIndex + 1);
-          }
+          setCurrentIndex((prevIndex) => 
+            prevIndex === mediaItems.length - 1 ? 0 : prevIndex + 1
+          );
           break;
         case 'Escape':
           onClose();
@@ -247,8 +242,9 @@ const MediaCarousel = ({ mediaItems, startIndex = 0, onClose }) => {
       </CloseButton>
       
       <PrevButton 
-        onClick={() => setCurrentIndex(currentIndex - 1)}
-        disabled={currentIndex === 0}
+        onClick={() => setCurrentIndex(
+          currentIndex === 0 ? mediaItems.length - 1 : currentIndex - 1
+        )}
         aria-label="Previous media"
       >
         ‹
@@ -261,8 +257,9 @@ const MediaCarousel = ({ mediaItems, startIndex = 0, onClose }) => {
       </MediaContainer>
       
       <NextButton 
-        onClick={() => setCurrentIndex(currentIndex + 1)}
-        disabled={currentIndex === mediaItems.length - 1}
+        onClick={() => setCurrentIndex(
+          currentIndex === mediaItems.length - 1 ? 0 : currentIndex + 1
+        )}
         aria-label="Next media"
       >
         ›
