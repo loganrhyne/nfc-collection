@@ -100,6 +100,8 @@ const MediaMasonryRenderer = ({ mediaItems, onMediaClick }) => {
               className={`media-item ${itemClass}`}
               onClick={onMediaClick ? () => onMediaClick(item) : undefined}
               style={{ cursor: onMediaClick ? 'pointer' : 'default' }}
+              role={onMediaClick ? 'button' : undefined}
+              tabIndex={onMediaClick ? 0 : undefined}
             >
               <MediaItem 
                 media={item} 

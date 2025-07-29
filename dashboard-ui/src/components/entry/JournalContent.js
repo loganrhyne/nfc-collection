@@ -2,43 +2,9 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
 import styled from 'styled-components';
-import MediaRenderer from '../media/MediaRenderer';
 import MediaMasonryRenderer from '../media/MediaMasonryRenderer';
+import MediaCarousel from '../media/MediaCarousel';
 
-/**
- * Layout toggle button
- */
-const LayoutToggle = styled.button`
-  position: absolute;
-  top: -30px;
-  right: 0;
-  background: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  z-index: 5;
-  
-  &:hover {
-    background: #e8e8e8;
-    border-color: #ccc;
-  }
-  
-  &:active {
-    transform: translateY(1px);
-  }
-`;
-
-/**
- * Container for media sections with layout toggle
- */
-const MediaSectionWrapper = styled.div`
-  position: relative;
-  margin: 40px 0 32px 0;
-  padding-top: 8px;
-`;
 
 /**
  * Container for the journal content with proper spacing
@@ -105,8 +71,9 @@ const JournalContent = ({
   mediaItems = [],
   headerColor = '#333'
 }) => {
-  // State for layout preference
-  const [useMasonryLayout, setUseMasonryLayout] = useState(true);
+  // State for carousel visibility
+  const [carouselOpen, setCarouselOpen] = useState(false);
+  const [carouselStartIndex, setCarouselStartIndex] = useState(0);
   // Create a map of media by identifier for quick lookup
   const mediaById = {};
   mediaItems.forEach(media => {
@@ -187,6 +154,7 @@ const JournalContent = ({
   const contentSections = processContentSections();
   
   return (
+    <>
     <ContentContainer headerColor={headerColor}>
       {contentSections.map((section, index) => {
         if (section.type === 'text') {
@@ -196,24 +164,37 @@ const JournalContent = ({
             </ReactMarkdown>
           );
         } else if (section.type === 'media') {
-          const MediaComponent = useMasonryLayout ? MediaMasonryRenderer : MediaRenderer;
           return (
-            <MediaSectionWrapper key={`media-${index}`}>
-              <LayoutToggle
-                onClick={() => setUseMasonryLayout(!useMasonryLayout)}
-                title={useMasonryLayout ? 'Switch to grid layout' : 'Switch to masonry layout'}
-              >
-                {useMasonryLayout ? '⊞ Grid' : '▦ Masonry'}
-              </LayoutToggle>
-              <MediaComponent 
-                mediaItems={section.items} 
-              />
-            </MediaSectionWrapper>
+            <MediaMasonryRenderer 
+              key={`media-${index}`}
+              mediaItems={section.items}
+              onMediaClick={(clickedMedia) => {
+                // Find the index of clicked media in all media items
+                const allMediaIndex = mediaItems.findIndex(
+                  item => item.identifier === clickedMedia.identifier || 
+                         item.md5 === clickedMedia.md5
+                );
+                if (allMediaIndex !== -1) {
+                  setCarouselStartIndex(allMediaIndex);
+                  setCarouselOpen(true);
+                }
+              }}
+            />
           );
         }
         return null;
       })}
     </ContentContainer>
+    
+    {/* Render carousel when open */}
+    {carouselOpen && (
+      <MediaCarousel
+        mediaItems={mediaItems}
+        startIndex={carouselStartIndex}
+        onClose={() => setCarouselOpen(false)}
+      />
+    )}
+  </>
   );
 };
 
