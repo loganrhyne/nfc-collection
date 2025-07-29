@@ -44,7 +44,14 @@ export const processEntries = (entries = []) => {
       quarter,
       date,
       // Extract title from the first h1 in richText or use placeholder
-      title: entry.text?.split('\n')[0]?.replace('# ', '') || 'Untitled Entry'
+      // Also clean up escaped characters from Day One export
+      title: entry.text?.split('\n')[0]?.replace('# ', '')
+        ?.replace(/\\\-/g, '-')  // Remove escaped hyphens
+        ?.replace(/\\\!/g, '!')  // Remove escaped exclamation marks
+        ?.replace(/\\\(/g, '(')  // Remove escaped parentheses
+        ?.replace(/\\\)/g, ')')  // Remove escaped parentheses
+        ?.replace(/\\\./g, '.')  // Remove escaped periods
+        || 'Untitled Entry'
     };
   });
 };
