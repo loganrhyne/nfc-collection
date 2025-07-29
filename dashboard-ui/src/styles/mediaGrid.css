@@ -6,9 +6,30 @@
 .media-grid {
   display: grid;
   gap: 16px;
-  margin: 24px 0;
+  margin: 32px 0;
   width: 100%;
   border-radius: 8px;
+}
+
+/* When media appears inline in journal content */
+.journal-content .media-grid {
+  margin: 32px 0;
+}
+
+/* First media grid after text */
+p + .media-grid,
+h1 + .media-grid,
+h2 + .media-grid,
+h3 + .media-grid {
+  margin-top: 24px;
+}
+
+/* Text after media grid */
+.media-grid + p,
+.media-grid + h1,
+.media-grid + h2,
+.media-grid + h3 {
+  margin-top: 32px;
 }
 
 /* Grid layouts based on the number of media items */
@@ -33,7 +54,18 @@
   grid-template-columns: repeat(2, 1fr);
 }
 
-.media-grid.media-count-5, 
+.media-grid.media-count-5 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Special layout for 5 items: 2 on top, 3 on bottom */
+.media-grid.media-count-5 > *:nth-child(1),
+.media-grid.media-count-5 > *:nth-child(2) {
+  grid-column: span 3;
+  width: 50%;
+  margin: 0 auto;
+}
+
 .media-grid.media-count-6 {
   grid-template-columns: repeat(3, 1fr);
 }
@@ -43,6 +75,34 @@
 .media-grid.media-count-8,
 .media-grid.media-count-9 {
   grid-template-columns: repeat(3, 1fr);
+}
+
+/* For even larger collections */
+.media-grid.media-count-10,
+.media-grid.media-count-11,
+.media-grid.media-count-12 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* For very large collections */
+.media-grid.media-count-13,
+.media-grid.media-count-14,
+.media-grid.media-count-15,
+.media-grid.media-count-16 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* For collections over 16 items */
+.media-grid.media-count-17,
+.media-grid.media-count-18,
+.media-grid.media-count-19,
+.media-grid.media-count-20 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+/* Default for very large collections (more than 20 items) */
+.media-grid.media-count-many {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 }
 
 /* Media orientation classes */

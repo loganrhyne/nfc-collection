@@ -1,12 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
 import VerticalTimeline from '../timeline/VerticalTimeline';
-import ReactMarkdown from 'react-markdown';
-import MediaRenderer from '../media/MediaRenderer';
-import { processMediaReferences } from '../../utils/mediaProcessing';
-import { getPhotoPath } from '../../utils/mediaPath';
+import JournalContent from './JournalContent';
 // Debug components removed - using standard paths now
 
 const EntryViewContainer = styled.div`
@@ -73,15 +70,6 @@ const EntryHeader = styled.div`
   gap: 20px;
 `;
 
-// Style for markdown h1 tags
-const MarkdownHeading = styled.div`
-  h1 {
-    font-size: 2.5rem;
-    margin-bottom: 16px;
-    margin-top: 0;
-    color: ${props => props.color || '#333'};
-  }
-`;
 
 const EntryMeta = styled.div`
   display: flex;
@@ -120,77 +108,6 @@ const EntryContent = styled.div`
   }
 `;
 
-const MediaContainer = styled.div`
-  margin: 32px 0;
-`;
-
-const PhotosGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 24px;
-  margin-top: 24px;
-`;
-
-const PhotoItem = styled.img`
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform 0.3s;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  
-  &:hover {
-    transform: scale(1.03);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-  }
-`;
-
-const PhotoPlaceholderContainer = styled.div`
-  width: 100%;
-  height: 200px;
-  background-color: #f0f0f0;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  color: #666;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  padding: 20px;
-  transition: transform 0.3s;
-  
-  &:hover {
-    transform: scale(1.03);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-  }
-`;
-
-// Photo component that handles loading and errors safely
-const PhotoPlaceholder = ({ photo }) => {
-  const [imageError, setImageError] = useState(false);
-  const imagePath = getPhotoPath(photo);
-  
-  if (imageError) {
-    return (
-      <PhotoPlaceholderContainer>
-        <div>
-          <div style={{ fontSize: '24px', marginBottom: '8px' }}>📷</div>
-          <div>Photo preview not available</div>
-        </div>
-      </PhotoPlaceholderContainer>
-    );
-  }
-  
-  return (
-    <PhotoItem 
-      src={imagePath}
-      alt=""
-      onError={() => setImageError(true)}
-    />
-  );
-};
 
 const ContentSectionTitle = styled.h2`
   font-size: 1.4rem;
@@ -315,25 +232,12 @@ const EntryView = ({ entryId, onReturn }) => {
     });
   };
   
-  // Process entry content, handling media references and markdown formatting
-  const processEntryContent = () => {
-    if (!text) return { processedText: '', mediaGroups: [] };
-    
-    // First replace escaped backslashes
-    const cleanedText = text.replace(/\\\\/g, '\\');
-    
-    // Process media references in the text
-    const allMedia = [
-      ...(photos || []),
-      ...(videos || []),
-      ...(pdfAttachments || [])
-    ];
-    
-    // Process media references
-    const { text: processedText, mediaGroups } = processMediaReferences(cleanedText, allMedia);
-    
-    return { processedText, mediaGroups };
-  };
+  // Collect all media items for the entry
+  const allMedia = [
+    ...(photos || []),
+    ...(videos || []),
+    ...(pdfAttachments || [])
+  ];
   
   return (
     <EntryViewContainer>
@@ -385,23 +289,11 @@ const EntryView = ({ entryId, onReturn }) => {
             </EntryHeader>
             
             <EntryContent>
-              {/* Process the content to extract media references and format markdown */}
-              {(() => {
-                const { processedText, mediaGroups } = processEntryContent();
-                
-                return (
-                  <>
-                    <MarkdownHeading color={colorScheme[type] || '#333'}>
-                      <ReactMarkdown>{processedText}</ReactMarkdown>
-                    </MarkdownHeading>
-                    
-                    {/* Render media groups that were extracted from the text */}
-                    {mediaGroups.map((group, index) => (
-                      <MediaRenderer key={index} mediaItems={group} />
-                    ))}
-                  </>
-                );
-              })()}
+              <JournalContent 
+                text={text}
+                mediaItems={allMedia}
+                headerColor={colorScheme[type] || '#333'}
+              />
             </EntryContent>
             
             {location && location.latitude && location.longitude && (
@@ -416,31 +308,6 @@ const EntryView = ({ entryId, onReturn }) => {
               </LocationSection>
             )}
             
-            {/* Photos section with MediaRenderer */}
-            {(photos && photos.length > 0) && (
-              <MediaContainer>
-                <ContentSectionTitle>Photos</ContentSectionTitle>
-                <MediaRenderer mediaItems={photos} />
-                
-                {/* Debug components removed - using standard paths now */}
-              </MediaContainer>
-            )}
-            
-            {/* Videos section with MediaRenderer */}
-            {(videos && videos.length > 0) && (
-              <MediaContainer>
-                <ContentSectionTitle>Videos</ContentSectionTitle>
-                <MediaRenderer mediaItems={videos} />
-              </MediaContainer>
-            )}
-            
-            {/* PDF documents section with MediaRenderer */}
-            {(pdfAttachments && pdfAttachments.length > 0) && (
-              <MediaContainer>
-                <ContentSectionTitle>Documents</ContentSectionTitle>
-                <MediaRenderer mediaItems={pdfAttachments} />
-              </MediaContainer>
-            )}
           </EntryContainer>
         )}
       </MainContentArea>

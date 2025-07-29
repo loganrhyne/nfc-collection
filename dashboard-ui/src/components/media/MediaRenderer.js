@@ -158,8 +158,13 @@ const MediaRenderer = ({ mediaItems, onMediaClick }) => {
   // Don't render anything if no media items
   if (!mediaItems || mediaItems.length === 0) return null;
   
+  // For very large collections, limit the class name to avoid CSS specificity issues
+  const mediaCountClass = mediaItems.length <= 20 
+    ? `media-count-${mediaItems.length}` 
+    : 'media-count-many';
+  
   return (
-    <MediaGrid className={`media-grid media-count-${mediaItems.length}`}>
+    <MediaGrid className={`media-grid ${mediaCountClass}`}>
       {mediaItems.map((item, index) => {
         if (!item) return null;
         
