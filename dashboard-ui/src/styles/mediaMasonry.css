@@ -1,0 +1,179 @@
+/* 
+ * Media Masonry Layout
+ * Provides a masonry-style layout with no vertical gaps between items
+ */
+
+/* Masonry container using CSS columns */
+.media-masonry {
+  column-gap: 16px;
+  margin: 32px 0;
+  width: 100%;
+}
+
+/* Column count based on number of items */
+.media-masonry.media-count-1 {
+  column-count: 1;
+}
+
+.media-masonry.media-count-2 {
+  column-count: 2;
+}
+
+.media-masonry.media-count-3,
+.media-masonry.media-count-4 {
+  column-count: 2;
+}
+
+.media-masonry.media-count-5,
+.media-masonry.media-count-6,
+.media-masonry.media-count-7,
+.media-masonry.media-count-8,
+.media-masonry.media-count-9 {
+  column-count: 3;
+}
+
+.media-masonry.media-count-10,
+.media-masonry.media-count-11,
+.media-masonry.media-count-12,
+.media-masonry.media-count-13,
+.media-masonry.media-count-14,
+.media-masonry.media-count-15,
+.media-masonry.media-count-16 {
+  column-count: 4;
+}
+
+.media-masonry.media-count-17,
+.media-masonry.media-count-18,
+.media-masonry.media-count-19,
+.media-masonry.media-count-20 {
+  column-count: 5;
+}
+
+/* For very large collections */
+.media-masonry.media-count-many {
+  column-count: 5;
+}
+
+/* Responsive column counts */
+@media (max-width: 1200px) {
+  .media-masonry.media-count-many {
+    column-count: 4;
+  }
+  .media-masonry.media-count-17,
+  .media-masonry.media-count-18,
+  .media-masonry.media-count-19,
+  .media-masonry.media-count-20 {
+    column-count: 4;
+  }
+}
+
+@media (max-width: 900px) {
+  .media-masonry.media-count-many,
+  .media-masonry.media-count-10,
+  .media-masonry.media-count-11,
+  .media-masonry.media-count-12,
+  .media-masonry.media-count-13,
+  .media-masonry.media-count-14,
+  .media-masonry.media-count-15,
+  .media-masonry.media-count-16,
+  .media-masonry.media-count-17,
+  .media-masonry.media-count-18,
+  .media-masonry.media-count-19,
+  .media-masonry.media-count-20 {
+    column-count: 3;
+  }
+}
+
+@media (max-width: 600px) {
+  .media-masonry.media-count-many,
+  .media-masonry.media-count-5,
+  .media-masonry.media-count-6,
+  .media-masonry.media-count-7,
+  .media-masonry.media-count-8,
+  .media-masonry.media-count-9,
+  .media-masonry.media-count-10,
+  .media-masonry.media-count-11,
+  .media-masonry.media-count-12,
+  .media-masonry.media-count-13,
+  .media-masonry.media-count-14,
+  .media-masonry.media-count-15,
+  .media-masonry.media-count-16,
+  .media-masonry.media-count-17,
+  .media-masonry.media-count-18,
+  .media-masonry.media-count-19,
+  .media-masonry.media-count-20 {
+    column-count: 2;
+  }
+}
+
+/* Masonry items */
+.media-masonry .media-masonry-item {
+  break-inside: avoid;
+  margin-bottom: 16px;
+  width: 100%;
+  display: inline-block;
+}
+
+/* Remove margin from last item in each column */
+.media-masonry .media-masonry-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Media item styling within masonry */
+.media-masonry .media-item {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s, box-shadow 0.3s;
+  background-color: #f5f5f5;
+  position: relative;
+  display: block;
+}
+
+.media-masonry .media-item:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  position: relative;
+}
+
+/* Ensure images and videos fill their containers */
+.media-masonry .media-item img,
+.media-masonry .media-item video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* PDF and document styling */
+.media-masonry .media-item.pdf,
+.media-masonry .media-item.document {
+  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  aspect-ratio: 1 / 1;
+}
+
+/* When media appears inline in journal content */
+.journal-content .media-masonry {
+  margin: 32px 0;
+}
+
+/* First media masonry after text */
+p + .media-masonry,
+h1 + .media-masonry,
+h2 + .media-masonry,
+h3 + .media-masonry {
+  margin-top: 24px;
+}
+
+/* Text after media masonry */
+.media-masonry + p,
+.media-masonry + h1,
+.media-masonry + h2,
+.media-masonry + h3 {
+  margin-top: 32px;
+}

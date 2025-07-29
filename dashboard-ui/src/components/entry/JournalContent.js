@@ -1,8 +1,44 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
 import styled from 'styled-components';
 import MediaRenderer from '../media/MediaRenderer';
+import MediaMasonryRenderer from '../media/MediaMasonryRenderer';
+
+/**
+ * Layout toggle button
+ */
+const LayoutToggle = styled.button`
+  position: absolute;
+  top: -30px;
+  right: 0;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 5;
+  
+  &:hover {
+    background: #e8e8e8;
+    border-color: #ccc;
+  }
+  
+  &:active {
+    transform: translateY(1px);
+  }
+`;
+
+/**
+ * Container for media sections with layout toggle
+ */
+const MediaSectionWrapper = styled.div`
+  position: relative;
+  margin: 40px 0 32px 0;
+  padding-top: 8px;
+`;
 
 /**
  * Container for the journal content with proper spacing
@@ -69,6 +105,8 @@ const JournalContent = ({
   mediaItems = [],
   headerColor = '#333'
 }) => {
+  // State for layout preference
+  const [useMasonryLayout, setUseMasonryLayout] = useState(true);
   // Create a map of media by identifier for quick lookup
   const mediaById = {};
   mediaItems.forEach(media => {
@@ -158,11 +196,19 @@ const JournalContent = ({
             </ReactMarkdown>
           );
         } else if (section.type === 'media') {
+          const MediaComponent = useMasonryLayout ? MediaMasonryRenderer : MediaRenderer;
           return (
-            <MediaRenderer 
-              key={`media-${index}`} 
-              mediaItems={section.items} 
-            />
+            <MediaSectionWrapper key={`media-${index}`}>
+              <LayoutToggle
+                onClick={() => setUseMasonryLayout(!useMasonryLayout)}
+                title={useMasonryLayout ? 'Switch to grid layout' : 'Switch to masonry layout'}
+              >
+                {useMasonryLayout ? '⊞ Grid' : '▦ Masonry'}
+              </LayoutToggle>
+              <MediaComponent 
+                mediaItems={section.items} 
+              />
+            </MediaSectionWrapper>
           );
         }
         return null;
