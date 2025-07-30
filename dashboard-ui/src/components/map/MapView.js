@@ -95,6 +95,82 @@ const getEntryIcon = (type) => {
 };
 
 /**
+ * Component to handle zoom to a specific location at max zoom level
+ */
+const MarkerWithZoom = ({ entry, onViewEntry }) => {
+  const map = useMap();
+  
+  const handleZoom = () => {
+    if (map && entry.location) {
+      map.setView([entry.location.latitude, entry.location.longitude], 18, {
+        animate: true,
+        duration: 0.5
+      });
+    }
+  };
+  
+  return (
+    <Marker
+      position={[entry.location.latitude, entry.location.longitude]}
+      icon={getEntryIcon(entry.type)}
+    >
+      <Popup>
+        <div style={{ textAlign: 'left', padding: '4px 0' }}>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>{entry.title}</h3>
+          <p style={{ margin: '4px 0', fontSize: '14px' }}>
+            <strong>Type:</strong> <span style={{ color: colorScheme[entry.type] || '#333' }}>{entry.type}</span>
+          </p>
+          <p style={{ margin: '4px 0', fontSize: '14px' }}>
+            <strong>Region:</strong> {entry.region}
+          </p>
+          <p style={{ margin: '4px 0', fontSize: '14px' }}>
+            <strong>Date:</strong> {new Date(entry.creationDate).toLocaleDateString()}
+          </p>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            <button 
+              onClick={() => onViewEntry(entry)}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: 'white',
+                color: '#333',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
+              }}
+            >
+              <span style={{ marginRight: '6px' }}>→</span> View Entry
+            </button>
+            <button 
+              onClick={handleZoom}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: 'white',
+                color: '#333',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
+              }}
+            >
+              <span style={{ marginRight: '6px' }}>🔍</span> Zoom
+            </button>
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  );
+};
+
+/**
  * BoundsFitter component - updates map bounds when entries change and handles area selection
  * Uses the useMap hook to access the Leaflet map instance and update its bounds
  */
@@ -345,45 +421,11 @@ const MapView = () => {
         {/* Render markers for entries */}
         {entries.map((entry) => (
           entry.location && entry.location.latitude && entry.location.longitude ? (
-            <Marker
+            <MarkerWithZoom
               key={entry.uuid}
-              position={[entry.location.latitude, entry.location.longitude]}
-              icon={getEntryIcon(entry.type)}
-            >
-              <Popup>
-                <div style={{ textAlign: 'left', padding: '4px 0' }}>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>{entry.title}</h3>
-                  <p style={{ margin: '4px 0', fontSize: '14px' }}>
-                    <strong>Type:</strong> <span style={{ color: colorScheme[entry.type] || '#333' }}>{entry.type}</span>
-                  </p>
-                  <p style={{ margin: '4px 0', fontSize: '14px' }}>
-                    <strong>Region:</strong> {entry.region}
-                  </p>
-                  <p style={{ margin: '4px 0', fontSize: '14px' }}>
-                    <strong>Date:</strong> {new Date(entry.creationDate).toLocaleDateString()}
-                  </p>
-                  <button 
-                    onClick={() => handleViewEntryClick(entry)}
-                    style={{
-                      marginTop: '8px',
-                      padding: '6px 12px',
-                      backgroundColor: 'white',
-                      color: '#333',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      fontWeight: '500',
-                      display: 'flex',
-                      alignItems: 'center',
-                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
-                    }}
-                  >
-                    <span style={{ marginRight: '6px' }}>→</span> View Entry
-                  </button>
-                </div>
-              </Popup>
-            </Marker>
+              entry={entry}
+              onViewEntry={handleViewEntryClick}
+            />
           ) : null
         ))}
       </MapContainer>
