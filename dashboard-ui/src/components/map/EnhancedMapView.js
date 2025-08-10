@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { MapContainer, TileLayer, useMap, Rectangle } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap, Rectangle, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
-import { MarkerWithZoom } from './MapView';
 import { TouchButton } from '../ui/TouchButton';
 import { fadeIn, slideInUp, pulse } from '../../styles/animations';
 import ds from '../../styles/designSystem';
@@ -332,13 +332,48 @@ export const EnhancedMapView = () => {
         <TileLayer url={tileUrl} />
         <MapAnimationController bounds={bounds} />
         
-        {mapEntries.map((entry) => (
-          <MarkerWithZoom
-            key={entry.uuid}
-            entry={entry}
-            onViewEntry={handleViewEntryClick}
-          />
-        ))}
+        {mapEntries.map((entry) => {
+          const icon = L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="
+              background: ${typeColors[entry.type] || typeColors.Other};
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              border: 3px solid white;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            "></div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          });
+          
+          return (
+            <Marker
+              key={entry.uuid}
+              position={[entry.location.latitude, entry.location.longitude]}
+              icon={icon}
+              eventHandlers={{
+                click: () => handleViewEntryClick(entry)
+              }}
+            >
+              <Popup>
+                <div style={{ padding: '8px' }}>
+                  <h4 style={{ margin: '0 0 8px 0' }}>{entry.title}</h4>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}>
+                    {entry.location.name || entry.location.address}
+                  </p>
+                  <TouchButton
+                    size="sm"
+                    variant="primary"
+                    onClick={() => handleViewEntryClick(entry)}
+                  >
+                    View Entry
+                  </TouchButton>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
       
       <MapControls>

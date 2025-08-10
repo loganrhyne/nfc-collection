@@ -9,6 +9,16 @@ import ds from '../../styles/designSystem';
  * Enhanced timeline with beautiful animations and touch interactions
  */
 
+// Format date helper function
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
 const TimelineContainer = styled.div`
   height: 100%;
   padding: ${ds.spacing[4]};

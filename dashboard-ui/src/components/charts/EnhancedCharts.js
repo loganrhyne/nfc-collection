@@ -370,7 +370,13 @@ const StatCard = styled.div`
   }
 `;
 
-export const StatsCards = ({ stats }) => {
+export const StatsCards = ({ entries }) => {
+  const stats = {
+    total: entries?.length || 0,
+    countries: new Set(entries?.map(e => e.location?.country).filter(Boolean)).size || 0,
+    regions: new Set(entries?.map(e => e.location?.name).filter(Boolean)).size || 0,
+    types: new Set(entries?.map(e => e.type).filter(Boolean)).size || 0
+  };
   const statConfigs = [
     { key: 'total', label: 'Total Samples', icon: '🏖️', color: ds.colors.sand[500] },
     { key: 'countries', label: 'Countries', icon: '🌍', color: ds.colors.ocean[500] },
@@ -395,4 +401,21 @@ export const StatsCards = ({ stats }) => {
   );
 };
 
-export default { EnhancedBarChart, EnhancedAreaChart, EnhancedPieChart, StatsCards };
+// Named exports for individual components
+export { EnhancedBarChart, EnhancedAreaChart, EnhancedPieChart, StatsCards };
+
+// Default export as a combined component
+export const EnhancedCharts = ({ entries }) => {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      <StatsCards entries={entries} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
+        <EnhancedBarChart entries={entries} />
+        <EnhancedAreaChart entries={entries} />
+      </div>
+      <EnhancedPieChart entries={entries} />
+    </div>
+  );
+};
+
+export default EnhancedCharts;
