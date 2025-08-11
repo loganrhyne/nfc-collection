@@ -112,11 +112,16 @@ async def wait_for_tag(sid):
         
         # Prepare NDEF data
         entry_data = session['entry_data']
+        # Handle timestamp with 'Z' suffix
+        timestamp_str = entry_data.get('timestamp', datetime.utcnow().isoformat())
+        if timestamp_str.endswith('Z'):
+            timestamp_str = timestamp_str[:-1] + '+00:00'
+        
         ndef_payload = {
             'v': 1,  # Version
             'id': session['entry_id'],
             'geo': entry_data.get('coordinates', [0, 0]),
-            'ts': int(datetime.fromisoformat(entry_data.get('timestamp', datetime.utcnow().isoformat())).timestamp())
+            'ts': int(datetime.fromisoformat(timestamp_str).timestamp())
         }
         
         # Send progress update

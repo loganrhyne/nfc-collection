@@ -137,7 +137,7 @@ const NFCRegistrationModal = ({ entry, onClose, onSuccess }) => {
       
       registerHandler('error', (message) => {
         setStatus('error');
-        setErrorMessage(message.data.message || 'An error occurred');
+        setErrorMessage(message.message || 'An error occurred');
       })
     ];
 
