@@ -124,14 +124,14 @@ const NFCRegistrationModal = ({ entry, onClose, onSuccess }) => {
       
       registerHandler('tag_write_progress', (message) => {
         setStatus('writing');
-        setProgress(message.data.progress || 50);
+        setProgress(message.progress || 50);
       }),
       
       registerHandler('tag_registered', (message) => {
         setStatus('success');
         setProgress(100);
         setTimeout(() => {
-          onSuccess(message.data);
+          onSuccess(message);
         }, 2000);
       }),
       
