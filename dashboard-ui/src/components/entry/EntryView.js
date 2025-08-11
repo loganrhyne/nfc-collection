@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
 import VerticalTimeline from '../timeline/VerticalTimeline';
 import JournalContent from './JournalContent';
+import NFCRegistrationModal from '../nfc/NFCRegistrationModal';
 // Debug components removed - using standard paths now
 
 const EntryViewContainer = styled.div`
@@ -40,6 +41,38 @@ const ReturnButton = styled.button`
     content: "←";
     font-size: 16px;
   }
+`;
+
+const RegisterButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  font-size: 0.9rem;
+  
+  &:hover {
+    background-color: #3a80d2;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+  
+  &:before {
+    content: "📱";
+    font-size: 16px;
+  }
+`;
+
+const HeaderButtons = styled.div`
+  display: flex;
+  gap: 12px;
+  align-items: center;
 `;
 
 const MainContentArea = styled.div`
@@ -184,6 +217,7 @@ const ScrollableTimelineContainer = styled.div`
 
 const EntryView = ({ entryId, onReturn }) => {
   const { entries, selectedEntry, setSelectedEntry } = useData();
+  const [showRegistration, setShowRegistration] = useState(false);
   
   // Find entry by ID if provided in URL
   useEffect(() => {
@@ -249,14 +283,19 @@ const EntryView = ({ entryId, onReturn }) => {
         ) : (
           <EntryContainer>
             <EntryHeader>
-              <ReturnButton onClick={() => {
-                // Clear selected entry before returning to dashboard
-                setSelectedEntry(null);
-                // Call the return function passed from parent
-                if (onReturn) onReturn();
-              }}>
-                Return to Dashboard
-              </ReturnButton>
+              <HeaderButtons>
+                <ReturnButton onClick={() => {
+                  // Clear selected entry before returning to dashboard
+                  setSelectedEntry(null);
+                  // Call the return function passed from parent
+                  if (onReturn) onReturn();
+                }}>
+                  Return to Dashboard
+                </ReturnButton>
+                <RegisterButton onClick={() => setShowRegistration(true)}>
+                  Register Sample
+                </RegisterButton>
+              </HeaderButtons>
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
@@ -318,6 +357,17 @@ const EntryView = ({ entryId, onReturn }) => {
           <VerticalTimeline onEntrySelect={handleEntrySelect} />
         </ScrollableTimelineContainer>
       </TimelineSidebar>
+      
+      {showRegistration && (
+        <NFCRegistrationModal
+          entry={selectedEntry}
+          onClose={() => setShowRegistration(false)}
+          onSuccess={() => {
+            setShowRegistration(false);
+            // Could show a success toast here
+          }}
+        />
+      )}
     </EntryViewContainer>
   );
 };

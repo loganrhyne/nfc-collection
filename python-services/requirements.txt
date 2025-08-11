@@ -1,0 +1,14 @@
+# WebSocket server
+python-socketio[asyncio_server]
+aiohttp
+aiohttp-cors
+
+# Hardware libraries (already installed on Pi)
+# adafruit-circuitpython-pn532
+# board
+# busio
+# digitalio
+
+# Development/Testing
+pytest
+pytest-asyncio
