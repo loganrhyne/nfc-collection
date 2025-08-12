@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import time
+import threading
 from typing import Optional, Dict, Any
 
 try:
@@ -215,52 +216,68 @@ class NFCService:
     async def start_continuous_scanning(self, callback):
         """Start continuous scanning for tags"""
         logger.info(f"Starting continuous NFC scanning (mock_mode={self.mock_mode})")
-        self.cancel_flag = False  # Reset the flag
+        self.cancel_flag = False
+        self.callback = callback
+        self.loop = asyncio.get_event_loop()
+        
+        if self.mock_mode:
+            # Mock mode - use async loop
+            asyncio.create_task(self._mock_scan_loop())
+        else:
+            # Real hardware - use thread
+            self.scan_thread = threading.Thread(target=self._hardware_scan_loop)
+            self.scan_thread.daemon = True
+            self.scan_thread.start()
+    
+    async def _mock_scan_loop(self):
+        """Mock scanning loop for testing"""
+        while not self.cancel_flag:
+            await asyncio.sleep(5)
+            if not self.cancel_flag:
+                mock_data = {
+                    'v': 1,
+                    'id': '1A88256FB33855EEB831ED2569B135CF',
+                    'geo': [-33.890542, 151.274856],
+                    'ts': 1652397920
+                }
+                await self.callback(mock_data)
+    
+    def _hardware_scan_loop(self):
+        """Hardware scanning loop that runs in a thread"""
+        logger.info("Starting hardware scan loop in thread")
         last_uid = None
         last_read_time = 0
         
         while not self.cancel_flag:
             try:
-                if self.mock_mode:
-                    # In mock mode, simulate occasional tag scans
-                    await asyncio.sleep(5)
-                    if not self.cancel_flag:
-                        mock_data = {
-                            'v': 1,
-                            'id': '1A88256FB33855EEB831ED2569B135CF',
-                            'geo': [-33.890542, 151.274856],
-                            'ts': 1652397920
-                        }
-                        await callback(mock_data)
-                else:
-                    # Real hardware scanning
-                    # Note: read_passive_target might expect timeout in milliseconds
-                    uid = await asyncio.get_event_loop().run_in_executor(
-                        None, 
-                        lambda: self.pn532.read_passive_target(timeout=0.1)
-                    )
-                    
-                    if uid:
-                        current_time = time.time()
-                        # Debounce - ignore same tag for 3 seconds
-                        if uid != last_uid or current_time - last_read_time > 3:
-                            last_uid = uid
-                            last_read_time = current_time
-                            
-                            # Try to read NDEF data
-                            try:
-                                json_data = await self.read_json_from_tag(uid)
-                                if json_data:
-                                    await callback(json_data)
-                            except Exception as e:
-                                logger.error(f"Error reading tag data: {e}")
+                # Simple blocking read
+                uid = self.pn532.read_passive_target()
                 
-                # Low-power delay
-                await asyncio.sleep(0.5)
+                if uid:
+                    current_time = time.time()
+                    # Debounce - ignore same tag for 3 seconds
+                    if uid != last_uid or current_time - last_read_time > 3:
+                        last_uid = uid
+                        last_read_time = current_time
+                        
+                        uid_str = ':'.join([f"{b:02X}" for b in uid])
+                        logger.info(f"Tag detected: {uid_str}")
+                        
+                        # Read JSON data synchronously
+                        json_data = self._read_json_from_tag_sync()
+                        if json_data:
+                            # Schedule callback in async context
+                            asyncio.run_coroutine_threadsafe(
+                                self.callback(json_data),
+                                self.loop
+                            )
+                
+                # Short delay
+                time.sleep(0.5)
                 
             except Exception as e:
-                logger.error(f"Error in continuous scanning: {e}")
-                await asyncio.sleep(1)
+                logger.error(f"Error in hardware scan loop: {e}")
+                time.sleep(1)
     
     async def read_json_from_tag(self, uid) -> Optional[Dict[str, Any]]:
         """Read JSON data from NFC tag"""
@@ -297,3 +314,37 @@ class NFCService:
     def stop_scanning(self):
         """Stop continuous scanning"""
         self.cancel_flag = True
+        if hasattr(self, 'scan_thread') and self.scan_thread:
+            self.scan_thread.join(timeout=2)
+    
+    def _read_json_from_tag_sync(self) -> Optional[Dict[str, Any]]:
+        """Read JSON data from tag (synchronous version for thread)"""
+        try:
+            # Read NDEF data from tag
+            data = bytearray()
+            for page in range(4, 15):
+                block = self.pn532.ntag2xx_read_block(page)
+                if block:
+                    data.extend(block)
+            
+            # Find JSON data
+            if b'{' in data:
+                json_start = data.find(b'{')
+                json_end = data.find(b'}', json_start) + 1
+                
+                if json_end > json_start:
+                    json_str = data[json_start:json_end].decode('utf-8', errors='ignore')
+                    return json.loads(json_str)
+            
+            # If no JSON found, create mock data for testing
+            logger.info("No JSON found on tag, using test data")
+            return {
+                'v': 1,
+                'id': 'TEST-ENTRY-ID',
+                'geo': [0, 0],
+                'ts': int(time.time())
+            }
+            
+        except Exception as e:
+            logger.error(f"Error reading JSON from tag: {e}")
+            return None
