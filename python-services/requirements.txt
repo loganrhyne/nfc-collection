@@ -3,11 +3,11 @@ python-socketio[asyncio_server]
 aiohttp
 aiohttp-cors
 
-# Hardware libraries (already installed on Pi)
-# adafruit-circuitpython-pn532
-# board
-# busio
-# digitalio
+# Hardware libraries for Raspberry Pi
+adafruit-circuitpython-pn532
+adafruit-blinka
+rpi-lgpio  # Required for Pi 5
+# board, busio, digitalio are provided by blinka
 
 # Development/Testing
 pytest

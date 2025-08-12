@@ -215,7 +215,8 @@ class NFCService:
     
     async def start_continuous_scanning(self, callback):
         """Start continuous scanning for tags"""
-        logger.info("Starting continuous NFC scanning")
+        logger.info(f"Starting continuous NFC scanning (mock_mode={self.mock_mode})")
+        self.cancel_flag = False  # Reset the flag
         last_uid = None
         last_read_time = 0
         

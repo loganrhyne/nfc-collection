@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import io from 'socket.io-client';
 
-const WEBSOCKET_URL = process.env.REACT_APP_WS_URL || 'http://localhost:8765';
+// In production, use same host as the app but on port 8765
+const WEBSOCKET_URL = process.env.REACT_APP_WS_URL || 
+  (process.env.NODE_ENV === 'production' 
+    ? `http://${window.location.hostname}:8765`
+    : 'http://localhost:8765');
 
 export const useWebSocket = () => {
   const socket = useRef(null);
