@@ -12,6 +12,7 @@ import MapView from './components/map/MapView';
 import VerticalTimeline from './components/timeline/VerticalTimeline';
 import EntryView from './components/entry/EntryView';
 import NfcHandler from './components/nfc/NfcHandler';
+import NFCScanner from './components/nfc/NFCScanner';
 import ActiveFilters from './components/filters/ActiveFilters';
 import './App.css';
 
@@ -105,6 +106,7 @@ function AppContent() {
         <Route path="/entry/:entryId" element={<EntryDetailView />} />
       </Routes>
       <NfcHandler />
+      <NFCScanner />
     </div>
   );
 }

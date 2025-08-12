@@ -212,3 +212,88 @@ class NFCService:
         """Cancel ongoing tag wait"""
         self.cancel_flag = True
         self.is_waiting = False
+    
+    async def start_continuous_scanning(self, callback):
+        """Start continuous scanning for tags"""
+        logger.info("Starting continuous NFC scanning")
+        last_uid = None
+        last_read_time = 0
+        
+        while not self.cancel_flag:
+            try:
+                if self.mock_mode:
+                    # In mock mode, simulate occasional tag scans
+                    await asyncio.sleep(5)
+                    if not self.cancel_flag:
+                        mock_data = {
+                            'v': 1,
+                            'id': '1A88256FB33855EEB831ED2569B135CF',
+                            'geo': [-33.890542, 151.274856],
+                            'ts': 1652397920
+                        }
+                        await callback(mock_data)
+                else:
+                    # Real hardware scanning
+                    uid = await asyncio.get_event_loop().run_in_executor(
+                        None, 
+                        self.pn532.read_passive_target,
+                        0.1  # 100ms timeout
+                    )
+                    
+                    if uid:
+                        current_time = time.time()
+                        # Debounce - ignore same tag for 3 seconds
+                        if uid != last_uid or current_time - last_read_time > 3:
+                            last_uid = uid
+                            last_read_time = current_time
+                            
+                            # Try to read NDEF data
+                            try:
+                                json_data = await self.read_json_from_tag(uid)
+                                if json_data:
+                                    await callback(json_data)
+                            except Exception as e:
+                                logger.error(f"Error reading tag data: {e}")
+                
+                # Low-power delay
+                await asyncio.sleep(0.5)
+                
+            except Exception as e:
+                logger.error(f"Error in continuous scanning: {e}")
+                await asyncio.sleep(1)
+    
+    async def read_json_from_tag(self, uid) -> Optional[Dict[str, Any]]:
+        """Read JSON data from NFC tag"""
+        if self.mock_mode:
+            return None
+            
+        try:
+            # Read NDEF data from tag
+            data = bytearray()
+            for page in range(4, 15):  # Read more pages for full data
+                block = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    self.pn532.ntag2xx_read_block,
+                    page
+                )
+                if block:
+                    data.extend(block)
+            
+            # Find JSON data (look for '{' character)
+            if b'{' in data:
+                json_start = data.find(b'{')
+                json_end = data.find(b'}', json_start) + 1
+                
+                if json_end > json_start:
+                    json_str = data[json_start:json_end].decode('utf-8', errors='ignore')
+                    return json.loads(json_str)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error reading JSON from tag: {e}")
+            return None
+    
+    def stop_scanning(self):
+        """Stop continuous scanning"""
+        self.cancel_flag = True

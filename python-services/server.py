@@ -206,7 +206,36 @@ async def register_tag_cancel(sid, data):
     if nfc_service:
         nfc_service.cancel_registration()
 
+async def handle_tag_scanned(tag_data):
+    """Handle scanned tag data"""
+    logger.info(f"Tag scanned with data: {tag_data}")
+    
+    # Emit to all connected clients
+    await sio.emit('tag_scanned', {
+        'entry_id': tag_data.get('id'),
+        'tag_data': tag_data
+    })
+
+async def start_scanning_task(app):
+    """Start the NFC scanning background task"""
+    if nfc_service:
+        logger.info("Starting NFC scanning background task")
+        asyncio.create_task(nfc_service.start_continuous_scanning(handle_tag_scanned))
+
+async def on_startup(app):
+    """Run on server startup"""
+    await start_scanning_task(app)
+
+async def on_cleanup(app):
+    """Run on server shutdown"""
+    if nfc_service:
+        nfc_service.stop_scanning()
+
 if __name__ == '__main__':
     port = 8765
     logger.info(f"Starting WebSocket server on port {port}")
+    
+    app.on_startup.append(on_startup)
+    app.on_cleanup.append(on_cleanup)
+    
     web.run_app(app, host='0.0.0.0', port=port)
