@@ -76,8 +76,7 @@ class NFCService:
                 # Try to read tag (non-blocking)
                 uid = await asyncio.get_event_loop().run_in_executor(
                     None, 
-                    self.pn532.read_passive_target,
-                    0.5  # 500ms timeout for each attempt
+                    lambda: self.pn532.read_passive_target(timeout=0.5)
                 )
                 
                 if uid:
@@ -235,10 +234,10 @@ class NFCService:
                         await callback(mock_data)
                 else:
                     # Real hardware scanning
+                    # Note: read_passive_target might expect timeout in milliseconds
                     uid = await asyncio.get_event_loop().run_in_executor(
                         None, 
-                        self.pn532.read_passive_target,
-                        0.1  # 100ms timeout
+                        lambda: self.pn532.read_passive_target(timeout=0.1)
                     )
                     
                     if uid:
