@@ -12,7 +12,10 @@ import socketio
 from aiohttp import web
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Initialize Socket.IO server
@@ -101,14 +104,18 @@ async def wait_for_tag(sid):
     
     try:
         # Wait for tag (timeout 30 seconds)
+        logger.info(f"Waiting for tag for session {sid}")
         tag_uid = await nfc_service.wait_for_tag(timeout=30)
         
         if not tag_uid:
+            logger.warning(f"Timeout waiting for tag for session {sid}")
             await sio.emit('error', {
                 'code': 'TIMEOUT',
                 'message': 'No tag detected within timeout period'
             }, room=sid)
             return
+        
+        logger.info(f"Tag detected: {tag_uid}")
         
         # Prepare NDEF data
         entry_data = session['entry_data']
@@ -124,6 +131,8 @@ async def wait_for_tag(sid):
             'ts': int(datetime.fromisoformat(timestamp_str).timestamp())
         }
         
+        logger.info(f"NDEF payload to write: {ndef_payload}")
+        
         # Send progress update
         await sio.emit('tag_write_progress', {
             'progress': 25,
@@ -131,7 +140,9 @@ async def wait_for_tag(sid):
         }, room=sid)
         
         # Write to tag
+        logger.info(f"Starting write to tag {tag_uid}")
         success = await nfc_service.write_json_to_tag(tag_uid, ndef_payload)
+        logger.info(f"Write result: {success}")
         
         if success:
             await sio.emit('tag_registered', {

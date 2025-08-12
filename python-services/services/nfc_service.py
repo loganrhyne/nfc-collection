@@ -106,24 +106,59 @@ class NFCService:
             raise Exception("NFC hardware not available")
         
         try:
+            # Run synchronous write in executor
+            loop = asyncio.get_event_loop()
+            success = await loop.run_in_executor(
+                None,
+                self._write_json_to_tag_sync,
+                uid_str,
+                data
+            )
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error writing to tag: {e}")
+            return False
+    
+    def _write_json_to_tag_sync(self, uid_str: str, data: Dict[str, Any]) -> bool:
+        """Synchronous version of write_json_to_tag"""
+        try:
             # Convert JSON to compact string
             json_str = json.dumps(data, separators=(',', ':'))
+            logger.info(f"Writing JSON to tag: {json_str} ({len(json_str)} bytes)")
+            
+            # Check if tag is still present
+            uid = self.pn532.read_passive_target()
+            if not uid:
+                logger.error("No tag detected for writing")
+                return False
+            
+            detected_uid = ':'.join([f"{b:02X}" for b in uid])
+            logger.info(f"Tag detected for writing: {detected_uid}")
             
             # Create NDEF message
             ndef_data = self._create_text_ndef(json_str)
+            logger.info(f"NDEF data size: {len(ndef_data)} bytes")
             
-            # Write to tag
-            success = await self._write_ndef_data(ndef_data)
+            # Write to tag synchronously
+            success = self._write_ndef_data_sync(ndef_data)
             
             if success:
                 logger.info(f"Successfully wrote {len(json_str)} bytes to tag")
+                
+                # Verify write by reading back
+                verify_data = self._read_json_from_tag_sync()
+                if verify_data:
+                    logger.info(f"Verification read: {verify_data}")
+                else:
+                    logger.warning("Could not verify write - unable to read back data")
             else:
                 logger.error("Failed to write to tag")
                 
             return success
             
         except Exception as e:
-            logger.error(f"Error writing to tag: {e}")
+            logger.error(f"Error in sync write: {e}", exc_info=True)
             return False
     
     def _create_text_ndef(self, text: str) -> bytes:
@@ -348,3 +383,63 @@ class NFCService:
         except Exception as e:
             logger.error(f"Error reading JSON from tag: {e}")
             return None
+    
+    def _write_ndef_data_sync(self, ndef_data: bytes) -> bool:
+        """Write NDEF data to tag (synchronous version)"""
+        try:
+            logger.info("Starting NDEF write...")
+            
+            # NTAG213 has 45 pages (4 bytes each), user memory starts at page 4
+            # Maximum writable pages: 4-39 (36 pages = 144 bytes)
+            if len(ndef_data) > 144:
+                logger.error(f"NDEF data too large: {len(ndef_data)} bytes (max 144)")
+                return False
+            
+            # Clear existing data first (pages 4-7 for header area)
+            logger.info("Clearing tag header...")
+            for page in range(4, 8):
+                success = self.pn532.ntag2xx_write_block(page, [0x00, 0x00, 0x00, 0x00])
+                if not success:
+                    logger.error(f"Failed to clear page {page}")
+                    return False
+                time.sleep(0.05)  # Small delay between writes
+            
+            # Write new data
+            start_page = 4
+            pages_needed = (len(ndef_data) + 3) // 4  # Round up
+            logger.info(f"Writing {pages_needed} pages starting at page {start_page}")
+            
+            for page_num in range(pages_needed):
+                actual_page = start_page + page_num
+                
+                # Don't write past page 39
+                if actual_page > 39:
+                    logger.warning(f"Reached end of user memory at page {actual_page}")
+                    break
+                
+                # Get page data
+                start_idx = page_num * 4
+                end_idx = min(start_idx + 4, len(ndef_data))
+                page_data = list(ndef_data[start_idx:end_idx])
+                
+                # Pad to 4 bytes
+                while len(page_data) < 4:
+                    page_data.append(0x00)
+                
+                logger.debug(f"Writing page {actual_page}: {[hex(b) for b in page_data]}")
+                
+                # Write page
+                success = self.pn532.ntag2xx_write_block(actual_page, page_data)
+                
+                if not success:
+                    logger.error(f"Failed to write page {actual_page}")
+                    return False
+                
+                time.sleep(0.05)  # Delay between writes
+            
+            logger.info("NDEF write completed successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error writing NDEF data: {e}", exc_info=True)
+            return False
