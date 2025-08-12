@@ -388,20 +388,33 @@ class NFCService:
                     
                     # Parse NDEF record (simplified - assumes single text record)
                     if len(ndef_message) > 5:
-                        # Skip NDEF header (5 bytes) and language code
-                        # Record format: [flags, type_len, payload_len, type, status_byte]
+                        # NDEF record header: [flags, type_len, payload_len, type]
+                        flags = ndef_message[0]
+                        type_len = ndef_message[1]
                         payload_len = ndef_message[2]
-                        # Skip header (5 bytes) + status byte (1) + language code (2)
-                        text_start = 5 + 1 + 2
+                        type_field = ndef_message[3]
                         
-                        if len(ndef_message) >= text_start:
-                            text_data = ndef_message[text_start:text_start + payload_len - 3]
-                            text_str = text_data.decode('utf-8', errors='ignore')
-                            logger.debug(f"Extracted text: {text_str}")
-                            
-                            # Parse JSON
-                            if text_str.startswith('{'):
-                                return json.loads(text_str)
+                        logger.debug(f"NDEF record: flags=0x{flags:02X}, type_len={type_len}, payload_len={payload_len}, type=0x{type_field:02X}")
+                        
+                        if type_field == 0x54:  # 'T' for Text record
+                            # Text record payload starts at byte 4
+                            payload_start = 4
+                            if len(ndef_message) > payload_start:
+                                status_byte = ndef_message[payload_start]
+                                lang_len = status_byte & 0x3F  # Lower 6 bits
+                                
+                                # Text starts after status byte + language code
+                                text_start = payload_start + 1 + lang_len
+                                text_end = payload_start + payload_len
+                                
+                                if len(ndef_message) >= text_end:
+                                    text_data = ndef_message[text_start:text_end]
+                                    text_str = text_data.decode('utf-8', errors='ignore')
+                                    logger.debug(f"Extracted text: {text_str}")
+                                    
+                                    # Parse JSON
+                                    if text_str.startswith('{'):
+                                        return json.loads(text_str)
             
             # Fallback: Look for raw JSON (for tags written by other tools)
             if b'{' in data:
