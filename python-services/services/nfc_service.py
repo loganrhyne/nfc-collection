@@ -355,33 +355,70 @@ class NFCService:
     def _read_json_from_tag_sync(self) -> Optional[Dict[str, Any]]:
         """Read JSON data from tag (synchronous version for thread)"""
         try:
-            # Read NDEF data from tag
+            # Read NDEF data from tag - read more pages for full data
             data = bytearray()
-            for page in range(4, 15):
+            for page in range(4, 40):  # Read up to page 39
                 block = self.pn532.ntag2xx_read_block(page)
                 if block:
                     data.extend(block)
+                else:
+                    break
             
-            # Find JSON data
+            logger.debug(f"Raw data read from tag: {data[:120].hex()}")
+            
+            # Parse NDEF TLV structure
+            # Look for NDEF message TLV (0x03)
+            if len(data) > 2 and data[0] == 0x03:
+                # Get NDEF message length
+                if data[1] == 0xFF:
+                    # 3-byte length format
+                    if len(data) > 4:
+                        ndef_len = (data[2] << 8) | data[3]
+                        ndef_start = 4
+                else:
+                    # 1-byte length format
+                    ndef_len = data[1]
+                    ndef_start = 2
+                
+                logger.debug(f"NDEF message found, length: {ndef_len}, start: {ndef_start}")
+                
+                # Extract NDEF message
+                if len(data) >= ndef_start + ndef_len:
+                    ndef_message = data[ndef_start:ndef_start + ndef_len]
+                    
+                    # Parse NDEF record (simplified - assumes single text record)
+                    if len(ndef_message) > 5:
+                        # Skip NDEF header (5 bytes) and language code
+                        # Record format: [flags, type_len, payload_len, type, status_byte]
+                        payload_len = ndef_message[2]
+                        # Skip header (5 bytes) + status byte (1) + language code (2)
+                        text_start = 5 + 1 + 2
+                        
+                        if len(ndef_message) >= text_start:
+                            text_data = ndef_message[text_start:text_start + payload_len - 3]
+                            text_str = text_data.decode('utf-8', errors='ignore')
+                            logger.debug(f"Extracted text: {text_str}")
+                            
+                            # Parse JSON
+                            if text_str.startswith('{'):
+                                return json.loads(text_str)
+            
+            # Fallback: Look for raw JSON (for tags written by other tools)
             if b'{' in data:
                 json_start = data.find(b'{')
                 json_end = data.find(b'}', json_start) + 1
                 
                 if json_end > json_start:
                     json_str = data[json_start:json_end].decode('utf-8', errors='ignore')
+                    logger.debug(f"Found raw JSON: {json_str}")
                     return json.loads(json_str)
             
-            # If no JSON found, create mock data for testing
-            logger.info("No JSON found on tag, using test data")
-            return {
-                'v': 1,
-                'id': 'TEST-ENTRY-ID',
-                'geo': [0, 0],
-                'ts': int(time.time())
-            }
+            # If no JSON found, log what we did find
+            logger.warning(f"No JSON found on tag. First 32 bytes: {data[:32].hex()}")
+            return None
             
         except Exception as e:
-            logger.error(f"Error reading JSON from tag: {e}")
+            logger.error(f"Error reading JSON from tag: {e}", exc_info=True)
             return None
     
     def _write_ndef_data_sync(self, ndef_data: bytes) -> bool:
