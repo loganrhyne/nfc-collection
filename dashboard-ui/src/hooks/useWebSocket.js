@@ -7,6 +7,8 @@ const WEBSOCKET_URL = process.env.REACT_APP_WS_URL ||
     ? `http://${window.location.hostname}:8765`
     : 'http://localhost:8765');
 
+console.log('WebSocket URL:', WEBSOCKET_URL, 'Environment:', process.env.NODE_ENV);
+
 export const useWebSocket = () => {
   const socket = useRef(null);
   const [connected, setConnected] = useState(false);
@@ -38,14 +40,17 @@ export const useWebSocket = () => {
 
     // Generic message handler for all events
     socket.current.onAny((eventName, data) => {
-      console.log(`Received ${eventName}:`, data);
+      console.log(`WebSocket received event '${eventName}':`, data);
       const message = { type: eventName, ...data };
       setLastMessage(message);
       
       // Call registered handlers
       const handler = messageHandlers.current.get(eventName);
       if (handler) {
+        console.log(`Calling handler for '${eventName}'`);
         handler(message);
+      } else {
+        console.log(`No handler registered for '${eventName}'`);
       }
     });
 

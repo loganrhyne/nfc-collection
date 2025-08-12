@@ -4,24 +4,29 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 
 const NFCScanner = () => {
   const navigate = useNavigate();
-  const { registerHandler } = useWebSocket();
+  const { registerHandler, connected } = useWebSocket();
   
   useEffect(() => {
+    console.log('NFCScanner mounted, WebSocket connected:', connected);
+    
     const cleanup = registerHandler('tag_scanned', (message) => {
-      console.log('Tag scanned:', message);
+      console.log('Tag scanned event received:', message);
       
       const entryId = message.entry_id;
       if (entryId) {
         // Navigate to the entry view
-        navigate(`/entry/${entryId}`);
-        
-        // Optional: Show a notification
         console.log(`Navigating to entry: ${entryId}`);
+        navigate(`/entry/${entryId}`);
+      } else {
+        console.error('No entry_id in tag_scanned message:', message);
       }
     });
     
-    return cleanup;
-  }, [registerHandler, navigate]);
+    return () => {
+      console.log('NFCScanner unmounting');
+      cleanup();
+    };
+  }, [registerHandler, navigate, connected]);
   
   // This component doesn't render anything
   return null;
