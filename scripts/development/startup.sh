@@ -44,7 +44,10 @@ fi
 
 # Load environment variables
 if [ -f ".env" ]; then
-    export $(grep -v '^#' .env | xargs)
+    # Use set -a to export all variables, handling special characters properly
+    set -a
+    source .env
+    set +a
 fi
 
 # Start server with proper logging
