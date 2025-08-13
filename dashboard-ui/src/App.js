@@ -4,6 +4,7 @@ import './styles/videoPlayer.css';
 import { logEnvironmentInfo } from './utils/debug';
 import { BrowserRouter as Router, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { DataProvider } from './context/DataContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import DashboardLayout from './components/layout/DashboardLayout';
 import TypeBarChart from './components/charts/TypeBarChart';
 import RegionBarChart from './components/charts/RegionBarChart';
@@ -122,12 +123,22 @@ function App() {
     logEnvironmentInfo();
     console.log('🔍 Data files should be in:', `${window.location.origin}/data/`);
   }, []);
+  
+  const handleError = (error, errorInfo) => {
+    // In production, this would send to error tracking service
+    console.error('App Error:', error, errorInfo);
+  };
+  
   return (
-    <Router>
-      <DataProvider>
-        <AppContent />
-      </DataProvider>
-    </Router>
+    <ErrorBoundary onError={handleError}>
+      <Router>
+        <DataProvider>
+          <ErrorBoundary>
+            <AppContent />
+          </ErrorBoundary>
+        </DataProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

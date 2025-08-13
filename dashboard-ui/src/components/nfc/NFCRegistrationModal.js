@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import styled from 'styled-components';
 import { useWebSocket } from '../../hooks/useWebSocket';
 
@@ -252,6 +253,19 @@ const NFCRegistrationModal = ({ entry, onClose, onSuccess }) => {
       </ModalContent>
     </ModalOverlay>
   );
+};
+
+NFCRegistrationModal.propTypes = {
+  entry: PropTypes.shape({
+    uuid: PropTypes.string.isRequired,
+    location: PropTypes.shape({
+      latitude: PropTypes.number,
+      longitude: PropTypes.number
+    }),
+    creationDate: PropTypes.string
+  }).isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSuccess: PropTypes.func.isRequired
 };
 
 export default NFCRegistrationModal;

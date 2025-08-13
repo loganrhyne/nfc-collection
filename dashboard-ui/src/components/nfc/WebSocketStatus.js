@@ -34,7 +34,14 @@ const StatusDot = styled.div`
 `;
 
 const WebSocketStatus = () => {
-  const { connected, lastMessage, connectionError, reconnectAttempt } = useWebSocket();
+  const { 
+    connected, 
+    lastMessage, 
+    connectionError, 
+    reconnectAttempt, 
+    queuedMessageCount,
+    reconnect 
+  } = useWebSocket();
   
   // Log WebSocket activity
   React.useEffect(() => {
@@ -55,8 +62,18 @@ const WebSocketStatus = () => {
     }
   }
   
+  // Add queued message count if any
+  if (queuedMessageCount > 0) {
+    statusText += ` (${queuedMessageCount} queued)`;
+  }
+  
   return (
-    <StatusIndicator $connected={connected}>
+    <StatusIndicator 
+      $connected={connected}
+      onClick={() => !connected && reconnect()}
+      style={{ cursor: !connected ? 'pointer' : 'default' }}
+      title={!connected ? 'Click to reconnect' : statusText}
+    >
       <StatusDot $connected={connected} />
       {statusText}
     </StatusIndicator>

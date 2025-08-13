@@ -17,7 +17,7 @@ from aiohttp import web
 from aiohttp_cors import setup as cors_setup, ResourceOptions
 
 from config import config, ServerConfig
-from services.nfc_service import NFCService, NFCError, TagInfo
+from services.nfc_service_refactored import NFCService, NFCError, TagInfo
 
 # Configure structured logging
 logging.basicConfig(

@@ -3,6 +3,9 @@ python-socketio[asyncio_server]
 aiohttp
 aiohttp-cors
 
+# Configuration
+python-dotenv
+
 # Hardware libraries for Raspberry Pi
 adafruit-circuitpython-pn532
 adafruit-blinka
