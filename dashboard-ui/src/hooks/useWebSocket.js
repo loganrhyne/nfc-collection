@@ -13,25 +13,46 @@ export const useWebSocket = () => {
   const socket = useRef(null);
   const [connected, setConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState(null);
+  const [connectionError, setConnectionError] = useState(null);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const messageHandlers = useRef(new Map());
 
   useEffect(() => {
-    // Initialize socket connection
+    // Initialize socket connection with more robust settings
     socket.current = io(WEBSOCKET_URL, {
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5
+      reconnectionDelayMax: 10000,
+      reconnectionAttempts: Infinity,  // Keep trying forever
+      timeout: 20000,  // 20 second connection timeout
+      transports: ['websocket', 'polling']  // Try websocket first, fall back to polling
     });
 
     socket.current.on('connect', () => {
       console.log('WebSocket connected');
       setConnected(true);
+      setConnectionError(null);
+      setReconnectAttempt(0);
     });
 
-    socket.current.on('disconnect', () => {
-      console.log('WebSocket disconnected');
+    socket.current.on('disconnect', (reason) => {
+      console.log('WebSocket disconnected:', reason);
       setConnected(false);
+    });
+
+    socket.current.on('connect_error', (error) => {
+      console.error('WebSocket connection error:', error.message);
+      setConnectionError(error.message);
+    });
+
+    socket.current.on('reconnect_attempt', (attemptNumber) => {
+      console.log(`WebSocket reconnection attempt ${attemptNumber}`);
+      setReconnectAttempt(attemptNumber);
+    });
+
+    socket.current.on('reconnect', (attemptNumber) => {
+      console.log(`WebSocket reconnected after ${attemptNumber} attempts`);
+      setReconnectAttempt(0);
     });
 
     socket.current.on('connection_status', (data) => {
@@ -86,6 +107,8 @@ export const useWebSocket = () => {
     connected,
     sendMessage,
     lastMessage,
-    registerHandler
+    registerHandler,
+    connectionError,
+    reconnectAttempt
   };
 };

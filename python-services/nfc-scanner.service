@@ -1,0 +1,17 @@
+[Unit]
+Description=NFC Scanner WebSocket Service
+After=network.target
+
+[Service]
+Type=simple
+User=loganrhyne
+WorkingDirectory=/home/loganrhyne/nfc-collection/python-services
+Environment="PATH=/home/loganrhyne/nfc-collection/python-services/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/loganrhyne/nfc-collection/python-services/venv/bin/python server.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

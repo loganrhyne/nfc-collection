@@ -34,7 +34,7 @@ const StatusDot = styled.div`
 `;
 
 const WebSocketStatus = () => {
-  const { connected, lastMessage } = useWebSocket();
+  const { connected, lastMessage, connectionError, reconnectAttempt } = useWebSocket();
   
   // Log WebSocket activity
   React.useEffect(() => {
@@ -43,10 +43,22 @@ const WebSocketStatus = () => {
     }
   }, [lastMessage]);
   
+  // Determine status text
+  let statusText = 'NFC Scanner Connected';
+  if (!connected) {
+    if (reconnectAttempt > 0) {
+      statusText = `Reconnecting... (${reconnectAttempt})`;
+    } else if (connectionError) {
+      statusText = 'NFC Scanner Disconnected';
+    } else {
+      statusText = 'Connecting to NFC Scanner...';
+    }
+  }
+  
   return (
     <StatusIndicator $connected={connected}>
       <StatusDot $connected={connected} />
-      {connected ? 'NFC Scanner Connected' : 'NFC Scanner Disconnected'}
+      {statusText}
     </StatusIndicator>
   );
 };
