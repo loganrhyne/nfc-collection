@@ -130,7 +130,9 @@ const NFCRegistrationModal = ({ entry, onClose, onSuccess }) => {
       registerHandler('tag_registered', (message) => {
         setStatus('success');
         setProgress(100);
+        // Close modal after showing success
         setTimeout(() => {
+          onClose();
           onSuccess(message);
         }, 2000);
       }),

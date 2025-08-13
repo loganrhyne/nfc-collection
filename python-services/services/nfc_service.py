@@ -28,6 +28,9 @@ class NFCService:
         self.is_waiting = False
         self.cancel_flag = False
         self.mock_mode = mock_mode or not HARDWARE_AVAILABLE
+        self.last_written_uid = None
+        self.last_write_time = 0
+        self.write_cooldown = 10  # seconds to ignore tag after writing
         
         if HARDWARE_AVAILABLE and not mock_mode:
             self._initialize_hardware()
@@ -145,6 +148,11 @@ class NFCService:
             
             if success:
                 logger.info(f"Successfully wrote {len(json_str)} bytes to tag")
+                
+                # Track this tag to prevent immediate re-scanning
+                self.last_written_uid = detected_uid
+                self.last_write_time = time.time()
+                logger.info(f"Tag {detected_uid} marked for cooldown until {self.last_write_time + self.write_cooldown}")
                 
                 # Verify write by reading back
                 verify_data = self._read_json_from_tag_sync()
@@ -290,12 +298,19 @@ class NFCService:
                 
                 if uid:
                     current_time = time.time()
+                    uid_str = ':'.join([f"{b:02X}" for b in uid])
+                    
+                    # Check if this tag is in write cooldown
+                    if (self.last_written_uid == uid_str and 
+                        current_time - self.last_write_time < self.write_cooldown):
+                        # Skip this tag - it was just written
+                        continue
+                    
                     # Debounce - ignore same tag for 3 seconds
                     if uid != last_uid or current_time - last_read_time > 3:
                         last_uid = uid
                         last_read_time = current_time
                         
-                        uid_str = ':'.join([f"{b:02X}" for b in uid])
                         logger.info(f"Tag detected: {uid_str}")
                         
                         # Read JSON data synchronously
