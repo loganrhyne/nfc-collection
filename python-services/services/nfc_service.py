@@ -200,8 +200,7 @@ class NFCService:
                 try:
                     uid = await asyncio.get_event_loop().run_in_executor(
                         None, 
-                        self._pn532.read_passive_target,
-                        0.5  # Short timeout for non-blocking
+                        lambda: self._pn532.read_passive_target(timeout=500)  # 500ms timeout
                     )
                     
                     if uid:
@@ -388,7 +387,7 @@ class NFCService:
                     continue
                 
                 with self._hardware_lock():
-                    uid = self._pn532.read_passive_target()
+                    uid = self._pn532.read_passive_target(timeout=500)  # 500ms timeout
                 
                 if uid:
                     current_time = time.time()
