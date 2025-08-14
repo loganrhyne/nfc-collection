@@ -344,10 +344,14 @@ class NFCWebSocketServer:
                 return
             
             # Send progress updates
+            # Convert tag_info to dict with enum values properly serialized
+            tag_info_dict = asdict(tag_info)
+            tag_info_dict['type'] = tag_info.type.value
+            
             await self.sio.emit('tag_write_progress', {
                 'progress': 25,
                 'message': f'Tag detected ({tag_info.type.value}), preparing data...',
-                'tag_info': asdict(tag_info)
+                'tag_info': tag_info_dict
             }, room=sid)
             
             # Write to tag
