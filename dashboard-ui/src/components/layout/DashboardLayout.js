@@ -43,6 +43,19 @@ const RightColumn = styled.div`
   border-left: 1px solid #e0e0e0;
   box-shadow: -4px 0 8px rgba(0, 0, 0, 0.05);
   z-index: 1;
+  
+  /* Touch scrolling improvements */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  overscroll-behavior: contain; /* Prevent scroll chaining */
+  touch-action: pan-y; /* Enable vertical panning */
+  
+  /* Prevent text selection during scrolling */
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version */
 `;
 
 const TopSection = styled.div`

@@ -129,6 +129,12 @@ const TimelineDate = styled.div`
   font-size: 0.8rem;
   color: #666;
   margin-bottom: 4px;
+  
+  /* Allow text selection for date */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 `;
 
 const TimelineType = styled.div`
@@ -136,16 +142,34 @@ const TimelineType = styled.div`
   font-weight: 500;
   color: ${props => props.color || '#999'};
   margin-bottom: 4px;
+  
+  /* Allow text selection for type */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 `;
 
 const TimelineTitle = styled.div`
   font-weight: bold;
   margin-bottom: 4px;
+  
+  /* Allow text selection for important content */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 `;
 
 const TimelineLocation = styled.div`
   font-size: 0.85rem;
   color: #444;
+  
+  /* Allow text selection for location info */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 `;
 
 /**
