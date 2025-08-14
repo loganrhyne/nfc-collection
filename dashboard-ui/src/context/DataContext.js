@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 // Will load journal data dynamically from the public directory
 import { processEntries } from '../utils/dataProcessing';
+import { debugDataLoading } from '../utils/debugDataLoading';
 import { 
   isValidDimension, 
   applyFilter,
@@ -64,7 +65,20 @@ export const DataProvider = ({ children, entryIdFromUrl }) => {
     // Fetch journal data from the public directory
     const loadJournalData = async () => {
       try {
-        const response = await fetch('/data/journal.json');
+        // Add cache busting to prevent stale data
+        const timestamp = Date.now();
+        const url = `/data/journal.json?t=${timestamp}`;
+        
+        debugDataLoading.log(`Loading journal data from: ${url}`);
+        
+        const response = await fetch(url, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        
         if (!response.ok) {
           console.error('Failed to load journal data:', response.status, response.statusText);
           return;
@@ -72,6 +86,9 @@ export const DataProvider = ({ children, entryIdFromUrl }) => {
         
         const journalData = await response.json();
         console.log('✅ Journal data loaded successfully');
+        console.log(`📊 Total entries: ${journalData.entries ? journalData.entries.length : 0}`);
+        console.log(`📅 First entry: ${journalData.entries?.[0]?.creationDate || 'N/A'}`);
+        console.log(`📅 Last entry: ${journalData.entries?.[journalData.entries.length - 1]?.creationDate || 'N/A'}`);
         
         const processed = processEntries(journalData.entries);
         setEntries(processed);

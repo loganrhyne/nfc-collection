@@ -1,0 +1,30 @@
+[Unit]
+Description=NFC Scanner WebSocket Service
+After=network.target
+
+[Service]
+Type=simple
+User=loganrhyne
+WorkingDirectory=/home/loganrhyne/nfc-collection/python-services
+Environment="PATH=/home/loganrhyne/nfc-collection/python-services/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+# Load environment from .env file if it exists
+EnvironmentFile=-/home/loganrhyne/nfc-collection/python-services/.env
+ExecStart=/home/loganrhyne/nfc-collection/python-services/venv/bin/python server.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/loganrhyne/nfc-collection/python-services
+
+# Resource limits
+LimitNOFILE=65536
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
