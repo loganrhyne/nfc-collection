@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Journal Data Debug</title>
+    <style>
+        body {
+            font-family: monospace;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #e8f4f8;
+            border-left: 4px solid #2196F3;
+        }
+        .error {
+            background: #fee;
+            border-left-color: #f44336;
+        }
+        .success {
+            background: #efe;
+            border-left-color: #4CAF50;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        pre {
+            overflow-x: auto;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Journal Data Debug Tool</h1>
+        
+        <div id="location" class="info"></div>
+        <div id="status" class="info">Ready to test...</div>
+        
+        <div>
+            <button onclick="testFetch('/data/journal.json')">Test Fetch /data/journal.json</button>
+            <button onclick="testFetch('./data/journal.json')">Test Fetch ./data/journal.json</button>
+            <button onclick="testFetch('data/journal.json')">Test Fetch data/journal.json</button>
+            <button onclick="clearCache()">Clear Cache & Reload</button>
+        </div>
+        
+        <h2>Results:</h2>
+        <pre id="results"></pre>
+        
+        <h2>Browser Cache Info:</h2>
+        <pre id="cacheInfo"></pre>
+    </div>
+
+    <script>
+        // Display current location
+        document.getElementById('location').innerHTML = `
+            <strong>Current Location:</strong><br>
+            URL: ${window.location.href}<br>
+            Origin: ${window.location.origin}<br>
+            Pathname: ${window.location.pathname}<br>
+            Protocol: ${window.location.protocol}
+        `;
+        
+        // Check browser cache
+        async function checkCache() {
+            const info = {
+                cacheStorage: 'caches' in window,
+                serviceWorker: 'serviceWorker' in navigator,
+                localStorage: typeof(Storage) !== "undefined"
+            };
+            
+            if ('caches' in window) {
+                try {
+                    const cacheNames = await caches.keys();
+                    info.cacheNames = cacheNames;
+                } catch (e) {
+                    info.cacheError = e.message;
+                }
+            }
+            
+            document.getElementById('cacheInfo').textContent = JSON.stringify(info, null, 2);
+        }
+        
+        // Test fetch function
+        async function testFetch(url) {
+            const results = document.getElementById('results');
+            const status = document.getElementById('status');
+            
+            status.className = 'info';
+            status.textContent = `Testing fetch: ${url}...`;
+            
+            try {
+                const timestamp = Date.now();
+                const fullUrl = `${url}?t=${timestamp}`;
+                
+                console.log(`Fetching: ${fullUrl}`);
+                
+                const response = await fetch(fullUrl, {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                
+                const text = await response.text();
+                let data;
+                
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    data = { parseError: e.message, rawText: text.substring(0, 200) };
+                }
+                
+                const result = {
+                    url: fullUrl,
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: {
+                        'content-type': response.headers.get('content-type'),
+                        'content-length': response.headers.get('content-length'),
+                        'last-modified': response.headers.get('last-modified'),
+                        'cache-control': response.headers.get('cache-control'),
+                        'etag': response.headers.get('etag')
+                    },
+                    data: {
+                        entries: data.entries ? data.entries.length : 'No entries array',
+                        firstEntry: data.entries ? {
+                            uuid: data.entries[0].uuid,
+                            creationDate: data.entries[0].creationDate,
+                            sample: data.entries[0].sample
+                        } : 'No entries',
+                        lastEntry: data.entries ? {
+                            uuid: data.entries[data.entries.length - 1].uuid,
+                            creationDate: data.entries[data.entries.length - 1].creationDate,
+                            sample: data.entries[data.entries.length - 1].sample
+                        } : 'No entries'
+                    }
+                };
+                
+                results.textContent = JSON.stringify(result, null, 2);
+                status.className = 'info success';
+                status.textContent = `✓ Successfully loaded ${data.entries ? data.entries.length : 0} entries`;
+                
+            } catch (error) {
+                results.textContent = JSON.stringify({
+                    error: error.message,
+                    stack: error.stack
+                }, null, 2);
+                status.className = 'info error';
+                status.textContent = `✗ Error: ${error.message}`;
+            }
+        }
+        
+        // Clear cache function
+        async function clearCache() {
+            const status = document.getElementById('status');
+            status.className = 'info';
+            status.textContent = 'Clearing cache...';
+            
+            try {
+                // Clear all caches
+                if ('caches' in window) {
+                    const names = await caches.keys();
+                    await Promise.all(names.map(name => caches.delete(name)));
+                }
+                
+                // Clear session storage
+                if (window.sessionStorage) {
+                    sessionStorage.clear();
+                }
+                
+                // Clear local storage
+                if (window.localStorage) {
+                    localStorage.clear();
+                }
+                
+                status.className = 'info success';
+                status.textContent = '✓ Cache cleared. Reloading...';
+                
+                // Force reload without cache
+                setTimeout(() => {
+                    window.location.reload(true);
+                }, 1000);
+                
+            } catch (error) {
+                status.className = 'info error';
+                status.textContent = `✗ Error clearing cache: ${error.message}`;
+            }
+        }
+        
+        // Check cache on load
+        checkCache();
+    </script>
+</body>
+</html>
