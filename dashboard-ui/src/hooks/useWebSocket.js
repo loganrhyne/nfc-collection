@@ -100,7 +100,8 @@ export const useWebSocket = () => {
       reconnectionDelayMax: CONFIG.RECONNECTION_DELAY_MAX,
       reconnectionAttempts: Infinity,
       timeout: CONFIG.CONNECTION_TIMEOUT,
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],  // Only use WebSocket to avoid polling delays
+      upgrade: false,  // Don't upgrade from polling since we start with WebSocket
       // Security: Add auth token when available
       auth: {
         token: localStorage.getItem('wsAuthToken') || undefined

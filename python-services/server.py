@@ -81,7 +81,8 @@ class NFCWebSocketServer:
             engineio_logger=logger.getChild('engineio'),
             max_http_buffer_size=self.config.max_message_size,
             ping_timeout=60,
-            ping_interval=self.config.heartbeat_interval
+            ping_interval=self.config.heartbeat_interval,
+            async_mode='aiohttp'  # Ensure we're using aiohttp for async
         )
         
         # Create aiohttp app
@@ -429,6 +430,8 @@ class NFCWebSocketServer:
         if self.nfc_service.get_status()['hardware_available']:
             logger.info("Starting NFC continuous scanning")
             self.nfc_service.start_continuous_scanning(self.handle_tag_scanned)
+            # Start queue processing in the main event loop
+            asyncio.create_task(self.nfc_service.process_scan_queue())
         
         # Start session cleanup task
         asyncio.create_task(self._cleanup_sessions())

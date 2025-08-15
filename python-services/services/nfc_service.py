@@ -6,6 +6,7 @@ Refactored NFC Service with enterprise-grade error handling and configuration
 import asyncio
 import json
 import logging
+import queue
 import time
 import threading
 from contextlib import contextmanager
@@ -150,6 +151,7 @@ class NFCService:
         self._last_write_time = 0
         self._write_cooldown_cache = {}  # uid -> timestamp
         self._scan_state = ScanState(grace_period=1.5)
+        self._scan_queue = queue.Queue()  # Thread-safe queue for scan events
         
         # Initialize hardware if not in mock mode
         if not self.config.mock_mode:
@@ -402,9 +404,9 @@ class NFCService:
             return
         
         self._is_scanning = True
+        self._scan_callback = callback
         self._scan_thread = threading.Thread(
             target=self._scanning_loop,
-            args=(callback,),
             daemon=True
         )
         self._scan_thread.start()
@@ -425,7 +427,29 @@ class NFCService:
         
         logger.info("Continuous scanning stopped")
     
-    def _scanning_loop(self, callback: Callable) -> None:
+    async def process_scan_queue(self) -> None:
+        """Process queued scan events in the main event loop"""
+        while self._is_scanning:
+            try:
+                # Non-blocking get with timeout
+                tag_data = await asyncio.get_event_loop().run_in_executor(
+                    None, 
+                    lambda: self._scan_queue.get(timeout=0.1)
+                )
+                
+                if tag_data and self._scan_callback:
+                    # Now we're safely in the main event loop
+                    await self._scan_callback(tag_data)
+                    
+            except queue.Empty:
+                # No events in queue, continue
+                pass
+            except Exception as e:
+                logger.error(f"Error processing scan queue: {e}")
+                
+            await asyncio.sleep(0.01)  # Small delay to prevent busy waiting
+    
+    def _scanning_loop(self) -> None:
         """Improved scanning loop with cradle-based interaction"""
         error_count = 0
         max_consecutive_errors = 5
@@ -438,12 +462,12 @@ class NFCService:
                     # Mock mode simulation
                     time.sleep(2)
                     if self._is_scanning and self._scan_state.should_emit_event('MOCK:01:23:45:67', current_time):
-                        asyncio.run(callback({
+                        self._scan_queue.put({
                             'v': 1,
                             'id': '1A88256FB33855EEB831ED2569B135CF',
                             'geo': [-33.890542, 151.274856],
                             'ts': int(time.time())
-                        }))
+                        })
                     continue
                 
                 with self._hardware_lock():
@@ -460,8 +484,8 @@ class NFCService:
                                 json_data = self._read_json_from_tag_sync()
                             
                             if json_data:
-                                logger.info(f"Tag scanned: {uid_str} - emitting event")
-                                asyncio.run(callback(json_data))
+                                logger.info(f"Tag scanned: {uid_str} - queuing event")
+                                self._scan_queue.put(json_data)
                                 error_count = 0  # Reset error count on success
                         except Exception as e:
                             logger.error(f"Error reading tag data: {e}")
