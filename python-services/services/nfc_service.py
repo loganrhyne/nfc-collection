@@ -88,6 +88,55 @@ class WriteResult:
     retry_count: int = 0
 
 
+class ScanState:
+    """Manages scanning state for cradle-based interaction"""
+    
+    def __init__(self, grace_period: float = 1.5):
+        self.current_tag_id: Optional[str] = None
+        self.last_seen_time: float = 0
+        self.grace_period = grace_period
+        self._write_in_progress = False
+        
+    def should_emit_event(self, tag_id: str, current_time: float) -> bool:
+        """Determine if we should emit a tag_scanned event"""
+        # During write operations, don't emit scan events
+        if self._write_in_progress:
+            return False
+            
+        # If no tag was present, any tag triggers event
+        if self.current_tag_id is None:
+            self.current_tag_id = tag_id
+            self.last_seen_time = current_time
+            return True
+            
+        # If different tag detected, immediate event
+        if tag_id != self.current_tag_id:
+            self.current_tag_id = tag_id
+            self.last_seen_time = current_time
+            return True
+            
+        # Same tag still present - just update timestamp
+        self.last_seen_time = current_time
+        return False
+        
+    def process_no_tag_detected(self, current_time: float):
+        """Handle absence of tag detection"""
+        # Clear current tag if grace period exceeded
+        if self.current_tag_id and (current_time - self.last_seen_time > self.grace_period):
+            logger.debug(f"Tag {self.current_tag_id} removed after {self.grace_period}s grace period")
+            self.current_tag_id = None
+            
+    def set_write_mode(self, enabled: bool):
+        """Toggle write mode to prevent scan events during writing"""
+        self._write_in_progress = enabled
+        if enabled:
+            logger.debug("Write mode enabled - scan events suppressed")
+        else:
+            logger.debug("Write mode disabled - scan events resumed")
+            # Clear current tag to force re-scan after write
+            self.current_tag_id = None
+
+
 class NFCService:
     """Enterprise-grade NFC service with robust error handling"""
     
@@ -100,6 +149,7 @@ class NFCService:
         self._last_written_uid = None
         self._last_write_time = 0
         self._write_cooldown_cache = {}  # uid -> timestamp
+        self._scan_state = ScanState(grace_period=1.5)
         
         # Initialize hardware if not in mock mode
         if not self.config.mock_mode:
@@ -226,56 +276,65 @@ class NFCService:
     
     async def write_json_to_tag(self, tag_info: TagInfo, data: Dict[str, Any]) -> WriteResult:
         """Write JSON data to tag with validation and retry logic"""
-        # Validate data first
+        # Enable write mode to suppress scan events during write
+        self._scan_state.set_write_mode(True)
+        
         try:
-            self.validate_json_data(data)
-        except NFCDataError as e:
+            # Validate data first
+            try:
+                self.validate_json_data(data)
+            except NFCDataError as e:
+                return WriteResult(
+                    success=False,
+                    tag_uid=tag_info.uid,
+                    bytes_written=0,
+                    error=str(e)
+                )
+            
+            if self.config.mock_mode:
+                await asyncio.sleep(1)
+                return WriteResult(
+                    success=True,
+                    tag_uid=tag_info.uid,
+                    bytes_written=len(json.dumps(data)),
+                    retry_count=0
+                )
+            
+            # Actual write with retry logic
+            for attempt in range(self.config.write_retry_attempts):
+                try:
+                    result = await self._write_with_verification(tag_info, data)
+                    if result.success:
+                        # Write succeeded
+                        logger.info(f"Successfully wrote to tag {tag_info.uid}")
+                        return result
+                    
+                    if attempt < self.config.write_retry_attempts - 1:
+                        await asyncio.sleep(self.config.write_retry_delay)
+                        
+                except Exception as e:
+                    logger.error(f"Write attempt {attempt + 1} failed: {e}")
+                    if attempt == self.config.write_retry_attempts - 1:
+                        return WriteResult(
+                            success=False,
+                            tag_uid=tag_info.uid,
+                            bytes_written=0,
+                            error=str(e),
+                            retry_count=attempt + 1
+                        )
+            
+            # All attempts failed
             return WriteResult(
                 success=False,
                 tag_uid=tag_info.uid,
                 bytes_written=0,
-                error=str(e)
+                error="All write attempts failed",
+                retry_count=self.config.write_retry_attempts
             )
-        
-        if self.config.mock_mode:
-            await asyncio.sleep(1)
-            return WriteResult(
-                success=True,
-                tag_uid=tag_info.uid,
-                bytes_written=len(json.dumps(data)),
-                retry_count=0
-            )
-        
-        # Actual write with retry logic
-        for attempt in range(self.config.write_retry_attempts):
-            try:
-                result = await self._write_with_verification(tag_info, data)
-                if result.success:
-                    # Update cooldown cache
-                    self._write_cooldown_cache[tag_info.uid] = time.time()
-                    return result
-                
-                if attempt < self.config.write_retry_attempts - 1:
-                    await asyncio.sleep(self.config.write_retry_delay)
-                    
-            except Exception as e:
-                logger.error(f"Write attempt {attempt + 1} failed: {e}")
-                if attempt == self.config.write_retry_attempts - 1:
-                    return WriteResult(
-                        success=False,
-                        tag_uid=tag_info.uid,
-                        bytes_written=0,
-                        error=str(e),
-                        retry_count=attempt + 1
-                    )
-        
-        return WriteResult(
-            success=False,
-            tag_uid=tag_info.uid,
-            bytes_written=0,
-            error="All write attempts failed",
-            retry_count=self.config.write_retry_attempts
-        )
+            
+        finally:
+            # Always disable write mode when done
+            self._scan_state.set_write_mode(False)
     
     async def _write_with_verification(self, tag_info: TagInfo, data: Dict[str, Any]) -> WriteResult:
         """Write data and verify it was written correctly"""
@@ -367,17 +426,18 @@ class NFCService:
         logger.info("Continuous scanning stopped")
     
     def _scanning_loop(self, callback: Callable) -> None:
-        """Improved scanning loop with error recovery"""
-        last_uid = None
-        last_scan_time = 0
+        """Improved scanning loop with cradle-based interaction"""
         error_count = 0
         max_consecutive_errors = 5
         
         while self._is_scanning:
             try:
+                current_time = time.time()
+                
                 if self.config.mock_mode:
-                    time.sleep(5)
-                    if self._is_scanning:
+                    # Mock mode simulation
+                    time.sleep(2)
+                    if self._is_scanning and self._scan_state.should_emit_event('MOCK:01:23:45:67', current_time):
                         asyncio.run(callback({
                             'v': 1,
                             'id': '1A88256FB33855EEB831ED2569B135CF',
@@ -390,36 +450,29 @@ class NFCService:
                     uid = self._pn532.read_passive_target(timeout=500)  # 500ms timeout
                 
                 if uid:
-                    current_time = time.time()
                     uid_str = ':'.join([f"{b:02X}" for b in uid])
                     
-                    # Check cooldown
-                    if uid_str in self._write_cooldown_cache:
-                        cooldown_end = self._write_cooldown_cache[uid_str] + self.config.write_cooldown
-                        if current_time < cooldown_end:
-                            continue
-                        else:
-                            # Remove from cache after cooldown
-                            del self._write_cooldown_cache[uid_str]
-                    
-                    # Debounce check
-                    if uid_str != last_uid or current_time - last_scan_time > self.config.scan_debounce:
-                        last_uid = uid_str
-                        last_scan_time = current_time
-                        
+                    # Check if we should emit event for this tag
+                    if self._scan_state.should_emit_event(uid_str, current_time):
                         try:
                             # Read tag data
                             with self._hardware_lock():
                                 json_data = self._read_json_from_tag_sync()
                             
                             if json_data:
-                                logger.info(f"Tag scanned: {uid_str}")
+                                logger.info(f"Tag scanned: {uid_str} - emitting event")
                                 asyncio.run(callback(json_data))
                                 error_count = 0  # Reset error count on success
                         except Exception as e:
                             logger.error(f"Error reading tag data: {e}")
+                    else:
+                        # Tag still present, no event needed
+                        logger.debug(f"Tag {uid_str} still present - no event")
+                else:
+                    # No tag detected
+                    self._scan_state.process_no_tag_detected(current_time)
                 
-                time.sleep(0.5)
+                time.sleep(0.1)  # Faster polling for better responsiveness
                 
             except Exception as e:
                 error_count += 1
