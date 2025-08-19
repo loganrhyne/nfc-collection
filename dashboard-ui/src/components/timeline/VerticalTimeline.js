@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
 import colorScheme from '../../utils/colorScheme';
+import { useTouchScroll } from '../../hooks/useTouchScroll';
 
 /**
  * Container for the timeline component that fits within the scrollable area.
@@ -48,6 +49,9 @@ const TimelineEntries = styled.div`
   display: flex;
   flex-direction: column;
   gap: 24px;
+  
+  /* Ensure container doesn't interfere with parent scrolling */
+  touch-action: inherit;
 `;
 
 /**
@@ -70,6 +74,14 @@ const TimelineCard = styled.div`
   border-radius: 8px;
   background-color: ${props => props.selected ? '#f0f7ff' : '#fff'};
   padding: 12px 16px;
+  
+  /* Prevent text selection on the card itself */
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version */
   
   /* Dynamic shadow based on selection state */
   box-shadow: ${props => 
@@ -304,11 +316,14 @@ const VerticalTimeline = ({ onEntrySelect }) => {
     const locationName = entry.location?.placeName || entry.location?.localityName;
     const locationCountry = entry.location?.country ? `, ${entry.location.country}` : '';
     
+    // Use touch scroll hook to handle touch vs click
+    const touchHandlers = useTouchScroll(() => handleItemClick(entry));
+    
     return (
       <TimelineCard
         key={entry.uuid}
         id={`timeline-entry-${entry.uuid}`}
-        onClick={() => handleItemClick(entry)}
+        {...touchHandlers}
         selected={isSelected}
       >
         <TimelineDot color={entryColor} />
