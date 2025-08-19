@@ -80,7 +80,8 @@ class NFCWebSocketServer:
             'server_version': os.getenv('SERVER_VERSION', 'dev'),
             'build_time': os.getenv('SERVER_BUILD_TIME', datetime.utcnow().isoformat()),
             'start_time': datetime.utcnow().isoformat(),
-            'nfc_service_status': 'initializing'
+            'nfc_hardware_available': False,
+            'nfc_mock_mode': False
         }
         
         # Initialize Socket.IO with configuration
@@ -205,7 +206,9 @@ class NFCWebSocketServer:
         )
         
         # Update NFC service status
-        self.version_info['nfc_service_status'] = self.nfc_service.get_status()['status']
+        nfc_status = self.nfc_service.get_status()
+        self.version_info['nfc_hardware_available'] = nfc_status['hardware_available']
+        self.version_info['nfc_mock_mode'] = nfc_status['mock_mode']
         
         # Send connection status with version info
         await self.sio.emit('connection_status', {
@@ -483,7 +486,9 @@ class NFCWebSocketServer:
         logger.info(f"Start Time: {self.version_info['start_time']}")
         logger.info("=" * 60)
         logger.info(f"Starting WebSocket server on {self.config.host}:{self.config.port}")
-        logger.info(f"NFC Service Status: {self.nfc_service.get_status()['status']}")
+        nfc_status = self.nfc_service.get_status()
+        logger.info(f"NFC Hardware Available: {nfc_status['hardware_available']}")
+        logger.info(f"NFC Mock Mode: {nfc_status['mock_mode']}")
         logger.info(f"Configuration: {asdict(self.config)}")
         
         web.run_app(
