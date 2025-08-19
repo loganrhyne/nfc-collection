@@ -331,6 +331,14 @@ const VerticalTimeline = ({ onEntrySelect }) => {
         id={`timeline-entry-${entry.uuid}`}
         onClick={() => handleItemClick(entry)}
         selected={isSelected}
+        style={{
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          KhtmlUserSelect: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none',
+          userSelect: 'none'
+        }}
       >
         <TimelineDot color={entryColor} />
         
