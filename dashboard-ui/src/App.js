@@ -16,6 +16,7 @@ import NfcHandler from './components/nfc/NfcHandler';
 import NFCScanner from './components/nfc/NFCScanner';
 import WebSocketStatus from './components/nfc/WebSocketStatus';
 import ActiveFilters from './components/filters/ActiveFilters';
+import VersionInfo from './components/VersionInfo';
 import './App.css';
 
 /**
@@ -110,6 +111,7 @@ function AppContent() {
       <NfcHandler />
       <NFCScanner />
       <WebSocketStatus />
+      <VersionInfo />
     </div>
   );
 }
