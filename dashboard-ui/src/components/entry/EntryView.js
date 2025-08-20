@@ -213,6 +213,19 @@ const ScrollableTimelineContainer = styled.div`
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  
+  /* Touch scrolling improvements */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  overscroll-behavior: contain; /* Prevent scroll chaining */
+  touch-action: pan-y; /* Enable vertical panning */
+  
+  /* Prevent text selection during scrolling */
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version */
 `;
 
 const EntryView = ({ entryId, onReturn }) => {

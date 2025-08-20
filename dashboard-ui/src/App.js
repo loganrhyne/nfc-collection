@@ -16,6 +16,9 @@ import NfcHandler from './components/nfc/NfcHandler';
 import NFCScanner from './components/nfc/NFCScanner';
 import WebSocketStatus from './components/nfc/WebSocketStatus';
 import ActiveFilters from './components/filters/ActiveFilters';
+import VersionInfo from './components/VersionInfo';
+import TimelineDebug from './components/timeline/TimelineDebug';
+import { initTouchScrollFix } from './utils/touchScrollFix';
 import './App.css';
 
 /**
@@ -110,6 +113,7 @@ function AppContent() {
       <NfcHandler />
       <NFCScanner />
       <WebSocketStatus />
+      <VersionInfo />
     </div>
   );
 }
@@ -122,6 +126,10 @@ function App() {
   useEffect(() => {
     logEnvironmentInfo();
     console.log('🔍 Data files should be in:', `${window.location.origin}/data/`);
+    
+    // Initialize touch scroll fix
+    console.log('Initializing touch scroll fix...');
+    initTouchScrollFix();
   }, []);
   
   const handleError = (error, errorInfo) => {

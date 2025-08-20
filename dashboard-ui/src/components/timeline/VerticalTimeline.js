@@ -9,6 +9,12 @@ import colorScheme from '../../utils/colorScheme';
 const TimelineContainer = styled.div`
   height: 100%;
   padding: 0 16px 20px 0;
+  
+  /* Ensure we inherit parent scrolling behavior */
+  * {
+    -webkit-overflow-scrolling: inherit;
+    touch-action: inherit;
+  }
 `;
 
 /**
@@ -48,6 +54,9 @@ const TimelineEntries = styled.div`
   display: flex;
   flex-direction: column;
   gap: 24px;
+  
+  /* Ensure container doesn't interfere with parent scrolling */
+  touch-action: inherit;
 `;
 
 /**
@@ -70,6 +79,18 @@ const TimelineCard = styled.div`
   border-radius: 8px;
   background-color: ${props => props.selected ? '#f0f7ff' : '#fff'};
   padding: 12px 16px;
+  
+  /* Prevent text selection on the card itself */
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Safari */
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Old versions of Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version */
+  
+  /* Touch handling */
+  touch-action: manipulation; /* Allows touch scrolling but prevents zoom */
+  -webkit-tap-highlight-color: rgba(0,0,0,0); /* Remove tap highlight on iOS */
   
   /* Dynamic shadow based on selection state */
   box-shadow: ${props => 
@@ -129,6 +150,12 @@ const TimelineDate = styled.div`
   font-size: 0.8rem;
   color: #666;
   margin-bottom: 4px;
+  
+  /* Allow text selection for date */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 `;
 
 const TimelineType = styled.div`
@@ -136,16 +163,34 @@ const TimelineType = styled.div`
   font-weight: 500;
   color: ${props => props.color || '#999'};
   margin-bottom: 4px;
+  
+  /* Allow text selection for type */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 `;
 
 const TimelineTitle = styled.div`
   font-weight: bold;
   margin-bottom: 4px;
+  
+  /* Allow text selection for important content */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 `;
 
 const TimelineLocation = styled.div`
   font-size: 0.85rem;
   color: #444;
+  
+  /* Allow text selection for location info */
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
 `;
 
 /**
@@ -286,6 +331,14 @@ const VerticalTimeline = ({ onEntrySelect }) => {
         id={`timeline-entry-${entry.uuid}`}
         onClick={() => handleItemClick(entry)}
         selected={isSelected}
+        style={{
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          KhtmlUserSelect: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none',
+          userSelect: 'none'
+        }}
       >
         <TimelineDot color={entryColor} />
         

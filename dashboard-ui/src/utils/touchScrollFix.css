@@ -1,0 +1,59 @@
+/* Touch scrolling fix for timeline containers */
+
+/* Main scrollable containers */
+.touch-scroll-container {
+  /* Enable smooth touch scrolling */
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  
+  /* Allow vertical touch gestures */
+  touch-action: pan-y;
+  
+  /* Prevent text selection on container */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Timeline cards should not interfere with scrolling */
+.timeline-card-touch {
+  /* Prevent all text selection by default */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  
+  /* But don't interfere with scroll gestures */
+  touch-action: manipulation;
+}
+
+/* Allow selection on specific elements */
+.timeline-card-touch .selectable {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  
+  /* Prevent touch callout menu on iOS */
+  -webkit-touch-callout: default;
+}
+
+/* Debug styles to visualize touch areas */
+.debug-touch-area {
+  position: relative;
+}
+
+.debug-touch-area::after {
+  content: attr(data-touch);
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: rgba(255, 0, 0, 0.3);
+  color: white;
+  padding: 2px 6px;
+  font-size: 10px;
+  pointer-events: none;
+}

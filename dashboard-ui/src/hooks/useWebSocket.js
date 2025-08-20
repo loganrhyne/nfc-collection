@@ -162,6 +162,9 @@ export const useWebSocket = () => {
     // Connection status from server
     socket.current.on('connection_status', (data) => {
       console.log('Connection status:', data);
+      if (data.build_info) {
+        console.log('🚀 Server Build Info:', data.build_info);
+      }
     });
 
     // Generic message handler with error protection

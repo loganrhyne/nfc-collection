@@ -6,6 +6,7 @@ Refactored WebSocket server with enterprise-grade features
 import asyncio
 import json
 import logging
+import os
 import time
 from datetime import datetime
 from typing import Dict, Optional, Any
@@ -73,6 +74,15 @@ class NFCWebSocketServer:
             self.config.rate_limit_requests,
             self.config.rate_limit_window
         ) if self.config.rate_limit_enabled else None
+        
+        # Version info
+        self.version_info = {
+            'server_version': os.getenv('SERVER_VERSION', 'dev'),
+            'build_time': os.getenv('SERVER_BUILD_TIME', datetime.utcnow().isoformat()),
+            'start_time': datetime.utcnow().isoformat(),
+            'nfc_hardware_available': False,
+            'nfc_mock_mode': False
+        }
         
         # Initialize Socket.IO with configuration
         self.sio = socketio.AsyncServer(
@@ -196,11 +206,17 @@ class NFCWebSocketServer:
             authenticated=self.config.auth_enabled
         )
         
-        # Send connection status
+        # Update NFC service status
+        nfc_status = self.nfc_service.get_status()
+        self.version_info['nfc_hardware_available'] = nfc_status['hardware_available']
+        self.version_info['nfc_mock_mode'] = nfc_status['mock_mode']
+        
+        # Send connection status with version info
         await self.sio.emit('connection_status', {
             'connected': True,
             'nfc_available': self.nfc_service.get_status()['hardware_available'],
-            'server_version': '2.0.0',
+            'server_version': self.version_info['server_version'],
+            'build_info': self.version_info,
             'features': {
                 'rate_limiting': self.config.rate_limit_enabled,
                 'authentication': self.config.auth_enabled,
@@ -467,7 +483,15 @@ class NFCWebSocketServer:
         self.app.on_startup.append(self.start_background_tasks)
         self.app.on_cleanup.append(self.cleanup_background_tasks)
         
+        logger.info("=" * 60)
+        logger.info(f"NFC Collection Server v{self.version_info['server_version']}")
+        logger.info(f"Build Time: {self.version_info['build_time']}")
+        logger.info(f"Start Time: {self.version_info['start_time']}")
+        logger.info("=" * 60)
         logger.info(f"Starting WebSocket server on {self.config.host}:{self.config.port}")
+        nfc_status = self.nfc_service.get_status()
+        logger.info(f"NFC Hardware Available: {nfc_status['hardware_available']}")
+        logger.info(f"NFC Mock Mode: {nfc_status['mock_mode']}")
         logger.info(f"Configuration: {asdict(self.config)}")
         
         web.run_app(
