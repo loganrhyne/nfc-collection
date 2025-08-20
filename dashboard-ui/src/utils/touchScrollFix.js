@@ -82,7 +82,9 @@ export const applyTouchScrollFix = () => {
   const containers = document.querySelectorAll('[class*="RightColumn"], [class*="ScrollableTimelineContainer"]');
   containers.forEach(container => {
     container.style.display = 'none';
-    container.offsetHeight; // Force reflow
+    // Force reflow by reading offsetHeight
+    // eslint-disable-next-line no-unused-expressions
+    container.offsetHeight;
     container.style.display = '';
   });
 };
