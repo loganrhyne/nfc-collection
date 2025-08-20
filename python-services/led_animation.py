@@ -9,8 +9,9 @@ from adafruit_led_animation.animation.rainbowsparkle import RainbowSparkle
 from adafruit_led_animation.sequence import AnimationSequence
 from adafruit_raspberry_pi5_neopixel_write import neopixel_write
 
-NEOPIXEL = board.D12
-num_pixels = 100 
+NEOPIXEL = board.D18
+num_pixels = 100
+brightness = 0.1 
 
 class Pi5Pixelbuf(adafruit_pixelbuf.PixelBuf):
     def __init__(self, pin, size, **kwargs):
