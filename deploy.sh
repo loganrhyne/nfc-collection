@@ -5,8 +5,8 @@
 set -e  # Exit on error
 
 # Configuration
-PI_HOST="${PI_HOST:-pi@raspberrypi.local}"  # Override with environment variable if needed
-PI_APP_DIR="/home/pi/nfc-collection"
+PI_HOST="${PI_HOST:-loganrhyne@192.168.1.114}"  # Override with environment variable if needed
+PI_APP_DIR="/home/loganrhyne/nfc-collection"
 LOCAL_BUILD_DIR="dashboard-ui/build"
 BRANCH="${1:-main}"  # Allow branch override as first argument
 
@@ -115,8 +115,8 @@ rm -rf $DEPLOY_TEMP
 
 echo ""
 echo -e "${GREEN}=== Deployment Complete ===${NC}"
-echo "Dashboard URL: http://$PI_HOST/"
-echo "WebSocket URL: http://$PI_HOST:8765/"
+echo "Dashboard URL: http://192.168.1.114/"
+echo "WebSocket URL: http://192.168.1.114:8765/"
 echo ""
 echo "To check logs on the Pi:"
 echo "  WebSocket: ssh $PI_HOST 'sudo journalctl -u nfc-websocket -f'"

@@ -4,10 +4,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/nfc-collection/python-services
-Environment="PATH=/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin"
+User=loganrhyne
+Group=loganrhyne
+WorkingDirectory=/home/loganrhyne/nfc-collection/python-services
+Environment="PATH=/home/loganrhyne/.local/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
 ExecStart=/usr/bin/python3 server.py
 Restart=always

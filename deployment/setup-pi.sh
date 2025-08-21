@@ -36,26 +36,26 @@ if ! grep -q "dtparam=i2c_arm=on" /boot/config.txt; then
     echo "I2C enabled in /boot/config.txt"
 fi
 
-# Add pi user to i2c group
-usermod -a -G i2c pi
+# Add loganrhyne user to i2c group
+usermod -a -G i2c loganrhyne
 
 # Step 3: Install Python packages for hardware
 echo -e "${YELLOW}Step 3: Installing hardware-specific Python packages...${NC}"
 # These are Pi-specific packages that might not be in requirements.txt
-sudo -u pi pip3 install --user \
+sudo -u loganrhyne pip3 install --user \
     adafruit-circuitpython-neopixel \
     adafruit-circuitpython-pixelbuf \
     rpi-ws281x \
     adafruit-blinka
 
 # Try to install Pi5-specific neopixel support
-sudo -u pi pip3 install --user adafruit-circuitpython-neopixel-spi || true
+sudo -u loganrhyne pip3 install --user adafruit-circuitpython-neopixel-spi || true
 
 # Step 4: Setup systemd services
 echo -e "${YELLOW}Step 4: Setting up systemd services...${NC}"
 
 # Copy service files
-cp /home/pi/nfc-collection/deployment/systemd/*.service /etc/systemd/system/
+cp /home/loganrhyne/nfc-collection/deployment/systemd/*.service /etc/systemd/system/
 
 # Reload systemd
 systemctl daemon-reload
@@ -75,7 +75,7 @@ server {
     
     # Serve React build
     location / {
-        root /home/pi/nfc-collection/dashboard-ui/build;
+        root /home/loganrhyne/nfc-collection/dashboard-ui/build;
         try_files $uri /index.html;
         
         # Cache static assets
@@ -114,7 +114,7 @@ nginx -t
 echo -e "${YELLOW}Step 6: Creating helper scripts...${NC}"
 
 # Create start script
-cat > /home/pi/nfc-collection/start.sh << 'EOF'
+cat > /home/loganrhyne/nfc-collection/start.sh << 'EOF'
 #!/bin/bash
 # Start all services
 sudo systemctl start nfc-websocket
@@ -125,7 +125,7 @@ echo "Services started. Check status with: ./status.sh"
 EOF
 
 # Create stop script
-cat > /home/pi/nfc-collection/stop.sh << 'EOF'
+cat > /home/loganrhyne/nfc-collection/stop.sh << 'EOF'
 #!/bin/bash
 # Stop all services
 sudo systemctl stop nfc-websocket
@@ -134,7 +134,7 @@ echo "Services stopped."
 EOF
 
 # Create status script
-cat > /home/pi/nfc-collection/status.sh << 'EOF'
+cat > /home/loganrhyne/nfc-collection/status.sh << 'EOF'
 #!/bin/bash
 # Check service status
 echo "=== Service Status ==="
@@ -144,7 +144,7 @@ sudo systemctl status nfc-dashboard --no-pager
 EOF
 
 # Create logs script
-cat > /home/pi/nfc-collection/logs.sh << 'EOF'
+cat > /home/loganrhyne/nfc-collection/logs.sh << 'EOF'
 #!/bin/bash
 # View logs
 SERVICE=${1:-websocket}
@@ -159,8 +159,8 @@ fi
 EOF
 
 # Make scripts executable
-chmod +x /home/pi/nfc-collection/*.sh
-chown pi:pi /home/pi/nfc-collection/*.sh
+chmod +x /home/loganrhyne/nfc-collection/*.sh
+chown loganrhyne:loganrhyne /home/loganrhyne/nfc-collection/*.sh
 
 echo ""
 echo -e "${GREEN}=== Setup Complete ===${NC}"
@@ -170,7 +170,7 @@ echo "1. Reboot to ensure I2C is enabled: sudo reboot"
 echo "2. Start services: sudo systemctl start nfc-websocket nfc-dashboard"
 echo "3. Or use nginx: sudo systemctl start nginx nfc-websocket"
 echo ""
-echo "Helper scripts available in /home/pi/nfc-collection/:"
+echo "Helper scripts available in /home/loganrhyne/nfc-collection/:"
 echo "  ./start.sh  - Start all services"
 echo "  ./stop.sh   - Stop all services"
 echo "  ./status.sh - Check service status"

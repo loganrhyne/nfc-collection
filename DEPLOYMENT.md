@@ -46,8 +46,8 @@ From your development machine:
 # Deploy specific branch
 ./deploy.sh feature-branch
 
-# Deploy to specific Pi (if not raspberrypi.local)
-PI_HOST=pi@192.168.1.100 ./deploy.sh
+# Deploy to specific Pi (override default)
+PI_HOST=loganrhyne@192.168.1.100 ./deploy.sh
 ```
 
 The deployment script will:
@@ -70,7 +70,7 @@ If you prefer manual steps:
 
 2. **Sync build to Pi:**
    ```bash
-   rsync -avz dashboard-ui/build/ pi@raspberrypi.local:~/nfc-collection/dashboard-ui/build/
+   rsync -avz dashboard-ui/build/ loganrhyne@192.168.1.114:~/nfc-collection/dashboard-ui/build/
    ```
 
 3. **On Raspberry Pi:**
@@ -198,9 +198,9 @@ sudo journalctl -u nfc-dashboard -n 50
 
 ### Permission issues
 
-Ensure pi user owns the files:
+Ensure loganrhyne user owns the files:
 ```bash
-sudo chown -R pi:pi /home/pi/nfc-collection
+sudo chown -R loganrhyne:loganrhyne /home/loganrhyne/nfc-collection
 ```
 
 ### LED not working
@@ -245,8 +245,8 @@ sudo chown -R pi:pi /home/pi/nfc-collection
 
 After deployment, access the app at:
 - From Pi itself: http://localhost/
-- From network: http://raspberrypi.local/ (or Pi's IP address)
-- WebSocket API: http://raspberrypi.local:8765/
+- From network: http://192.168.1.114/ 
+- WebSocket API: http://192.168.1.114:8765/
 
 Find Pi's IP address:
 ```bash
@@ -273,8 +273,8 @@ hostname -I
 Regular backups recommended:
 ```bash
 # Backup journal entries and configuration
-rsync -avz pi@raspberrypi.local:~/nfc-collection/data/ ./backup/data/
-rsync -avz pi@raspberrypi.local:~/nfc-collection/python-services/.env ./backup/
+rsync -avz loganrhyne@192.168.1.114:~/nfc-collection/data/ ./backup/data/
+rsync -avz loganrhyne@192.168.1.114:~/nfc-collection/python-services/.env ./backup/
 ```
 
 ## Updates and Maintenance
