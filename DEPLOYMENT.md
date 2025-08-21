@@ -133,7 +133,12 @@ cd ~/nfc-collection
 ```bash
 # Terminal 1 - WebSocket server
 cd ~/nfc-collection/python-services
-python3 server.py
+source venv/bin/activate
+python server.py
+
+# Or use the helper script:
+cd ~/nfc-collection
+./run-manual.sh
 
 # Terminal 2 - Web server
 cd ~/nfc-collection/dashboard-ui
@@ -142,6 +147,21 @@ python3 -m http.server 80 --directory build
 ```
 
 ## Configuration
+
+### Python Virtual Environment
+
+The project uses a Python virtual environment located at:
+```
+/home/loganrhyne/nfc-collection/python-services/venv/
+```
+
+This keeps dependencies isolated and ensures consistent package versions. The systemd service automatically uses this environment.
+
+To manually activate the virtual environment:
+```bash
+cd ~/nfc-collection/python-services
+source venv/bin/activate
+```
 
 ### Environment Variables
 
@@ -293,5 +313,6 @@ rsync -avz loganrhyne@192.168.1.114:~/nfc-collection/python-services/.env ./back
 3. **Python package updates:**
    ```bash
    cd ~/nfc-collection/python-services
-   pip3 install -r requirements.txt --upgrade
+   source venv/bin/activate
+   pip install -r requirements.txt --upgrade
    ```

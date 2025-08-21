@@ -71,10 +71,19 @@ ssh $PI_HOST << EOF
     git checkout $BRANCH
     git pull origin $BRANCH
     
-    # Update Python dependencies
+    # Update Python dependencies in virtual environment
     echo "Updating Python dependencies..."
     cd python-services
-    pip3 install -r requirements.txt --upgrade
+    
+    # Create virtual environment if it doesn't exist
+    if [ ! -d "venv" ]; then
+        echo "Creating Python virtual environment..."
+        python3 -m venv venv
+    fi
+    
+    # Activate virtual environment and install dependencies
+    source venv/bin/activate
+    pip install -r requirements.txt --upgrade
     
     # Set LED controller to hardware mode
     echo "Configuring LED controller for hardware mode..."

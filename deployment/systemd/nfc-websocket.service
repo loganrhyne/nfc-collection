@@ -7,9 +7,10 @@ Type=simple
 User=loganrhyne
 Group=loganrhyne
 WorkingDirectory=/home/loganrhyne/nfc-collection/python-services
-Environment="PATH=/home/loganrhyne/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=/home/loganrhyne/nfc-collection/python-services/venv/bin:/home/loganrhyne/.local/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=/usr/bin/python3 server.py
+Environment="VIRTUAL_ENV=/home/loganrhyne/nfc-collection/python-services/venv"
+ExecStart=/home/loganrhyne/nfc-collection/python-services/venv/bin/python server.py
 Restart=always
 RestartSec=10
 

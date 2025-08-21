@@ -41,15 +41,25 @@ usermod -a -G i2c loganrhyne
 
 # Step 3: Install Python packages for hardware
 echo -e "${YELLOW}Step 3: Installing hardware-specific Python packages...${NC}"
-# These are Pi-specific packages that might not be in requirements.txt
-sudo -u loganrhyne pip3 install --user \
-    adafruit-circuitpython-neopixel \
-    adafruit-circuitpython-pixelbuf \
-    rpi-ws281x \
-    adafruit-blinka
 
-# Try to install Pi5-specific neopixel support
-sudo -u loganrhyne pip3 install --user adafruit-circuitpython-neopixel-spi || true
+# Create virtual environment if it doesn't exist
+if [ ! -d "/home/loganrhyne/nfc-collection/python-services/venv" ]; then
+    sudo -u loganrhyne python3 -m venv /home/loganrhyne/nfc-collection/python-services/venv
+fi
+
+# Install packages in virtual environment
+sudo -u loganrhyne bash -c "
+    source /home/loganrhyne/nfc-collection/python-services/venv/bin/activate
+    pip install --upgrade pip
+    pip install \
+        adafruit-circuitpython-neopixel \
+        adafruit-circuitpython-pixelbuf \
+        rpi-ws281x \
+        adafruit-blinka
+    
+    # Try to install Pi5-specific neopixel support
+    pip install adafruit-circuitpython-neopixel-spi || true
+"
 
 # Step 4: Setup systemd services
 echo -e "${YELLOW}Step 4: Setting up systemd services...${NC}"
@@ -158,6 +168,15 @@ else
 fi
 EOF
 
+# Create manual run script for debugging
+cat > /home/loganrhyne/nfc-collection/run-manual.sh << 'EOF'
+#!/bin/bash
+# Manually run the WebSocket server (for debugging)
+cd /home/loganrhyne/nfc-collection/python-services
+source venv/bin/activate
+python server.py
+EOF
+
 # Make scripts executable
 chmod +x /home/loganrhyne/nfc-collection/*.sh
 chown loganrhyne:loganrhyne /home/loganrhyne/nfc-collection/*.sh
@@ -171,7 +190,11 @@ echo "2. Start services: sudo systemctl start nfc-websocket nfc-dashboard"
 echo "3. Or use nginx: sudo systemctl start nginx nfc-websocket"
 echo ""
 echo "Helper scripts available in /home/loganrhyne/nfc-collection/:"
-echo "  ./start.sh  - Start all services"
-echo "  ./stop.sh   - Stop all services"
-echo "  ./status.sh - Check service status"
-echo "  ./logs.sh   - View logs (websocket or dashboard)"
+echo "  ./start.sh    - Start all services"
+echo "  ./stop.sh     - Stop all services"
+echo "  ./status.sh   - Check service status"
+echo "  ./logs.sh     - View logs (websocket or dashboard)"
+echo "  ./run-manual.sh - Manually run WebSocket server (for debugging)"
+echo ""
+echo "Note: Python packages are installed in a virtual environment at:"
+echo "  /home/loganrhyne/nfc-collection/python-services/venv/"
