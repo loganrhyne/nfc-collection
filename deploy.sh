@@ -25,7 +25,8 @@ echo ""
 # Step 1: Build the React app
 echo -e "${YELLOW}Step 1: Building React app...${NC}"
 cd dashboard-ui
-npm run build
+# Set WebSocket URL to static IP for production
+REACT_APP_WS_URL=http://192.168.1.114:8765 npm run build
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Build successful${NC}"
 else
