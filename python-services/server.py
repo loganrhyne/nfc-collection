@@ -19,6 +19,7 @@ from aiohttp_cors import setup as cors_setup, ResourceOptions
 
 from config import config, ServerConfig
 from services.nfc_service import NFCService, NFCError, TagInfo
+from services.led_controller import get_led_controller
 
 # Configure structured logging
 logging.basicConfig(
@@ -69,6 +70,7 @@ class NFCWebSocketServer:
     def __init__(self, server_config: ServerConfig = None):
         self.config = server_config or config.server
         self.nfc_service = NFCService()
+        self.led_controller = get_led_controller()
         self.sessions: Dict[str, ClientSession] = {}
         self.rate_limiter = RateLimiter(
             self.config.rate_limit_requests,
@@ -157,6 +159,7 @@ class NFCWebSocketServer:
         self.sio.on('ping', self.handle_ping)
         self.sio.on('register_tag_start', self.handle_register_tag_start)
         self.sio.on('register_tag_cancel', self.handle_register_tag_cancel)
+        self.sio.on('led_update', self.handle_led_update)
     
     async def _check_auth(self, sid: str, auth: Dict[str, Any]) -> bool:
         """Check authentication if enabled"""
@@ -439,6 +442,55 @@ class NFCWebSocketServer:
             
         except Exception as e:
             logger.error(f"Error handling scanned tag: {e}")
+    
+    async def handle_led_update(self, sid: str, data: Dict):
+        """Handle LED update commands"""
+        session = self.sessions.get(sid)
+        if not session:
+            return
+        
+        try:
+            logger.info(f"LED update from {sid}: {data}")
+            
+            # Extract LED command type
+            command = data.get('command', 'set_selected')
+            
+            if command == 'set_selected':
+                # Set a single selected entry
+                index = data.get('index')
+                color = data.get('color', '#FFFFFF')
+                
+                if index is not None:
+                    await self.led_controller.set_selected(index, color)
+                    logger.info(f"LED: Selected entry at index {index}")
+                else:
+                    # Clear selection
+                    await self.led_controller.set_selected(None)
+                    logger.info("LED: Cleared selection")
+                    
+            elif command == 'update_entries':
+                # Update multiple entries
+                entries = data.get('entries', [])
+                await self.led_controller.update_entries(entries)
+                logger.info(f"LED: Updated {len(entries)} entries")
+                
+            elif command == 'clear_all':
+                # Clear all LEDs
+                await self.led_controller.clear_all()
+                logger.info("LED: Cleared all LEDs")
+            
+            # Send acknowledgment
+            await self.sio.emit('led_status', {
+                'success': True,
+                'status': self.led_controller.get_status()
+            }, room=sid)
+            
+        except Exception as e:
+            logger.error(f"Error handling LED update: {e}", exc_info=True)
+            await self.sio.emit('led_status', {
+                'success': False,
+                'error': str(e)
+            }, room=sid)
     
     async def start_background_tasks(self, app):
         """Start background tasks"""

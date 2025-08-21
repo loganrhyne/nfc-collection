@@ -18,6 +18,7 @@ import WebSocketStatus from './components/nfc/WebSocketStatus';
 import ActiveFilters from './components/filters/ActiveFilters';
 import VersionInfo from './components/VersionInfo';
 import TimelineDebug from './components/timeline/TimelineDebug';
+import LEDController from './components/led/LEDController';
 import { initTouchScrollFix } from './utils/touchScrollFix';
 import './App.css';
 
@@ -113,6 +114,7 @@ function AppContent() {
       <NfcHandler />
       <NFCScanner />
       <WebSocketStatus />
+      <LEDController />
       <VersionInfo />
     </div>
   );
