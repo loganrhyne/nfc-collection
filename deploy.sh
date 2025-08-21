@@ -122,6 +122,22 @@ EOF
 # Cleanup
 rm -rf $DEPLOY_TEMP
 
+# Step 6: Verify deployment
+echo -e "${YELLOW}Step 6: Verifying deployment...${NC}"
+ssh $PI_HOST << 'EOF'
+    echo "Checking build timestamp..."
+    ls -la /home/loganrhyne/nfc-collection/dashboard-ui/build/index.html
+    
+    echo ""
+    echo "Checking what's serving on port 80..."
+    sudo netstat -tlnp | grep :80 || sudo ss -tlnp | grep :80 || echo "Nothing found on port 80"
+    
+    echo ""
+    echo "Service status:"
+    systemctl is-active nfc-dashboard && echo "nfc-dashboard: active" || echo "nfc-dashboard: inactive"
+    systemctl is-active nginx && echo "nginx: active" || echo "nginx: inactive"
+EOF
+
 echo ""
 echo -e "${GREEN}=== Deployment Complete ===${NC}"
 echo "Dashboard URL: http://192.168.1.114/"
@@ -130,3 +146,7 @@ echo ""
 echo "To check logs on the Pi:"
 echo "  WebSocket: ssh $PI_HOST 'sudo journalctl -u nfc-websocket -f'"
 echo "  Dashboard: ssh $PI_HOST 'sudo journalctl -u nfc-dashboard -f'"
+echo ""
+echo "If you see an old version, run on the Pi:"
+echo "  sudo deployment/diagnose-web-server.sh"
+echo "  sudo deployment/fix-web-server.sh"
