@@ -1,5 +1,6 @@
 import React from 'react';
 import ColorComparisonPanel from './ColorComparisonPanel';
+import ColorProposalComparison from './ColorProposalComparison';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useLEDController } from '../../hooks/useLEDController';
 
@@ -24,6 +25,9 @@ const DebugPage = () => {
           
           {/* Color Comparison */}
           <ColorComparisonPanel />
+          
+          {/* Color Proposals */}
+          <ColorProposalComparison />
           
           {/* LED Test Controls */}
           <div className="bg-gray-900 rounded-lg p-4">
