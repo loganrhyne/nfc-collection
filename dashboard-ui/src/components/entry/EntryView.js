@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
-import colorScheme from '../../utils/colorScheme';
+import colorScheme from '../../utils/colorSchemeEnhanced';
 import VerticalTimeline from '../timeline/VerticalTimeline';
 import JournalContent from './JournalContent';
 import NFCRegistrationModal from '../nfc/NFCRegistrationModal';

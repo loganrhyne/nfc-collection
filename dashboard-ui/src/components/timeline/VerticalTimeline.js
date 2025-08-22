@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
-import colorScheme from '../../utils/colorScheme';
+import colorScheme from '../../utils/colorSchemeEnhanced';
 
 /**
  * Container for the timeline component that fits within the scrollable area.

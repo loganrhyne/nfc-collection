@@ -1,32 +1,38 @@
-// Enhanced color scheme with separate UI and LED colors
+// Harmonious color scheme with separate UI and LED colors
+// A balanced palette with warm and cool tones that are clearly distinct
 // UI colors are optimized for screen display
 // LED colors are optimized for WS2812B RGB LED appearance
 
 const colorSchemeEnhanced = {
   'Beach': {
-    ui: '#E6C200',      // Golden yellow - great on screen
-    led: '#FFD700',     // Brighter gold for LEDs
-    description: 'Golden sand'
+    ui: '#E6B877',      // Amber - warm golden sand
+    led: '#FFA028',     // Bright amber for LEDs (RGB: 255, 160, 40)
+    description: 'Amber - warm golden sand'
   },
   'Desert': {
-    ui: '#E67300',      // Orange-red - distinctive on screen
-    led: '#FF4500',     // More saturated orange-red for LEDs
-    description: 'Desert sand'
+    ui: '#E78A7E',      // Coral - sunset desert
+    led: '#FF5A3C',     // Vibrant coral for LEDs (RGB: 255, 90, 60)
+    description: 'Coral - sunset desert hues'
   },
   'Lake': {
-    ui: '#00B3B3',      // Turquoise - beautiful on screen
-    led: '#00FFFF',     // Cyan - pops on LEDs
-    description: 'Lake shore'
+    ui: '#80BFC6',      // Teal - pristine water
+    led: '#00B4C8',     // Bright teal for LEDs (RGB: 0, 180, 200)
+    description: 'Teal - pristine lake water'
   },
   'Mountain': {
-    ui: '#996633',      // Brown - looks earthy on screen
-    led: '#FF6B35',     // Burnt orange - better than brown on LEDs
-    description: 'Mountain earth'
+    ui: '#A7C4A0',      // Sage - mountain vegetation
+    led: '#50C878',     // Vibrant sage green for LEDs (RGB: 80, 200, 120)
+    description: 'Sage - living mountain vegetation'
   },
   'River': {
-    ui: '#0099FF',      // Blue - clear on screen
-    led: '#0080FF',     // Slightly deeper blue for LEDs
-    description: 'River bank'
+    ui: '#7A89C2',      // Indigo - deep water
+    led: '#5A5AFF',     // Bright indigo for LEDs (RGB: 90, 90, 255)
+    description: 'Indigo - deep flowing water'
+  },
+  'Ruin': {
+    ui: '#B58ABF',      // Plum - mysterious ancient
+    led: '#B43CDC',     // Vibrant plum for LEDs (RGB: 180, 60, 220)
+    description: 'Plum - mysterious ancient sites'
   }
 };
 

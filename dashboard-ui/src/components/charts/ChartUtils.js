@@ -1,5 +1,5 @@
 import React from 'react';
-import colorScheme from '../../utils/colorScheme';
+import colorScheme from '../../utils/colorSchemeEnhanced';
 
 /**
  * Common styling constants for charts

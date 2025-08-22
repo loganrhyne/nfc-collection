@@ -111,22 +111,24 @@ Physical LEDs
 
 ## Color Mapping
 
-### Enhanced Color System
+### Enhanced Color System - Harmonious Palette
 The system uses separate color palettes for UI display and LED visualization:
 
 **UI Colors** (optimized for screen):
-- **Beach**: #E6C200 (Golden yellow)
-- **Desert**: #E67300 (Orange-red)
-- **Lake**: #00B3B3 (Turquoise)
-- **Mountain**: #996633 (Brown)
-- **River**: #0099FF (Blue)
+- **Beach**: #E6B877 (Amber - warm golden sand)
+- **Desert**: #E78A7E (Coral - sunset desert)  
+- **Lake**: #80BFC6 (Teal - pristine water)
+- **Mountain**: #A7C4A0 (Sage - mountain vegetation)
+- **River**: #7A89C2 (Indigo - deep water)
+- **Ruin**: #B58ABF (Plum - mysterious ancient)
 
 **LED Colors** (optimized for WS2812B):
-- **Beach**: #FFD700 (Bright gold)
-- **Desert**: #FF4500 (Saturated orange-red)
-- **Lake**: #00FFFF (Cyan)
-- **Mountain**: #FF6B35 (Burnt orange - better than brown on LEDs)
-- **River**: #0080FF (Deep blue)
+- **Beach**: #FFA028 (Bright amber)
+- **Desert**: #FF5A3C (Vibrant coral)
+- **Lake**: #00B4C8 (Bright teal)
+- **Mountain**: #50C878 (Vibrant sage green)
+- **River**: #5A5AFF (Bright indigo)
+- **Ruin**: #B43CDC (Vibrant plum)
 
 ### Implementation
 - Frontend: `utils/colorSchemeEnhanced.js` provides `getUIColor()` and `getLEDColor()`

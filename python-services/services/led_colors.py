@@ -1,46 +1,52 @@
 #!/usr/bin/env python3
 """
-LED color configuration for NFC Collection
-Separate from UI colors to optimize for LED appearance
+Harmonious LED color configuration for NFC Collection
+A balanced palette with warm and cool tones that are clearly distinct
 """
 
 # LED-optimized colors for each sample type
 # These are tuned to look good on WS2812B LEDs
 LED_COLORS = {
     'Beach': {
-        'hex': '#FFD700',  # Bright gold
-        'rgb': (255, 215, 0),
-        'description': 'Golden sand'
+        'hex': '#FFA028',  # Amber
+        'rgb': (255, 160, 40),
+        'description': 'Amber - warm golden sand'
     },
     'Desert': {
-        'hex': '#FF4500',  # Orange-red
-        'rgb': (255, 69, 0),
-        'description': 'Desert sand'
+        'hex': '#FF5A3C',  # Coral
+        'rgb': (255, 90, 60),
+        'description': 'Coral - sunset desert hues'
     },
     'Lake': {
-        'hex': '#00FFFF',  # Cyan
-        'rgb': (0, 255, 255),
-        'description': 'Lake shore'
+        'hex': '#00B4C8',  # Teal
+        'rgb': (0, 180, 200),
+        'description': 'Teal - pristine water'
     },
     'Mountain': {
-        'hex': '#FF6B35',  # Burnt orange (instead of brown)
-        'rgb': (255, 107, 53),
-        'description': 'Mountain earth'
+        'hex': '#50C878',  # Sage
+        'rgb': (80, 200, 120),
+        'description': 'Sage - living mountain vegetation'
     },
     'River': {
-        'hex': '#0080FF',  # Medium blue
-        'rgb': (0, 128, 255),
-        'description': 'River bank'
+        'hex': '#5A5AFF',  # Indigo
+        'rgb': (90, 90, 255),
+        'description': 'Indigo - deep flowing water'
+    },
+    'Ruin': {
+        'hex': '#B43CDC',  # Plum
+        'rgb': (180, 60, 220),
+        'description': 'Plum - mysterious ancient sites'
     }
 }
 
 # UI colors for reference (what appears in the web interface)
 UI_COLORS = {
-    'Beach': '#E6C200',     # Golden yellow
-    'Desert': '#E67300',    # Orange-red
-    'Lake': '#00B3B3',      # Turquoise
-    'Mountain': '#996633',  # Brown
-    'River': '#0099FF'      # Blue
+    'Beach': '#E6B877',     # Amber
+    'Desert': '#E78A7E',    # Coral
+    'Lake': '#80BFC6',      # Teal
+    'Mountain': '#A7C4A0',  # Sage
+    'River': '#7A89C2',     # Indigo
+    'Ruin': '#B58ABF'       # Plum
 }
 
 def get_led_color(sample_type: str) -> tuple:

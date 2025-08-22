@@ -4,7 +4,7 @@ import MapTileSelector from './MapTileSelector';
 import L from 'leaflet';
 import { useData } from '../../context/DataContext';
 import styled from 'styled-components';
-import colorScheme from '../../utils/colorScheme';
+import colorScheme from '../../utils/colorSchemeEnhanced';
 
 // Import Leaflet CSS - we'll need to make sure this is included in the index.html
 // or add as import in the index.js file

@@ -2,7 +2,7 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useData } from '../../context/DataContext';
 import { getCountsByProperty } from '../../utils/dataProcessing';
-import colorScheme from '../../utils/colorScheme';
+import colorScheme from '../../utils/colorSchemeEnhanced';
 import { 
   SimpleTooltip, 
   getVerticalXAxisProps, 

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useData } from '../../context/DataContext';
-import colorScheme from '../../utils/colorScheme';
+import colorScheme from '../../utils/colorSchemeEnhanced';
 
 const EntryContainer = styled.div`
   padding: 24px;
