@@ -34,10 +34,21 @@ const ColorProposalComparison = () => {
     'Ruin': { ui: '#4B0082', led: '#FF00FF' }        // Indigo/Magenta
   };
   
+  // Proposal 3: User-specified palette
+  const proposal3 = {
+    'Beach': { ui: '#E6B877', led: '#FFA028' },      // Amber
+    'Desert': { ui: '#E78A7E', led: '#FF5A3C' },     // Coral
+    'Lake': { ui: '#80BFC6', led: '#00B4C8' },       // Teal
+    'Mountain': { ui: '#A7C4A0', led: '#50C878' },   // Sage
+    'River': { ui: '#7A89C2', led: '#5A5AFF' },      // Indigo
+    'Ruin': { ui: '#B58ABF', led: '#B43CDC' }        // Plum
+  };
+  
   const schemes = {
     current: { name: 'Current (5 colors)', data: current },
     proposal1: { name: 'Proposal 1: Natural', data: proposal1 },
-    proposal2: { name: 'Proposal 2: Vibrant', data: proposal2 }
+    proposal2: { name: 'Proposal 2: Vibrant', data: proposal2 },
+    proposal3: { name: 'Proposal 3: Harmonious', data: proposal3 }
   };
   
   const types = ['Beach', 'Desert', 'Lake', 'Mountain', 'River', 'Ruin'];
@@ -148,6 +159,17 @@ const ColorProposalComparison = () => {
               <li>• Uses pure RGB primaries for LEDs (maximum pop)</li>
               <li>• Spreads evenly across color wheel</li>
               <li>• Maximum contrast between adjacent types</li>
+            </ul>
+          </div>
+          <div className="mt-3">
+            <strong>Proposal 3 (Harmonious):</strong>
+            <ul className="ml-4 mt-1">
+              <li>• Beach: Amber - warm golden sand</li>
+              <li>• Desert: Coral - sunset desert hues</li>
+              <li>• Lake: Teal - pristine water</li>
+              <li>• Mountain: Sage - living mountain vegetation</li>
+              <li>• River: Indigo - deep flowing water</li>
+              <li>• Ruin: Plum - mysterious ancient sites</li>
             </ul>
           </div>
         </div>

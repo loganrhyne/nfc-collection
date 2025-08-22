@@ -43,6 +43,25 @@ Maximum contrast using primary/secondary colors for LEDs.
 - No ambiguity between colors
 - Even spread on color wheel
 
+### Proposal 3: Harmonious Palette
+Balanced warm and cool tones with nature-inspired colors.
+
+| Type | Name | UI Color | LED Color | Description |
+|------|------|----------|-----------|-------------|
+| Beach | Amber | #E6B877 | #FFA028 | Warm golden sand |
+| Desert | Coral | #E78A7E | #FF5A3C | Sunset desert hues |
+| Lake | Teal | #80BFC6 | #00B4C8 | Pristine water |
+| Mountain | Sage | #A7C4A0 | #50C878 | Living vegetation |
+| River | Indigo | #7A89C2 | #5A5AFF | Deep flowing water |
+| Ruin | Plum | #B58ABF | #B43CDC | Mysterious ancient |
+
+**Advantages:**
+- Clear distinction (Coral vs Sage very different)
+- Natural associations with named colors
+- Balanced warm (Amber, Coral) and cool (Teal, Sage, Indigo, Plum)
+- Sophisticated, harmonious palette
+- Excellent LED translation
+
 ## Color Theory Considerations
 
 ### Distribution Strategy
