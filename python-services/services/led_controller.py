@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 # LED hardware imports
 # Force mock mode for development environment
+# Note: The deployment script automatically sets this to False on the Pi
 FORCE_MOCK = True  # Set to False on actual Raspberry Pi hardware
 
 try:

@@ -1,123 +1,218 @@
-# NFC Sand Collection Art Installation
+# NFC Sand Collection
 
-This project is an art installation that combines a physical collection of sand samples (in a grid of plastic boxes) with a digital interface for exploring the collection. Each sample box contains an NFC tag that links to a journal entry with the story behind the sample.
+An interactive art installation that combines physical sand samples with digital storytelling through NFC technology and LED visualization.
 
-## Project Components
+## Overview
 
-1. **Physical Installation**: A grid of several hundred 1x2x.75" plastic boxes, each containing a sample of sand
-2. **NFC Tags**: NTAG213 180kb tags in each sample box, encoded with a UUID
-3. **Interactive Dashboard**: Web interface for exploring the collection and reading journal entries
-4. **LED System**: Lights up corresponding samples in the physical grid when entries are viewed
+This project consists of:
+- **Physical Installation**: A grid of sand samples from around the world, each tagged with NFC
+- **Digital Dashboard**: React-based web interface for exploring the collection
+- **LED Visualization**: Real-time LED grid that mirrors the digital interface
+- **NFC Integration**: Python WebSocket server for NFC tag reading/writing
 
-## Hardware Setup
+## Architecture
 
-- **Computer**: Raspberry Pi 5 (5v/5a26w power supply)
-- **LEDs**: WS2812B Addressable pixel LEDs
-- **Display**: Waveshare 10.1" display
-- **NFC Reader**: PN532 Elechouse NFC v3
-- **NFC Tags**: NTAG213 180kb
-- **Power**: Traco Power TOP 100-105
+```
+┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
+│   React App     │ <-----> │ WebSocket Server │ <-----> │   NFC Reader    │
+│  (Dashboard UI) │         │    (Python)      │         │   (PN532 I2C)   │
+└─────────────────┘         └──────────────────┘         └─────────────────┘
+                                     │
+                                     v
+                            ┌─────────────────┐
+                            │   LED Grid      │
+                            │ (10x15 WS2812B) │
+                            └─────────────────┘
+```
 
-## Dashboard UI
+## Quick Start
 
-The dashboard interface consists of:
+### Development
 
-- **Map View**: Interactive map showing all sample locations
-- **Type Chart**: Bar chart showing counts by type (Beach, Desert, Lake, Mountain, River)
-- **Region Chart**: Bar chart showing counts by region with type breakdown
-- **Timeline Chart**: Timeline chart showing entries by quarter
-- **Entries List**: Chronological list of journal entries
-- **Detail View**: Journal entry content with embedded media
+1. **Start the Python WebSocket server:**
+   ```bash
+   cd python-services
+   source venv/bin/activate  # If using virtual environment
+   python server.py
+   ```
 
-### Interactive Features
+2. **Start the React development server:**
+   ```bash
+   cd dashboard-ui
+   npm install  # First time only
+   npm start
+   ```
 
-- Filter entries by clicking on charts
-- View details by selecting entries from the map or timeline
-- Scan NFC tags to view associated entries
-- Register new NFC tags and map them to grid positions
-- Highlight all samples of a specific type on the physical grid
+3. **Access the application:**
+   - Dashboard: http://localhost:3000
+   - WebSocket API: http://localhost:8765
 
-## Data Structure
+### Production Deployment
 
-Journal entries are exported from Day One app in a JSON format with:
+Deploy to Raspberry Pi using the automated script:
+```bash
+./deploy.sh
+```
 
-- Entry metadata (date, location, weather, etc.)
-- Journal content (text, richText)
-- Tags (including "Type: X" and "Region: Y")
-- Media references (photos, videos, PDFs)
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
-## Directory Structure
+## Features
+
+### Dashboard UI
+- **Interactive Map**: Visualize sample locations with clustering
+- **Filtering System**: Filter by type (Beach, Desert, Lake, Mountain, River) and region
+- **Timeline View**: Chronological exploration of the collection
+- **Media Support**: Photos, videos, and PDF documents for each sample
+- **Touch Optimized**: Full support for touchscreen kiosk deployment
+
+### NFC Integration
+- **Tag Registration**: Write collection data to NFC tags
+- **Continuous Scanning**: Automatic detection and display of tagged samples
+- **WebSocket API**: Real-time communication between hardware and UI
+
+### LED Visualization
+- **Grid Mapping**: 10x15 LED grid (150 pixels) representing the collection
+- **Real-time Updates**: LEDs mirror the current dashboard state
+- **Color Coding**: Each sample type has a unique color
+- **Interactive Modes**:
+  - Selection highlighting
+  - Filtered entries display (planned)
+  - Data visualization patterns (planned)
+
+## Project Structure
 
 ```
 nfc-collection/
-├── dashboard-ui/            # React web interface
-│   ├── src/                 # React source code
-│   │   ├── components/      # UI components
-│   │   ├── context/         # Data context
-│   │   ├── data/            # Sample data files
-│   │   ├── hooks/           # Custom React hooks
-│   │   ├── services/        # External services
-│   │   └── utils/           # Utility functions
-├── data/                    # Data schema and sample data
-│   ├── entry_schema.json    # JSON schema for entries
-│   └── journal.json         # Sample journal entries
-├── testing-scripts/         # Python scripts for NFC testing
-│   ├── pn532-test.py        # Basic test for PN532 NFC module
-│   ├── simple-reader.py     # Simple NFC tag reader
-│   └── write-entry-nfc.py   # Script for writing UUIDs to NFC tags
-└── collection_data/         # External directory for media files
-    ├── Journal.json         # Complete journal data
-    ├── photos/              # Photo files referenced in journal
-    ├── videos/              # Video files referenced in journal
-    └── pdfs/                # PDF files referenced in journal
+├── dashboard-ui/           # React frontend application
+│   ├── public/
+│   ├── src/
+│   │   ├── components/    # UI components
+│   │   ├── context/       # React context providers
+│   │   ├── hooks/         # Custom React hooks
+│   │   ├── services/      # API and media services
+│   │   └── utils/         # Utility functions
+│   └── build/            # Production build (generated)
+│
+├── python-services/       # Python backend services
+│   ├── services/         # Core service modules
+│   │   ├── nfc_service.py      # NFC hardware interface
+│   │   └── led_controller.py   # LED grid control
+│   ├── server.py         # WebSocket server
+│   └── venv/            # Python virtual environment
+│
+├── deployment/           # Deployment configuration
+│   ├── systemd/         # Service definitions
+│   └── *.sh             # Setup and helper scripts
+│
+├── tests/               # Test files
+│   └── manual/         # Manual testing tools
+│
+└── docs/               # Additional documentation
 ```
 
-## Setup & Running
+## Technology Stack
 
-1. Clone the repository
-2. Install dependencies:
-   ```
-   cd dashboard-ui
-   npm install
-   ```
-3. Start the development server:
-   ```
-   npm start
-   ```
-4. For NFC testing scripts:
-   ```
-   cd testing-scripts
-   python3 simple-reader.py
-   ```
+### Frontend
+- React 18 with Hooks
+- Socket.IO Client for WebSocket communication
+- Recharts for data visualization
+- React Leaflet for mapping
+- Styled Components for styling
 
-## Dashboard Features
+### Backend
+- Python 3.11+ with asyncio
+- python-socketio for WebSocket server
+- Adafruit CircuitPython libraries for hardware control
+- PN532 NFC reader via I2C interface
+- WS2812B LED strip control
 
-1. **Three-Column Layout**:
-   - Left (250px): Type and Region charts
-   - Center (flex): Map and Timeline chart
-   - Right (350px): Entry list or detail view
+### Hardware
+- Raspberry Pi 5
+- PN532 NFC reader/writer
+- WS2812B LED strip (150 pixels in 10x15 grid)
+- Various NFC tags (NTAG21x series)
 
-2. **Interactive Filtering**:
-   - Click on any chart element to filter data
-   - Filters are linked across all visualizations
-   - Click the same filter again to clear it
+## Configuration
 
-3. **NFC Integration**:
-   - Scan NFC tag to view associated entry
-   - Register new NFC tags with grid positions
-   - When entry is viewed, corresponding sample lights up
+### Environment Variables
 
-4. **Color Scheme**:
-   - Beach: Gold (#E6C200)
-   - Desert: Red-orange (#E67300)
-   - Lake: Turquoise (#00B3B3)
-   - Mountain: Brown (#996633)
-   - River: Blue (#0099FF)
+Create `.env` files for configuration:
+
+**dashboard-ui/.env.production:**
+```
+REACT_APP_WS_URL=http://192.168.1.114:8765
+```
+
+**python-services/.env:**
+```
+SERVER_HOST=0.0.0.0
+SERVER_PORT=8765
+SERVER_CORS_ORIGINS=http://192.168.1.114
+LED_BRIGHTNESS=0.3
+```
+
+### LED Configuration
+
+The LED strip uses GRB byte order. Configuration in `led_controller.py`:
+- Grid: 10x15 (150 pixels)
+- Wiring: Serpentine (zig-zag)
+- Data Pin: GPIO 18
+- Byte Order: GRB
+
+## Development
+
+### Code Style
+- React: Functional components with hooks
+- Python: Async/await patterns, type hints
+- No unnecessary comments in code
+- Clear, descriptive variable names
+
+### Testing
+
+Manual test tools are available in `tests/manual/`:
+- `test_led_websocket.py` - Test LED commands
+- `test_led_ui.html` - Visual LED grid test
+- `test_registration.py` - Test NFC registration
+
+### Contributing
+
+1. Create a feature branch
+2. Make changes following existing patterns
+3. Test thoroughly
+4. Update documentation as needed
+5. Submit pull request
+
+## Troubleshooting
+
+### Common Issues
+
+**WebSocket won't connect:**
+- Check CORS settings in `.env`
+- Ensure services are running
+- Verify firewall allows port 8765
+
+**LED colors wrong:**
+- Check byte order setting (should be "GRB")
+- Verify wiring connections
+- Test with `test_led_colors.py`
+
+**NFC not detected:**
+- Enable I2C: `sudo raspi-config` > Interface Options
+- Check wiring (SDA to GPIO 2, SCL to GPIO 3)
+- Run `sudo i2cdetect -y 1` (should show device at 0x24)
 
 ## Future Enhancements
 
-- LED control system integration with WebSockets
-- Media gallery for photos and videos
-- Search functionality
-- Offline support
-- Mobile compatibility
+- [ ] LED visualization modes (timeline, heatmaps)
+- [ ] Multi-tag scanning support
+- [ ] Collection statistics dashboard
+- [ ] Mobile-responsive design improvements
+- [ ] Offline mode with data persistence
+
+## License
+
+This project is proprietary and confidential.
+
+## Acknowledgments
+
+Created as an interactive art installation exploring the intersection of physical materials and digital storytelling.

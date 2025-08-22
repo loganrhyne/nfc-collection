@@ -58,7 +58,7 @@ export const useLEDController = () => {
     });
     
     // TODO: Implement filtered entries display
-  }, [connected, sendMessage, entries, activeFilters]);
+  }, [connected, entries, activeFilters]);
   
   // Effect to update LED when selected entry changes
   useEffect(() => {
