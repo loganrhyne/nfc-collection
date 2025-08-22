@@ -19,6 +19,7 @@ import ActiveFilters from './components/filters/ActiveFilters';
 import VersionInfo from './components/VersionInfo';
 import TimelineDebug from './components/timeline/TimelineDebug';
 import LEDController from './components/led/LEDController';
+import DebugPage from './components/debug/DebugPage';
 import { initTouchScrollFix } from './utils/touchScrollFix';
 import './App.css';
 
@@ -110,6 +111,7 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/entry/:entryId" element={<EntryDetailView />} />
+        <Route path="/debug" element={<DebugPage />} />
       </Routes>
       <NfcHandler />
       <NFCScanner />

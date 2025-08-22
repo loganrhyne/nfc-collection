@@ -32,6 +32,11 @@ This directory contains manual test scripts for testing specific components of t
   python led_animation_demo.py
   ```
 
+- **tune_led_colors.py** - Interactive LED color tuning utility
+  ```bash
+  python tune_led_colors.py
+  ```
+
 ### NFC Tests
 
 - **test_registration.py** - Tests NFC tag registration flow

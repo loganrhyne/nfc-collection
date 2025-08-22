@@ -111,12 +111,27 @@ Physical LEDs
 
 ## Color Mapping
 
-Colors are determined by sample type:
+### Enhanced Color System
+The system uses separate color palettes for UI display and LED visualization:
+
+**UI Colors** (optimized for screen):
 - **Beach**: #E6C200 (Golden yellow)
 - **Desert**: #E67300 (Orange-red)
 - **Lake**: #00B3B3 (Turquoise)
 - **Mountain**: #996633 (Brown)
 - **River**: #0099FF (Blue)
+
+**LED Colors** (optimized for WS2812B):
+- **Beach**: #FFD700 (Bright gold)
+- **Desert**: #FF4500 (Saturated orange-red)
+- **Lake**: #00FFFF (Cyan)
+- **Mountain**: #FF6B35 (Burnt orange - better than brown on LEDs)
+- **River**: #0080FF (Deep blue)
+
+### Implementation
+- Frontend: `utils/colorSchemeEnhanced.js` provides `getUIColor()` and `getLEDColor()`
+- Backend: `services/led_colors.py` defines LED-optimized colors
+- Debug: Visit `/debug` route to see color comparison panel
 
 ## Current Features
 
@@ -248,6 +263,8 @@ sudo journalctl -u nfc-websocket -f | grep LED
 - [x] React state synchronization
 - [x] Deployment automation
 - [x] Color mapping by type
+- [x] Enhanced UI/LED color separation
+- [x] Debug tools and color comparison
 - [ ] Filtered entries display
 - [ ] Brightness control UI
 - [ ] Animation system

@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useData } from '../context/DataContext';
 import { useWebSocket } from './useWebSocket';
-import colorScheme from '../utils/colorScheme';
+import { getLEDColor } from '../utils/colorSchemeEnhanced';
 
 /**
  * Hook to manage LED visualization based on app state
@@ -28,9 +28,9 @@ export const useLEDController = () => {
     
     const index = entry ? getEntryIndex(entry) : null;
     
-    // Get color from entry type using the color scheme
-    const color = entry && entry.type && colorScheme[entry.type] 
-      ? colorScheme[entry.type] 
+    // Get LED-optimized color from entry type
+    const color = entry && entry.type 
+      ? getLEDColor(entry.type)
       : '#FFFFFF';
     
     sendMessage('led_update', {
