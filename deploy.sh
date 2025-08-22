@@ -42,8 +42,10 @@ echo "Using temp directory: $DEPLOY_TEMP"
 
 # Copy build files
 cp -r $LOCAL_BUILD_DIR $DEPLOY_TEMP/
-# Copy deployment scripts
+# Copy deployment scripts and SPA server
 cp -r deployment/* $DEPLOY_TEMP/ 2>/dev/null || true
+mkdir -p $DEPLOY_TEMP/deployment
+cp deployment/serve-spa.py $DEPLOY_TEMP/deployment/ 2>/dev/null || true
 
 # Step 3: Deploy to Raspberry Pi
 echo -e "${YELLOW}Step 3: Deploying to Raspberry Pi...${NC}"
@@ -56,6 +58,12 @@ echo "Syncing build files..."
 rsync -avz --delete \
     $DEPLOY_TEMP/build/ \
     $PI_HOST:$PI_APP_DIR/dashboard-ui/build/
+
+# Sync deployment files
+echo "Syncing deployment files..."
+rsync -avz \
+    $DEPLOY_TEMP/deployment/ \
+    $PI_HOST:$PI_APP_DIR/deployment/
 
 # Step 4: Update code on Pi
 echo -e "${YELLOW}Step 4: Updating code on Raspberry Pi...${NC}"

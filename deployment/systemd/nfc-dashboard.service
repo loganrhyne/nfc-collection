@@ -9,7 +9,7 @@ User=loganrhyne
 Group=loganrhyne
 WorkingDirectory=/home/loganrhyne/nfc-collection/dashboard-ui
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
-ExecStart=/usr/bin/python3 -m http.server 80 --directory build
+ExecStart=/usr/bin/python3 /home/loganrhyne/nfc-collection/deployment/serve-spa.py 80
 Restart=always
 RestartSec=10
 
