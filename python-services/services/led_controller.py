@@ -115,7 +115,7 @@ class LEDController:
                 pin, 
                 self.config.num_pixels,
                 auto_write=False,
-                byteorder="RBG" 
+                byteorder="GRB"  # Correct byte order for this LED strip
             )
             # Start with all LEDs off
             self._pixels.fill(0)
