@@ -115,7 +115,7 @@ class LEDController:
                 pin, 
                 self.config.num_pixels,
                 auto_write=False,
-                byteorder="GRB"  # Most WS2812B LEDs use GRB order
+                byteorder="RBG" 
             )
             # Start with all LEDs off
             self._pixels.fill(0)
