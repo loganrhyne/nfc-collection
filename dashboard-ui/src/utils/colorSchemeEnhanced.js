@@ -6,32 +6,32 @@
 const colorSchemeEnhanced = {
   'Beach': {
     ui: '#E6B877',      // Amber - warm golden sand
-    led: '#FFA028',     // Bright amber for LEDs (RGB: 255, 160, 40)
+    led: '#FFC800',     // Strong golden yellow (RGB: 255, 200, 0)
     description: 'Amber - warm golden sand'
   },
   'Desert': {
     ui: '#E78A7E',      // Coral - sunset desert
-    led: '#FF5A3C',     // Vibrant coral for LEDs (RGB: 255, 90, 60)
+    led: '#FF2814',     // Hotter coral red-orange (RGB: 255, 40, 20)
     description: 'Coral - sunset desert hues'
   },
   'Lake': {
     ui: '#80BFC6',      // Teal - pristine water
-    led: '#00B4C8',     // Bright teal for LEDs (RGB: 0, 180, 200)
+    led: '#00FFFF',     // Electric cyan (RGB: 0, 255, 255)
     description: 'Teal - pristine lake water'
   },
   'Mountain': {
     ui: '#A7C4A0',      // Sage - mountain vegetation
-    led: '#50C878',     // Vibrant sage green for LEDs (RGB: 80, 200, 120)
+    led: '#32FF64',     // Vivid spring green (RGB: 50, 255, 100)
     description: 'Sage - living mountain vegetation'
   },
   'River': {
     ui: '#7A89C2',      // Indigo - deep water
-    led: '#5A5AFF',     // Bright indigo for LEDs (RGB: 90, 90, 255)
+    led: '#2846FF',     // Intense deep blue (RGB: 40, 70, 255)
     description: 'Indigo - deep flowing water'
   },
   'Ruin': {
     ui: '#B58ABF',      // Plum - mysterious ancient
-    led: '#B43CDC',     // Vibrant plum for LEDs (RGB: 180, 60, 220)
+    led: '#DC28FF',     // Bright magenta-violet (RGB: 220, 40, 255)
     description: 'Plum - mysterious ancient sites'
   }
 };

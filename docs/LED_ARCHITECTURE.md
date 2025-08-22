@@ -122,13 +122,13 @@ The system uses separate color palettes for UI display and LED visualization:
 - **River**: #7A89C2 (Indigo - deep water)
 - **Ruin**: #B58ABF (Plum - mysterious ancient)
 
-**LED Colors** (optimized for WS2812B):
-- **Beach**: #FFA028 (Bright amber)
-- **Desert**: #FF5A3C (Vibrant coral)
-- **Lake**: #00B4C8 (Bright teal)
-- **Mountain**: #50C878 (Vibrant sage green)
-- **River**: #5A5AFF (Bright indigo)
-- **Ruin**: #B43CDC (Vibrant plum)
+**LED Colors** (optimized for WS2812B - PUNCHIER):
+- **Beach**: #FFC800 (Strong golden yellow - RGB: 255, 200, 0)
+- **Desert**: #FF2814 (Hotter coral red-orange - RGB: 255, 40, 20)
+- **Lake**: #00FFFF (Electric cyan - RGB: 0, 255, 255)
+- **Mountain**: #32FF64 (Vivid spring green - RGB: 50, 255, 100)
+- **River**: #2846FF (Intense deep blue - RGB: 40, 70, 255)
+- **Ruin**: #DC28FF (Bright magenta-violet - RGB: 220, 40, 255)
 
 ### Implementation
 - Frontend: `utils/colorSchemeEnhanced.js` provides `getUIColor()` and `getLEDColor()`

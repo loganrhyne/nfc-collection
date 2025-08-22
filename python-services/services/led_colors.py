@@ -5,36 +5,36 @@ A balanced palette with warm and cool tones that are clearly distinct
 """
 
 # LED-optimized colors for each sample type
-# These are tuned to look good on WS2812B LEDs
+# These are tuned to look good on WS2812B LEDs - PUNCHIER VERSION
 LED_COLORS = {
     'Beach': {
-        'hex': '#FFA028',  # Amber
-        'rgb': (255, 160, 40),
+        'hex': '#FFC800',  # Amber - strong golden yellow
+        'rgb': (255, 200, 0),
         'description': 'Amber - warm golden sand'
     },
     'Desert': {
-        'hex': '#FF5A3C',  # Coral
-        'rgb': (255, 90, 60),
+        'hex': '#FF2814',  # Coral - hotter red-orange
+        'rgb': (255, 40, 20),
         'description': 'Coral - sunset desert hues'
     },
     'Lake': {
-        'hex': '#00B4C8',  # Teal
-        'rgb': (0, 180, 200),
+        'hex': '#00FFFF',  # Teal - electric cyan
+        'rgb': (0, 255, 255),
         'description': 'Teal - pristine water'
     },
     'Mountain': {
-        'hex': '#50C878',  # Sage
-        'rgb': (80, 200, 120),
+        'hex': '#32FF64',  # Sage - vivid spring green
+        'rgb': (50, 255, 100),
         'description': 'Sage - living mountain vegetation'
     },
     'River': {
-        'hex': '#5A5AFF',  # Indigo
-        'rgb': (90, 90, 255),
+        'hex': '#2846FF',  # Indigo - intense deep blue
+        'rgb': (40, 70, 255),
         'description': 'Indigo - deep flowing water'
     },
     'Ruin': {
-        'hex': '#B43CDC',  # Plum
-        'rgb': (180, 60, 220),
+        'hex': '#DC28FF',  # Plum - bright magenta-violet
+        'rgb': (220, 40, 255),
         'description': 'Plum - mysterious ancient sites'
     }
 }
