@@ -10,7 +10,10 @@ import asyncio
 import json
 
 # Add parent directory to path
-sys.path.append('../../python-services')
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
+python_services_dir = os.path.join(script_dir, '..', '..', 'python-services')
+sys.path.insert(0, python_services_dir)
 
 from services.led_controller import get_led_controller
 
