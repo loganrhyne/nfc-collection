@@ -144,10 +144,11 @@ The system uses separate color palettes for UI display and LED visualization:
 - ✅ WebSocket communication
 - ✅ Automatic deployment configuration
 - ✅ Color byte order detection
-
-### In Progress
-- 🚧 Filtered entries display (dimmed background)
-- 🚧 Multiple brightness levels
+- ✅ Filtered entries display with multiple brightness levels
+  - Selected entry: 100% brightness
+  - Filtered entries: 30% brightness
+  - Automatic updates when filters change
+  - Supports all filter types (type, region, date range)
 
 ## Future Enhancements
 
@@ -195,6 +196,10 @@ FORCE_MOCK = False  # Set by deploy.sh on Pi
 1. **test_led_colors.py**: Verify byte order
 2. **test_led_websocket.py**: Test WebSocket commands
 3. **test_led_ui.html**: Visual grid interface
+4. **test_filtered_leds.py**: Test filtered entries visualization
+   - Simulates different filter scenarios
+   - Verifies brightness levels (30% filtered, 100% selected)
+   - Tests empty filters and dense clusters
 4. **led_animation_demo.py**: Hardware test patterns
 
 ### Debugging Commands
@@ -267,7 +272,7 @@ sudo journalctl -u nfc-websocket -f | grep LED
 - [x] Color mapping by type
 - [x] Enhanced UI/LED color separation
 - [x] Debug tools and color comparison
-- [ ] Filtered entries display
+- [x] Filtered entries display with brightness differentiation
 - [ ] Brightness control UI
 - [ ] Animation system
 - [ ] Visualization modes

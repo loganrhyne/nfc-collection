@@ -204,18 +204,29 @@ class LEDController:
             self._selected_index = None
     
     async def update_entries(self, entries: List[Dict]):
-        """Update multiple entries at once"""
+        """Update multiple entries at once with different brightness for selected"""
         # Clear all first
         await self.clear_all()
+        
+        # Default brightness levels
+        FILTERED_BRIGHTNESS = 0.3  # Dimmer for filtered entries
+        SELECTED_BRIGHTNESS = 1.0  # Full brightness for selected
         
         # Set each entry
         for entry in entries:
             index = entry.get('index')
             color = entry.get('color', '#FFFFFF')
-            brightness = entry.get('brightness', None)
+            is_selected = entry.get('isSelected', False)
+            
+            # Use different brightness for selected vs filtered
+            brightness = SELECTED_BRIGHTNESS if is_selected else FILTERED_BRIGHTNESS
             
             if index is not None:
                 await self.set_pixel(index, color, brightness)
+                
+                # Track selected index
+                if is_selected:
+                    self._selected_index = index
     
     def get_status(self) -> Dict:
         """Get current LED controller status"""
