@@ -216,6 +216,9 @@ class LEDController:
                 new_selected_index = entry.get('index')
                 break
         
+        logger.info(f"LED Update: {len(entries)} entries, selected index: {new_selected_index}, " +
+                    f"previous selected: {self._selected_index}")
+        
         # If selection changed, fade out old selection first
         if (self._selected_index is not None and 
             self._selected_index != new_selected_index):
@@ -234,10 +237,15 @@ class LEDController:
             target_brightness = SELECTED_BRIGHTNESS if is_selected else FILTERED_BRIGHTNESS
             
             if index is not None:
-                if is_selected and index != self._selected_index:
-                    # Fade in new selection
-                    await self._fade_pixel(index, self.hex_to_rgb(color),
-                                           FILTERED_BRIGHTNESS, target_brightness, steps=10)
+                if is_selected:
+                    # Always ensure selected entry is at full brightness
+                    if index != self._selected_index:
+                        # Fade in new selection
+                        await self._fade_pixel(index, self.hex_to_rgb(color),
+                                               FILTERED_BRIGHTNESS, target_brightness, steps=10)
+                    else:
+                        # Already selected, ensure it's at correct brightness
+                        await self.set_pixel(index, color, target_brightness)
                 else:
                     # Set immediately for non-selected entries
                     await self.set_pixel(index, color, target_brightness)
@@ -267,6 +275,10 @@ class LEDController:
                 pixel_index = self._get_pixel_index(index)
                 self._pixels[pixel_index] = (r, g, b)
                 self._pixels.show()
+            
+            # Update current state for the last step
+            if i == steps:
+                self._current_state[index] = (r, g, b)
             
             # Small delay for smooth transition
             await asyncio.sleep(0.02)  # 20ms per step = 200ms total fade
