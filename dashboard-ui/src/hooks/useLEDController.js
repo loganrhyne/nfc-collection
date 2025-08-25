@@ -1,114 +1,82 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { useWebSocket } from './useWebSocket';
 import { getLEDColor } from '../utils/colorSchemeEnhanced';
 
 /**
- * Hook to manage LED visualization based on app state
+ * LED Controller Hook
+ * Simple, clean implementation for interactive mode
  */
 export const useLEDController = () => {
-  const { entries, selectedEntry, activeFilters, filteredEntries, allEntries } = useData();
-  const { sendMessage, registerHandler, connected } = useWebSocket();
+  const { allEntries, entries, selectedEntry } = useData();
+  const { sendMessage, connected } = useWebSocket();
+  const lastSentRef = useRef(null);
   
-  // Find the index of an entry in the sorted entries array
-  const getEntryIndex = useCallback((entry) => {
-    if (!entry || !entries.length) return null;
+  /**
+   * Get the index of an entry based on creation date order
+   * This ensures consistent positioning regardless of filters
+   */
+  const getEntryIndex = useCallback((entry, entriesArray) => {
+    if (!entry || !entriesArray || entriesArray.length === 0) return null;
     
-    // Sort entries by creation date (oldest first for grid position)
-    const sortedEntries = [...entries].sort((a, b) => 
+    // Always use allEntries for consistent indexing
+    const sortedEntries = [...entriesArray].sort((a, b) => 
       new Date(a.creationDate) - new Date(b.creationDate)
     );
     
     return sortedEntries.findIndex(e => e.uuid === entry.uuid);
-  }, [entries]);
+  }, []);
   
-  // Send LED update for selected entry
-  const updateSelectedLED = useCallback((entry) => {
-    if (!connected) return;
+  /**
+   * Update LEDs based on current filter state
+   * Only illuminates entries that match current filters
+   */
+  const updateLEDs = useCallback(() => {
+    if (!connected || !allEntries) return;
     
-    const index = entry ? getEntryIndex(entry) : null;
+    // Get currently filtered entries (or all if no filters)
+    const filteredEntries = entries || [];
     
-    // Get LED-optimized color from entry type
-    const color = entry && entry.type 
-      ? getLEDColor(entry.type)
-      : '#FFFFFF';
-    
-    sendMessage('led_update', {
-      command: 'set_selected',
-      index: index,
-      color: entry ? color : null
-    });
-    
-    console.log('LED Update - Selected:', { 
-      entry: entry?.uuid, 
-      type: entry?.type,
-      index,
-      color: entry ? color : null
-    });
-  }, [connected, sendMessage, getEntryIndex]);
-  
-  // Update LED for filtered entries
-  const updateFilteredLEDs = useCallback(() => {
-    if (!connected) return;
-    
-    // Use filteredEntries if available, otherwise use all entries
-    // This ensures LEDs work even when filteredEntries hasn't been populated yet
-    const entriesToDisplay = filteredEntries || entries || [];
-    
-    // If we have a selected entry but no entries to display, just show the selected one
-    if (entriesToDisplay.length === 0 && selectedEntry) {
-      updateSelectedLED(selectedEntry);
-      return;
-    }
-    
-    // Map entries to their indices and colors
-    const ledEntries = entriesToDisplay.map(entry => {
-      const index = getEntryIndex(entry);
+    // Build LED data for filtered entries only
+    const ledData = filteredEntries.map(entry => {
+      // Always use allEntries for consistent indexing
+      const index = getEntryIndex(entry, allEntries);
       const color = entry.type ? getLEDColor(entry.type) : '#FFFFFF';
+      const isSelected = selectedEntry?.uuid === entry.uuid;
       
       return {
         index,
         color,
         type: entry.type,
-        isSelected: selectedEntry?.uuid === entry.uuid
+        isSelected
       };
     }).filter(item => item.index !== null && item.index >= 0);
     
-    // Send update for all entries
-    sendMessage('led_update', {
-      command: 'update_entries',
-      entries: ledEntries
-    });
+    // Create a string representation for comparison
+    const dataString = JSON.stringify(ledData);
     
-    console.log('LED Update - Filtered entries:', {
-      totalEntries: entries?.length || 0,
-      totalFiltered: entriesToDisplay.length,
-      ledEntries: ledEntries.length,
-      activeFilters,
-      hasFilters: !!(activeFilters && Object.keys(activeFilters).length > 0)
-    });
-  }, [connected, filteredEntries, entries, getEntryIndex, selectedEntry, sendMessage, updateSelectedLED, activeFilters]);
-  
-  // Effect to update LEDs when filtered entries or selection changes
-  useEffect(() => {
-    updateFilteredLEDs();
-  }, [filteredEntries, selectedEntry, updateFilteredLEDs]);
-  
-  // Also update when entries change (in case filteredEntries isn't populated yet)
-  useEffect(() => {
-    if (!filteredEntries && entries) {
-      updateFilteredLEDs();
+    // Only send if data has changed
+    if (dataString !== lastSentRef.current) {
+      sendMessage('led_update', {
+        command: 'update_interactive',
+        entries: ledData
+      });
+      
+      lastSentRef.current = dataString;
+      
+      console.log('LED Update:', {
+        totalEntries: allEntries.length,
+        filteredCount: filteredEntries.length,
+        ledCount: ledData.length,
+        hasSelected: !!selectedEntry
+      });
     }
-  }, [entries, filteredEntries, updateFilteredLEDs]);
+  }, [connected, allEntries, entries, selectedEntry, getEntryIndex, sendMessage]);
   
-  // Register handler for LED status responses
+  // Update LEDs when relevant data changes
   useEffect(() => {
-    const cleanup = registerHandler('led_status', (data) => {
-      console.log('LED Status:', data);
-    });
-    
-    return cleanup;
-  }, [registerHandler]);
+    updateLEDs();
+  }, [entries, selectedEntry, updateLEDs]);
   
   // Clear all LEDs
   const clearAllLEDs = useCallback(() => {
@@ -117,11 +85,12 @@ export const useLEDController = () => {
     sendMessage('led_update', {
       command: 'clear_all'
     });
+    
+    lastSentRef.current = null;
   }, [connected, sendMessage]);
   
   return {
-    updateSelectedLED,
-    updateFilteredLEDs,
+    updateLEDs,
     clearAllLEDs,
     getEntryIndex
   };

@@ -455,24 +455,11 @@ class NFCWebSocketServer:
             # Extract LED command type
             command = data.get('command', 'set_selected')
             
-            if command == 'set_selected':
-                # Set a single selected entry
-                index = data.get('index')
-                color = data.get('color', '#FFFFFF')
-                
-                if index is not None:
-                    await self.led_controller.set_selected(index, color)
-                    logger.info(f"LED: Selected entry at index {index}")
-                else:
-                    # Clear selection
-                    await self.led_controller.set_selected(None)
-                    logger.info("LED: Cleared selection")
-                    
-            elif command == 'update_entries':
-                # Update multiple entries
+            if command == 'update_interactive':
+                # Update LEDs for interactive mode
                 entries = data.get('entries', [])
-                await self.led_controller.update_entries(entries)
-                logger.info(f"LED: Updated {len(entries)} entries")
+                await self.led_controller.update_interactive_mode(entries)
+                logger.info(f"LED: Updated interactive mode with {len(entries)} entries")
                 
             elif command == 'clear_all':
                 # Clear all LEDs
