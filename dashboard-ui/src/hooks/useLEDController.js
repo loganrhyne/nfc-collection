@@ -7,7 +7,7 @@ import { getLEDColor } from '../utils/colorSchemeEnhanced';
  * Hook to manage LED visualization based on app state
  */
 export const useLEDController = () => {
-  const { entries, selectedEntry, activeFilters, filteredEntries } = useData();
+  const { entries, selectedEntry, activeFilters, filteredEntries, allEntries } = useData();
   const { sendMessage, registerHandler, connected } = useWebSocket();
   
   // Find the index of an entry in the sorted entries array
@@ -49,10 +49,20 @@ export const useLEDController = () => {
   
   // Update LED for filtered entries
   const updateFilteredLEDs = useCallback(() => {
-    if (!connected || !filteredEntries) return;
+    if (!connected) return;
     
-    // Map filtered entries to their indices and colors
-    const ledEntries = filteredEntries.map(entry => {
+    // Use filteredEntries if available, otherwise use all entries
+    // This ensures LEDs work even when filteredEntries hasn't been populated yet
+    const entriesToDisplay = filteredEntries || entries || [];
+    
+    // If we have a selected entry but no entries to display, just show the selected one
+    if (entriesToDisplay.length === 0 && selectedEntry) {
+      updateSelectedLED(selectedEntry);
+      return;
+    }
+    
+    // Map entries to their indices and colors
+    const ledEntries = entriesToDisplay.map(entry => {
       const index = getEntryIndex(entry);
       const color = entry.type ? getLEDColor(entry.type) : '#FFFFFF';
       
@@ -64,23 +74,32 @@ export const useLEDController = () => {
       };
     }).filter(item => item.index !== null && item.index >= 0);
     
-    // Send update for all filtered entries
+    // Send update for all entries
     sendMessage('led_update', {
       command: 'update_entries',
       entries: ledEntries
     });
     
     console.log('LED Update - Filtered entries:', {
-      totalFiltered: filteredEntries.length,
+      totalEntries: entries?.length || 0,
+      totalFiltered: entriesToDisplay.length,
       ledEntries: ledEntries.length,
-      activeFilters
+      activeFilters,
+      hasFilters: !!(activeFilters && Object.keys(activeFilters).length > 0)
     });
-  }, [connected, filteredEntries, getEntryIndex, selectedEntry, sendMessage]);
+  }, [connected, filteredEntries, entries, getEntryIndex, selectedEntry, sendMessage, updateSelectedLED, activeFilters]);
   
   // Effect to update LEDs when filtered entries or selection changes
   useEffect(() => {
     updateFilteredLEDs();
   }, [filteredEntries, selectedEntry, updateFilteredLEDs]);
+  
+  // Also update when entries change (in case filteredEntries isn't populated yet)
+  useEffect(() => {
+    if (!filteredEntries && entries) {
+      updateFilteredLEDs();
+    }
+  }, [entries, filteredEntries, updateFilteredLEDs]);
   
   // Register handler for LED status responses
   useEffect(() => {
