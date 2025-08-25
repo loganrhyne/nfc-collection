@@ -204,29 +204,72 @@ class LEDController:
             self._selected_index = None
     
     async def update_entries(self, entries: List[Dict]):
-        """Update multiple entries at once with different brightness for selected"""
-        # Clear all first
-        await self.clear_all()
-        
+        """Update multiple entries at once with smooth transitions"""
         # Default brightness levels
-        FILTERED_BRIGHTNESS = 0.3  # Dimmer for filtered entries
-        SELECTED_BRIGHTNESS = 1.0  # Full brightness for selected
+        FILTERED_BRIGHTNESS = 0.05  # Much dimmer for filtered entries (5%)
+        SELECTED_BRIGHTNESS = 0.8   # Bright for selected (80%)
         
-        # Set each entry
+        # Find new selected index
+        new_selected_index = None
+        for entry in entries:
+            if entry.get('isSelected', False):
+                new_selected_index = entry.get('index')
+                break
+        
+        # If selection changed, fade out old selection first
+        if (self._selected_index is not None and 
+            self._selected_index != new_selected_index):
+            # Fade out old selection to background level
+            old_color = self._current_state.get(self._selected_index, (255, 255, 255))
+            await self._fade_pixel(self._selected_index, old_color, 
+                                   SELECTED_BRIGHTNESS, FILTERED_BRIGHTNESS, steps=10)
+        
+        # Update all pixels
         for entry in entries:
             index = entry.get('index')
             color = entry.get('color', '#FFFFFF')
             is_selected = entry.get('isSelected', False)
             
-            # Use different brightness for selected vs filtered
-            brightness = SELECTED_BRIGHTNESS if is_selected else FILTERED_BRIGHTNESS
+            # Target brightness
+            target_brightness = SELECTED_BRIGHTNESS if is_selected else FILTERED_BRIGHTNESS
             
             if index is not None:
-                await self.set_pixel(index, color, brightness)
-                
-                # Track selected index
-                if is_selected:
-                    self._selected_index = index
+                if is_selected and index != self._selected_index:
+                    # Fade in new selection
+                    await self._fade_pixel(index, self.hex_to_rgb(color),
+                                           FILTERED_BRIGHTNESS, target_brightness, steps=10)
+                else:
+                    # Set immediately for non-selected entries
+                    await self.set_pixel(index, color, target_brightness)
+        
+        # Update tracked selected index
+        self._selected_index = new_selected_index
+    
+    async def _fade_pixel(self, index: int, rgb: Tuple[int, int, int], 
+                          start_brightness: float, end_brightness: float, steps: int = 10):
+        """Fade a pixel between two brightness levels"""
+        if not 0 <= index < self.config.num_pixels:
+            return
+            
+        # Calculate brightness steps
+        brightness_step = (end_brightness - start_brightness) / steps
+        
+        for i in range(steps + 1):
+            current_brightness = start_brightness + (brightness_step * i)
+            
+            # Apply brightness to RGB values
+            r = int(rgb[0] * current_brightness)
+            g = int(rgb[1] * current_brightness)
+            b = int(rgb[2] * current_brightness)
+            
+            # Update pixel
+            if HARDWARE_AVAILABLE and not self.config.mock_mode:
+                pixel_index = self._get_pixel_index(index)
+                self._pixels[pixel_index] = (r, g, b)
+                self._pixels.show()
+            
+            # Small delay for smooth transition
+            await asyncio.sleep(0.02)  # 20ms per step = 200ms total fade
     
     def get_status(self) -> Dict:
         """Get current LED controller status"""
