@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { useWebSocket } from './useWebSocket';
 import { getLEDColor } from '../utils/colorSchemeEnhanced';
+import { createLEDDiagnosticLog } from '../utils/ledDiagnostic';
 
 /**
  * LED Controller Hook
@@ -15,13 +16,15 @@ export const useLEDController = () => {
   /**
    * Get the index of an entry based on creation date order
    * This ensures consistent positioning regardless of filters
+   * LED 0 should be the newest entry (matching UI), LED 149 the oldest
    */
   const getEntryIndex = useCallback((entry, entriesArray) => {
     if (!entry || !entriesArray || entriesArray.length === 0) return null;
     
-    // Always use allEntries for consistent indexing
+    // Sort by newest first to match UI ordering
+    // This way LED 0 = newest entry (top of timeline)
     const sortedEntries = [...entriesArray].sort((a, b) => 
-      new Date(a.creationDate) - new Date(b.creationDate)
+      new Date(b.creationDate) - new Date(a.creationDate)
     );
     
     return sortedEntries.findIndex(e => e.uuid === entry.uuid);
@@ -70,6 +73,11 @@ export const useLEDController = () => {
         ledCount: ledData.length,
         hasSelected: !!selectedEntry
       });
+      
+      // Diagnostic logging (remove after debugging)
+      if (window.location.search.includes('debug=led')) {
+        createLEDDiagnosticLog(allEntries, filteredEntries, ledData);
+      }
     }
   }, [connected, allEntries, entries, selectedEntry, getEntryIndex, sendMessage]);
   

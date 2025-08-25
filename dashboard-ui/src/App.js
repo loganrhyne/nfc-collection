@@ -20,6 +20,7 @@ import VersionInfo from './components/VersionInfo';
 import TimelineDebug from './components/timeline/TimelineDebug';
 import LEDController from './components/led/LEDController';
 import DebugPage from './components/debug/DebugPage';
+import LEDDebugPanel from './components/debug/LEDDebugPanel';
 import { initTouchScrollFix } from './utils/touchScrollFix';
 import './App.css';
 
@@ -118,6 +119,7 @@ function AppContent() {
       <WebSocketStatus />
       <LEDController />
       <VersionInfo />
+      {window.location.search.includes('debug=led') && <LEDDebugPanel />}
     </div>
   );
 }
