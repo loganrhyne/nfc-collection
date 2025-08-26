@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LEDConfig:
     """LED configuration"""
-    num_pixels: int = 150
-    grid_rows: int = 10
-    grid_cols: int = 15
+    num_pixels: int = 100  # 20x5 grid = 100 LEDs
+    grid_rows: int = 5     # 5 rows
+    grid_cols: int = 20    # 20 columns
     gpio_pin: str = "D18"
     pixel_order: str = "GRB"
     brightness_filtered: float = 0.05  # 5% for background

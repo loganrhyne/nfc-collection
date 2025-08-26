@@ -36,20 +36,25 @@ export const createLEDDiagnosticLog = (allEntries, entries, ledData) => {
     console.log(`  Index ${led.index}: ${entry?.title || 'NOT FOUND'} - ${led.color}${led.isSelected ? ' (SELECTED)' : ''}`);
   });
   
-  // Show grid layout
-  console.log('\nGrid Layout (10x15):');
-  const grid = Array(10).fill(null).map(() => Array(15).fill('·'));
+  // Show grid layout (20x5)
+  console.log('\nGrid Layout (20x5):');
+  const grid = Array(5).fill(null).map(() => Array(20).fill('·'));
   
   ledData.forEach(led => {
-    const row = Math.floor(led.index / 15);
-    const col = led.index % 15;
-    if (row < 10 && col < 15) {
-      grid[row][col] = led.isSelected ? '★' : '●';
+    if (led.index >= 0 && led.index < 100) {
+      const row = Math.floor(led.index / 20);
+      const col = led.index % 20;
+      if (row < 5 && col < 20) {
+        grid[row][col] = led.isSelected ? '★' : '●';
+      }
     }
   });
   
+  // Print grid with serpentine annotation
   grid.forEach((row, idx) => {
-    console.log(`Row ${idx}: ${row.join(' ')}`);
+    const rowStr = row.join(' ');
+    const direction = idx % 2 === 0 ? '→' : '←';
+    console.log(`Row ${idx} ${direction}: ${rowStr}`);
   });
   
   console.log('\nTotal entries:', allEntries.length);

@@ -16,15 +16,16 @@ export const useLEDController = () => {
   /**
    * Get the index of an entry based on creation date order
    * This ensures consistent positioning regardless of filters
-   * LED 0 should be the newest entry (matching UI), LED 149 the oldest
+   * LED 0 = oldest entry (for physical installation stability)
+   * New entries get added at the end of the strip
    */
   const getEntryIndex = useCallback((entry, entriesArray) => {
     if (!entry || !entriesArray || entriesArray.length === 0) return null;
     
-    // Sort by newest first to match UI ordering
-    // This way LED 0 = newest entry (top of timeline)
+    // Sort by oldest first for LED indexing
+    // This way LED 0 = oldest entry, new entries go at the end
     const sortedEntries = [...entriesArray].sort((a, b) => 
-      new Date(b.creationDate) - new Date(a.creationDate)
+      new Date(a.creationDate) - new Date(b.creationDate)
     );
     
     return sortedEntries.findIndex(e => e.uuid === entry.uuid);

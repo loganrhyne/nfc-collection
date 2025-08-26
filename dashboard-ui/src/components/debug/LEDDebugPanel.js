@@ -21,7 +21,7 @@ const DebugContainer = styled.div`
 
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(15, 20px);
+  grid-template-columns: repeat(20, 20px);
   gap: 2px;
   margin: 10px 0;
 `;
@@ -56,9 +56,9 @@ const LEDDebugPanel = () => {
   
   if (!allEntries || !entries) return null;
   
-  // Sort entries by newest first (matching UI)
+  // Sort entries by oldest first (matching LED indexing)
   const sortedAll = [...allEntries].sort((a, b) => 
-    new Date(b.creationDate) - new Date(a.creationDate)
+    new Date(a.creationDate) - new Date(b.creationDate)
   );
   
   // Create LED state map
@@ -73,15 +73,16 @@ const LEDDebugPanel = () => {
     }
   });
   
-  // Create grid visualization
+  // Create grid visualization (100 LEDs in 20x5)
   const grid = [];
-  for (let i = 0; i < 150; i++) {
+  for (let i = 0; i < 100; i++) {
     const ledData = ledMap.get(i);
     grid.push({
       index: i,
       lit: !!ledData,
       color: ledData?.entry.type ? `#${ledData.entry.type.substring(0, 6)}` : '#fff',
-      selected: ledData?.isSelected || false
+      selected: ledData?.isSelected || false,
+      title: ledData?.entry.title || 'Empty'
     });
   }
   
@@ -90,14 +91,14 @@ const LEDDebugPanel = () => {
       <h3>LED Debug Panel</h3>
       <div>Total Entries: {allEntries.length} | Filtered: {entries.length}</div>
       
-      <h4>LED Grid (Row 0 = Newest)</h4>
+      <h4>LED Grid (20x5: 0=Oldest, 99=Newest)</h4>
       <Grid>
         {grid.map((led, idx) => {
           // Calculate physical position with serpentine
-          const row = Math.floor(idx / 15);
-          const col = idx % 15;
-          const physicalCol = row % 2 === 0 ? col : 14 - col;
-          const physicalIndex = row * 15 + physicalCol;
+          const row = Math.floor(idx / 20);
+          const col = idx % 20;
+          const physicalCol = row % 2 === 0 ? col : 19 - col;
+          const physicalIndex = row * 20 + physicalCol;
           
           return (
             <LED
@@ -105,7 +106,7 @@ const LEDDebugPanel = () => {
               lit={led.lit}
               color={led.color}
               selected={led.selected}
-              title={`Index: ${idx}, Physical: ${physicalIndex}`}
+              title={`LED ${idx}: ${led.title} (Physical: ${physicalIndex})`}
             >
               {led.lit ? idx : ''}
             </LED>
@@ -113,7 +114,7 @@ const LEDDebugPanel = () => {
         })}
       </Grid>
       
-      <h4>Entry Mapping (First 20)</h4>
+      <h4>Entry Mapping (Oldest 20)</h4>
       <EntryList>
         {sortedAll.slice(0, 20).map((entry, idx) => {
           const ledIndex = getEntryIndex(entry, allEntries);
