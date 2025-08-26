@@ -100,16 +100,16 @@ class TypeDistributionVisualization:
         self.total_pixels = total_pixels
         self.type_counts = self._calculate_type_distribution()
         self.current_type_index = 0
-        # Get unique types from actual data
-        self.types = list(set(entry.get('type', '') for entry in entries))
+        # Get unique types from actual data, excluding empty strings
+        self.types = list(set(entry.get('type', '') for entry in entries if entry.get('type')))
         # Sort for consistent ordering
         self.types.sort()
-        # Also get all known types from ColorManager for completeness
-        all_known_types = set(ColorManager.SAND_TYPE_COLORS.keys())
-        for known_type in all_known_types:
-            if known_type and known_type not in self.types:
-                self.types.append(known_type)
-        logger.info(f"Visualization initialized with types: {self.types}")
+        logger.info(f"Visualization initialized with types from data: {self.types}")
+        
+        # Log which types have defined colors
+        for t in self.types:
+            color = ColorManager.get_type_color(t)
+            logger.info(f"  Type '{t}' -> RGB{color}")
         
     def _calculate_type_distribution(self) -> Dict[str, int]:
         """Calculate how many entries of each type we have"""
@@ -151,10 +151,9 @@ class TypeDistributionVisualization:
             if current_type not in ColorManager.SAND_TYPE_COLORS:
                 logger.warning(f"No color defined for type '{current_type}', using white")
             
-            logger.debug(f"Type '{current_type}' -> RGB {rgb}")
-            
-            # Apply brightness using ColorManager
+            # Log raw RGB and brightness-applied RGB
             rgb_with_brightness = ColorManager.apply_brightness(rgb, brightness)
+            logger.debug(f"Type '{current_type}' -> RGB {rgb} -> Brightness {brightness:.2f} -> Final RGB {rgb_with_brightness}")
             
             # Light up pixels for entries of this type
             for entry in type_entries:
@@ -275,11 +274,16 @@ class VisualizationEngine:
                     
                     # Set pixels for this frame
                     pixel_count = 0
+                    first_pixel_debug = True
                     for idx, rgb in frame.pixels:
                         if 0 <= idx < self.led_controller.config.num_pixels:
                             physical_idx = self.led_controller._get_pixel_index(idx)
                             self.led_controller._pixels[physical_idx] = rgb
                             pixel_count += 1
+                            # Log first pixel for debug
+                            if first_pixel_debug:
+                                logger.debug(f"Setting pixel {idx} (physical {physical_idx}) to RGB{rgb}")
+                                first_pixel_debug = False
                         else:
                             logger.warning(f"Pixel index {idx} out of range")
                     
