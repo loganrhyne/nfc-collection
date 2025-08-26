@@ -37,18 +37,22 @@ class ColorManager:
     Supports multiple color schemes and mappings
     """
     
-    # Sand type colors
+    # Sand type colors - Using same LED-optimized colors as interactive mode
     SAND_TYPE_COLORS = {
-        'Beach': (244, 164, 96),      # Sandy Brown
-        'River': (70, 130, 180),      # Steel Blue  
-        'Mountain': (139, 115, 85),   # Burlywood4
-        'Desert': (222, 184, 135),    # Burlewood
-        'Lake': (95, 158, 160),       # Cadet Blue
-        'Ruin': (205, 133, 63),       # Peru
-        'Glacial': (176, 224, 230),   # Powder Blue
-        'Volcanic': (47, 79, 79),     # Dark Slate Gray
+        'Beach': (255, 200, 0),       # Strong golden yellow
+        'River': (40, 70, 255),       # Intense deep blue  
+        'Mountain': (50, 255, 100),   # Vivid spring green
+        'Desert': (255, 40, 20),      # Hot coral red-orange
+        'Lake': (0, 255, 255),        # Electric cyan
+        'Ruin': (220, 40, 255),       # Bright magenta-violet
         '': (128, 128, 128),          # Gray for unknown/empty types
     }
+    
+    @staticmethod
+    def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
+        """Convert hex color to RGB tuple"""
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     
     @staticmethod
     def get_type_color(sand_type: str) -> Tuple[int, int, int]:
