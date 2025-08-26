@@ -7,9 +7,10 @@ Provides various data visualization modes for the LED grid
 import asyncio
 import math
 import time
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
+import colorsys
 
 import logging
 logger = logging.getLogger(__name__)
@@ -30,31 +31,85 @@ class VisualizationFrame:
     duration_ms: int = 50  # How long to display this frame
 
 
+class ColorManager:
+    """
+    Flexible color management for visualizations
+    Supports multiple color schemes and mappings
+    """
+    
+    # Sand type colors
+    SAND_TYPE_COLORS = {
+        'Beach': (244, 164, 96),      # Sandy Brown
+        'River': (70, 130, 180),      # Steel Blue  
+        'Mountain': (139, 115, 85),   # Burlywood4
+        'Desert': (222, 184, 135),    # Burlewood
+        'Lake': (95, 158, 160),       # Cadet Blue
+        'Ruin': (205, 133, 63),       # Peru
+        'Glacial': (176, 224, 230),   # Powder Blue
+        'Volcanic': (47, 79, 79),     # Dark Slate Gray
+        '': (128, 128, 128),          # Gray for unknown/empty types
+    }
+    
+    @staticmethod
+    def get_type_color(sand_type: str) -> Tuple[int, int, int]:
+        """Get RGB color for a sand type"""
+        return ColorManager.SAND_TYPE_COLORS.get(sand_type, (255, 255, 255))
+    
+    @staticmethod
+    def get_heatmap_color(value: float, min_val: float = 0.0, max_val: float = 1.0) -> Tuple[int, int, int]:
+        """
+        Get heatmap color for a normalized value
+        Uses HSV color space for smooth gradients
+        """
+        # Normalize value to 0-1 range
+        normalized = (value - min_val) / (max_val - min_val) if max_val > min_val else 0.5
+        normalized = max(0.0, min(1.0, normalized))
+        
+        # HSV: Hue from blue (240°) to red (0°)
+        hue = (1.0 - normalized) * 240.0 / 360.0
+        saturation = 0.8
+        value = 0.8
+        
+        # Convert HSV to RGB
+        r, g, b = colorsys.hsv_to_rgb(hue, saturation, value)
+        return (int(r * 255), int(g * 255), int(b * 255))
+    
+    @staticmethod
+    def get_gradient_color(phase: float, color1: Tuple[int, int, int], 
+                          color2: Tuple[int, int, int]) -> Tuple[int, int, int]:
+        """Interpolate between two colors based on phase (0.0 to 1.0)"""
+        return tuple(
+            int(color1[i] + (color2[i] - color1[i]) * phase)
+            for i in range(3)
+        )
+    
+    @staticmethod
+    def apply_brightness(rgb: Tuple[int, int, int], brightness: float) -> Tuple[int, int, int]:
+        """Apply brightness multiplier to RGB color"""
+        return tuple(int(c * brightness) for c in rgb)
+
+
 class TypeDistributionVisualization:
     """
     Visualization showing sand type distribution
     Slowly ramps brightness up and down for each type
     """
     
-    # Define sand types and their colors (matching actual entry types)
-    TYPE_COLORS = {
-        'Beach': '#F4A460',       # Sandy Brown
-        'River': '#4682B4',       # Steel Blue  
-        'Mountain': '#8B7355',    # Burlywood4
-        'Desert': '#DEB887',      # Burlewood
-        'Lake': '#5F9EA0',        # Cadet Blue
-        'Ruin': '#CD853F',        # Peru
-        'Glacial': '#B0E0E6',     # Powder Blue
-        'Volcanic': '#2F4F4F',    # Dark Slate Gray
-        '': '#808080',            # Gray for unknown/empty types
-    }
-    
     def __init__(self, entries: List[Dict], total_pixels: int = 100):
         self.entries = entries
         self.total_pixels = total_pixels
         self.type_counts = self._calculate_type_distribution()
         self.current_type_index = 0
-        self.types = list(self.TYPE_COLORS.keys())
+        # Get unique types from actual data
+        self.types = list(set(entry.get('type', '') for entry in entries))
+        # Sort for consistent ordering
+        self.types.sort()
+        # Also get all known types from ColorManager for completeness
+        all_known_types = set(ColorManager.SAND_TYPE_COLORS.keys())
+        for known_type in all_known_types:
+            if known_type and known_type not in self.types:
+                self.types.append(known_type)
+        logger.info(f"Visualization initialized with types: {self.types}")
         
     def _calculate_type_distribution(self) -> Dict[str, int]:
         """Calculate how many entries of each type we have"""
@@ -63,11 +118,6 @@ class TypeDistributionVisualization:
             entry_type = entry.get('type', 'Unknown')
             counts[entry_type] = counts.get(entry_type, 0) + 1
         return counts
-    
-    def _hex_to_rgb(self, hex_color: str) -> Tuple[int, int, int]:
-        """Convert hex color to RGB"""
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     
     def generate_frame(self, phase: float) -> VisualizationFrame:
         """
@@ -96,14 +146,15 @@ class TypeDistributionVisualization:
             logger.debug(f"Showing type '{current_type}' with {len(type_entries)} entries at brightness {brightness:.2f}")
         
         if type_entries:
-            # Get color for this type with debug
-            color = self.TYPE_COLORS.get(current_type, '#FFFFFF')
-            if color == '#FFFFFF':
+            # Get RGB color for this type using ColorManager
+            rgb = ColorManager.get_type_color(current_type)
+            if current_type not in ColorManager.SAND_TYPE_COLORS:
                 logger.warning(f"No color defined for type '{current_type}', using white")
-            rgb = self._hex_to_rgb(color)
             
-            # Apply brightness
-            rgb_with_brightness = tuple(int(c * brightness) for c in rgb)
+            logger.debug(f"Type '{current_type}' -> RGB {rgb}")
+            
+            # Apply brightness using ColorManager
+            rgb_with_brightness = ColorManager.apply_brightness(rgb, brightness)
             
             # Light up pixels for entries of this type
             for entry in type_entries:
