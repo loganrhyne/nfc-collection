@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useData } from '../../context/DataContext';
@@ -175,13 +175,47 @@ const StatusText = styled.div`
   text-align: center;
 `;
 
+const AutoSwitchNotification = styled.div`
+  position: fixed;
+  bottom: 110px;
+  right: 20px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 4px;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: slideIn 0.3s ease;
+  z-index: 1001;
+  
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+`;
+
 const LEDModePill = () => {
   const { sendMessage, connected } = useWebSocket();
-  const { allEntries } = useData();
+  const { allEntries, entries, selectedEntry } = useData();
   const [showModal, setShowModal] = useState(false);
   const [mode, setMode] = useState('interactive');
   const [selectedVisualization, setSelectedVisualization] = useState('type_distribution');
   const [isRunning, setIsRunning] = useState(false);
+  const [autoSwitchMessage, setAutoSwitchMessage] = useState('');
+  
+  // Auto-switch timeout management
+  const inactivityTimerRef = useRef(null);
+  const lastActivityRef = useRef(Date.now());
+  // Use 30 seconds for debug mode, 5 minutes for production
+  const INACTIVITY_TIMEOUT = window.location.search.includes('debug=led') 
+    ? 30 * 1000  // 30 seconds for testing
+    : 5 * 60 * 1000; // 5 minutes
 
   const visualizations = [
     { id: 'type_distribution', name: 'Type Distribution', description: 'Cycles through sand types with brightness ramping' },
@@ -192,18 +226,8 @@ const LEDModePill = () => {
 
   const currentVisualization = visualizations.find(v => v.id === selectedVisualization);
 
-  // Stop visualization when component unmounts
-  useEffect(() => {
-    return () => {
-      if (mode === 'visualization' && isRunning) {
-        sendMessage('led_update', {
-          command: 'stop_visualization'
-        });
-      }
-    };
-  }, [mode, isRunning, sendMessage]);
-
-  const handleModeChange = (newMode) => {
+  // Define mode change handler first (will be used by recordActivity)
+  const handleModeChange = useCallback((newMode) => {
     setMode(newMode);
     
     if (newMode === 'interactive') {
@@ -219,9 +243,10 @@ const LEDModePill = () => {
         mode: 'visualization'
       });
     }
-  };
+  }, [sendMessage]);
 
-  const handleStartVisualization = () => {
+  // Define start visualization handler
+  const handleStartVisualization = useCallback(() => {
     if (!connected || !allEntries) return;
 
     // Send all entries data for visualization
@@ -237,14 +262,75 @@ const LEDModePill = () => {
     });
 
     setIsRunning(true);
-  };
+  }, [connected, allEntries, selectedVisualization, sendMessage]);
 
-  const handleStopVisualization = () => {
+  // Function to record user activity
+  const recordActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    
+    // If we're in visualization mode due to inactivity, switch back to interactive
+    if (mode === 'visualization' && isRunning) {
+      console.log('User activity detected - switching to interactive mode');
+      setAutoSwitchMessage('Activity detected - switching to interactive mode');
+      setTimeout(() => setAutoSwitchMessage(''), 3000);
+      handleModeChange('interactive');
+    }
+    
+    // Reset the inactivity timer
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+    }
+    
+    // Start a new timer for auto-visualization
+    if (mode === 'interactive') {
+      inactivityTimerRef.current = setTimeout(() => {
+        console.log('5 minutes of inactivity - starting visualization mode');
+        setAutoSwitchMessage('No activity for 5 minutes - starting visualization');
+        setTimeout(() => setAutoSwitchMessage(''), 3000);
+        handleModeChange('visualization');
+        // Auto-start the first visualization
+        setTimeout(() => {
+          if (connected && allEntries && allEntries.length > 0) {
+            handleStartVisualization();
+          }
+        }, 100);
+      }, INACTIVITY_TIMEOUT);
+    }
+  }, [mode, isRunning, connected, allEntries, handleModeChange, handleStartVisualization]);
+
+  // Monitor filter changes and selection changes
+  useEffect(() => {
+    recordActivity();
+  }, [entries, selectedEntry, recordActivity]);
+
+  // Initialize inactivity timer on mount
+  useEffect(() => {
+    recordActivity();
+    
+    return () => {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+    };
+  }, [recordActivity]);
+
+  // Stop visualization when component unmounts
+  useEffect(() => {
+    return () => {
+      if (mode === 'visualization' && isRunning) {
+        sendMessage('led_update', {
+          command: 'stop_visualization'
+        });
+      }
+    };
+  }, [mode, isRunning, sendMessage]);
+
+  const handleStopVisualization = useCallback(() => {
     sendMessage('led_update', {
       command: 'stop_visualization'
     });
     setIsRunning(false);
-  };
+  }, [sendMessage]);
 
   const handleModalClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -274,6 +360,12 @@ const LEDModePill = () => {
         />
         {pillText}
       </StatusPill>
+
+      {autoSwitchMessage && (
+        <AutoSwitchNotification>
+          {autoSwitchMessage}
+        </AutoSwitchNotification>
+      )}
 
       {showModal && (
         <Modal onClick={handleModalClick}>
