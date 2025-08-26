@@ -114,6 +114,14 @@ const LEDVisualizationControl = () => {
   const handleStartVisualization = () => {
     if (!connected || !allEntries) return;
 
+    // Debug: log what we're sending
+    console.log('Starting visualization with entries:', allEntries.length);
+    const entryTypes = allEntries.reduce((acc, entry) => {
+      acc[entry.type] = (acc[entry.type] || 0) + 1;
+      return acc;
+    }, {});
+    console.log('Entry types:', entryTypes);
+
     // Send all entries data for visualization
     sendMessage('led_update', {
       command: 'start_visualization',

@@ -103,6 +103,10 @@ class LEDController:
                 - color: Hex color string
                 - isSelected: Boolean
         """
+        # Only update if in interactive mode
+        if self._mode != LEDMode.INTERACTIVE:
+            logger.debug("Skipping interactive update - not in interactive mode")
+            return
         # Extract indices and find selected
         new_indices = set()
         new_selected = None
@@ -158,9 +162,13 @@ class LEDController:
         if self._pixels:
             self._pixels.fill((0, 0, 0))
             self._pixels.show()
-        self._current_indices.clear()
-        self._selected_index = None
-        logger.info("All LEDs cleared")
+        
+        # Only clear tracking for interactive mode
+        if self._mode == LEDMode.INTERACTIVE:
+            self._current_indices.clear()
+            self._selected_index = None
+        
+        logger.debug("All LEDs cleared")
     
     async def set_mode(self, mode: LEDMode):
         """Switch between interactive and visualization modes"""
