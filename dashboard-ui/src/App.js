@@ -19,7 +19,7 @@ import ActiveFilters from './components/filters/ActiveFilters';
 import VersionInfo from './components/VersionInfo';
 import TimelineDebug from './components/timeline/TimelineDebug';
 import LEDController from './components/led/LEDController';
-import LEDVisualizationControl from './components/led/LEDVisualizationControl';
+import LEDModePill from './components/led/LEDModePill';
 import DebugPage from './components/debug/DebugPage';
 import LEDDebugPanel from './components/debug/LEDDebugPanel';
 import { initTouchScrollFix } from './utils/touchScrollFix';
@@ -119,7 +119,7 @@ function AppContent() {
       <NFCScanner />
       <WebSocketStatus />
       <LEDController />
-      <LEDVisualizationControl />
+      <LEDModePill />
       <VersionInfo />
       {window.location.search.includes('debug=led') && <LEDDebugPanel />}
     </div>
