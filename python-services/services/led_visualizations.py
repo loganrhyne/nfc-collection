@@ -39,13 +39,14 @@ class TypeDistributionVisualization:
     # Define sand types and their colors (matching actual entry types)
     TYPE_COLORS = {
         'Beach': '#F4A460',       # Sandy Brown
-        'River': '#4682B4',       # Steel Blue
+        'River': '#4682B4',       # Steel Blue  
         'Mountain': '#8B7355',    # Burlywood4
         'Desert': '#DEB887',      # Burlewood
         'Lake': '#5F9EA0',        # Cadet Blue
         'Ruin': '#CD853F',        # Peru
         'Glacial': '#B0E0E6',     # Powder Blue
         'Volcanic': '#2F4F4F',    # Dark Slate Gray
+        '': '#808080',            # Gray for unknown/empty types
     }
     
     def __init__(self, entries: List[Dict], total_pixels: int = 100):
@@ -83,8 +84,9 @@ class TypeDistributionVisualization:
         local_phase = type_phase - int(type_phase)
         brightness = math.sin(local_phase * math.pi)  # Sine wave for smooth ramp
         
-        # Apply a minimum brightness so it's always slightly visible
-        brightness = 0.3 + (brightness * 0.7)  # Increased minimum from 0.1 to 0.3
+        # Apply brightness range matching interactive mode
+        # Range from 0.05 (background) to 0.8 (selected)
+        brightness = 0.05 + (brightness * 0.75)  # 0.05 to 0.8
         
         # Get entries of current type
         type_entries = [e for e in self.entries if e.get('type') == current_type]
@@ -94,8 +96,10 @@ class TypeDistributionVisualization:
             logger.debug(f"Showing type '{current_type}' with {len(type_entries)} entries at brightness {brightness:.2f}")
         
         if type_entries:
-            # Get color for this type
+            # Get color for this type with debug
             color = self.TYPE_COLORS.get(current_type, '#FFFFFF')
+            if color == '#FFFFFF':
+                logger.warning(f"No color defined for type '{current_type}', using white")
             rgb = self._hex_to_rgb(color)
             
             # Apply brightness
@@ -107,25 +111,12 @@ class TypeDistributionVisualization:
                 if index is not None and 0 <= index < self.total_pixels:
                     pixels.append((index, rgb_with_brightness))
         
-        # Add subtle glow to neighboring pixels for effect
-        glow_pixels = []
-        for idx, rgb in pixels:
-            # Add dimmer glow to adjacent pixels
-            glow_brightness = 0.3
-            glow_rgb = tuple(int(c * glow_brightness) for c in rgb)
-            
-            if idx > 0:
-                glow_pixels.append((idx - 1, glow_rgb))
-            if idx < self.total_pixels - 1:
-                glow_pixels.append((idx + 1, glow_rgb))
-        
-        # Combine main and glow pixels (main pixels override glow)
-        all_pixels = {idx: rgb for idx, rgb in glow_pixels}
-        all_pixels.update({idx: rgb for idx, rgb in pixels})
+        # Skip glow effect for now to reduce flicker
+        all_pixels = {idx: rgb for idx, rgb in pixels}
         
         return VisualizationFrame(
             pixels=list(all_pixels.items()),
-            duration_ms=50
+            duration_ms=33  # ~30fps for smoother animation
         )
 
 
@@ -221,8 +212,15 @@ class VisualizationEngine:
                     if len(frame.pixels) > 0:
                         logger.debug(f"Frame has {len(frame.pixels)} pixels to light")
                     
-                    # Clear all LEDs first
-                    await self.led_controller.clear_all()
+                    # Don't clear all LEDs - just update what needs to change
+                    # First, create a set of current frame indices
+                    frame_indices = {idx for idx, _ in frame.pixels}
+                    
+                    # Turn off LEDs that aren't in this frame
+                    all_indices = set(range(self.led_controller.config.num_pixels))
+                    for idx in all_indices - frame_indices:
+                        physical_idx = self.led_controller._get_pixel_index(idx)
+                        self.led_controller._pixels[physical_idx] = (0, 0, 0)
                     
                     # Set pixels for this frame
                     pixel_count = 0
