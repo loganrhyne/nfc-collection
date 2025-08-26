@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
 LED Controller for NFC Collection
-Clean implementation focusing on interactive mode
+Supports both interactive and visualization modes
 """
 
 import logging
 import asyncio
 from typing import Dict, Tuple, Optional, List, Set
 from dataclasses import dataclass
+from enum import Enum
 
 # Try to import hardware library
 HARDWARE_AVAILABLE = False
@@ -36,14 +37,22 @@ class LEDConfig:
 
 
 
+class LEDMode(Enum):
+    """LED operation modes"""
+    INTERACTIVE = "interactive"
+    VISUALIZATION = "visualization"
+
+
 class LEDController:
-    """Clean LED controller implementation"""
+    """LED controller with interactive and visualization modes"""
     
     def __init__(self, config: Optional[LEDConfig] = None):
         self.config = config or LEDConfig()
         self._pixels = None
         self._current_indices: Set[int] = set()  # Track which LEDs are currently on
         self._selected_index: Optional[int] = None
+        self._mode = LEDMode.INTERACTIVE
+        self._visualization_engine = None
         
         # Initialize hardware if available
         if HARDWARE_AVAILABLE and not self.config.mock_mode:
@@ -153,6 +162,29 @@ class LEDController:
         self._selected_index = None
         logger.info("All LEDs cleared")
     
+    async def set_mode(self, mode: LEDMode):
+        """Switch between interactive and visualization modes"""
+        if self._mode == mode:
+            return
+            
+        # Stop visualization if switching away from it
+        if self._mode == LEDMode.VISUALIZATION and self._visualization_engine:
+            await self._visualization_engine.stop_visualization()
+        
+        self._mode = mode
+        
+        # Clear LEDs when switching modes
+        await self.clear_all()
+        
+        logger.info(f"LED mode changed to: {mode.value}")
+    
+    def get_visualization_engine(self):
+        """Get or create visualization engine"""
+        if self._visualization_engine is None:
+            from services.led_visualizations import VisualizationEngine
+            self._visualization_engine = VisualizationEngine(self)
+        return self._visualization_engine
+    
     def get_status(self) -> Dict:
         """Get current status"""
         return {
@@ -160,7 +192,8 @@ class LEDController:
             'num_pixels': self.config.num_pixels,
             'leds_on': len(self._current_indices),
             'selected_index': self._selected_index,
-            'mode': 'interactive'
+            'mode': self._mode.value,
+            'visualization_active': self._visualization_engine is not None and self._visualization_engine.running
         }
 
 
