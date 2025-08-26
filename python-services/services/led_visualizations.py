@@ -36,15 +36,16 @@ class TypeDistributionVisualization:
     Slowly ramps brightness up and down for each type
     """
     
-    # Define sand types and their colors (from colorSchemeEnhanced)
+    # Define sand types and their colors (matching actual entry types)
     TYPE_COLORS = {
-        'Earthy': '#8B4513',      # Saddle Brown
-        'Silicate': '#DEB887',    # Burle Wood
-        'Volcanic': '#2F4F4F',    # Dark Slate Gray
-        'Oceanic': '#4682B4',     # Steel Blue
+        'Beach': '#F4A460',       # Sandy Brown
+        'River': '#4682B4',       # Steel Blue
+        'Mountain': '#8B7355',    # Burlywood4
+        'Desert': '#DEB887',      # Burlewood
+        'Lake': '#5F9EA0',        # Cadet Blue
+        'Ruin': '#CD853F',        # Peru
         'Glacial': '#B0E0E6',     # Powder Blue
-        'Biological': '#3CB371',  # Medium Sea Green
-        'Unusual': '#9370DB',     # Medium Purple
+        'Volcanic': '#2F4F4F',    # Dark Slate Gray
     }
     
     def __init__(self, entries: List[Dict], total_pixels: int = 100):
