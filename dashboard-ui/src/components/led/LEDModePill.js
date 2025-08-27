@@ -202,7 +202,8 @@ const LEDModePill = () => {
   const changeMode = useCallback((newMode, reason = 'unknown') => {
     if (newMode === mode) return;
     
-    console.log(`Changing LED mode to ${newMode} (reason: ${reason})`);
+    console.log(`[LEDModePill] Changing LED mode to ${newMode} (reason: ${reason})`);
+    console.log(`[LEDModePill] Current state - entries: ${entries?.length || 0}, allEntries: ${allEntries?.length || 0}`);
     
     // Build the complete mode change message
     const modeChangeMsg = {
@@ -218,8 +219,10 @@ const LEDModePill = () => {
     
     // If switching to interactive mode, include the current LED state
     if (newMode === 'interactive') {
-      // Get currently filtered entries
-      const filteredEntries = entries || [];
+      // Get currently filtered entries (use allEntries if no filter is active)
+      const filteredEntries = entries && entries.length > 0 ? entries : allEntries;
+      
+      console.log(`[LEDModePill] Building LED data for ${filteredEntries.length} entries (filtered: ${entries?.length}, all: ${allEntries.length})`);
       
       // Build LED data for filtered entries
       const ledData = filteredEntries.map(entry => {
@@ -239,7 +242,7 @@ const LEDModePill = () => {
       
       // Include LED data in the mode change message
       modeChangeMsg.interactiveLedData = ledData;
-      console.log(`Including ${ledData.length} LEDs in mode change to interactive`);
+      console.log(`[LEDModePill] Including ${ledData.length} LEDs in mode change to interactive`);
     }
     
     // Update local state optimistically

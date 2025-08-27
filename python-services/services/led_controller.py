@@ -183,15 +183,17 @@ class LEDController:
         
         self._mode = mode
         
-        # Clear LEDs when switching TO visualization mode
+        # Handle mode-specific initialization
         if mode == LEDMode.VISUALIZATION:
+            # Clear all LEDs when entering visualization mode
             await self.clear_all()
         elif mode == LEDMode.INTERACTIVE:
-            # When switching to interactive, reset tracking but don't clear pixels yet
-            # The client will send the new state immediately
+            # When switching to interactive mode from visualization
+            # The visualization engine should have already cleared its pixels when stopping
+            # Just reset our tracking state
             self._current_indices.clear()
             self._selected_index = None
-            logger.info("Reset LED tracking for interactive mode")
+            logger.info("Switched to interactive mode, ready for new data")
         
         logger.info(f"LED mode changed to: {mode.value}")
     
