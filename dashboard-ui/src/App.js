@@ -12,7 +12,6 @@ import TimelineChart from './components/charts/TimelineChart';
 import MapView from './components/map/MapView';
 import VerticalTimeline from './components/timeline/VerticalTimeline';
 import EntryView from './components/entry/EntryView';
-import NfcHandler from './components/nfc/NfcHandler';
 import NFCScanner from './components/nfc/NFCScanner';
 import WebSocketStatus from './components/nfc/WebSocketStatus';
 import ActiveFilters from './components/filters/ActiveFilters';
@@ -115,7 +114,6 @@ function AppContent() {
         <Route path="/entry/:entryId" element={<EntryDetailView />} />
         <Route path="/debug" element={<DebugPage />} />
       </Routes>
-      <NfcHandler />
       <NFCScanner />
       <WebSocketStatus />
       <LEDController />

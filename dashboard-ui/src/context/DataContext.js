@@ -57,7 +57,6 @@ export const DataProvider = ({ children, entryIdFromUrl }) => {
     averageFilterTime: 0,  // Rolling average of filter operation times
     filterCount: 0         // Total number of filter operations performed
   });
-  const [gridMapping, setGridMapping] = useState({});
   const [selectedEntry, setSelectedEntry] = useState(null);
 
   // Process journal data on component mount - load dynamically from public directory
@@ -533,27 +532,6 @@ export const DataProvider = ({ children, entryIdFromUrl }) => {
     return entries.find(entry => entry.uuid === uuid) || null;
   };
 
-  // Get grid position for UUID
-  const getGridPositionByUUID = (uuid) => {
-    return gridMapping[uuid] || null;
-  };
-
-  // Set grid position for UUID
-  const setGridPositionForUUID = (uuid, position) => {
-    setGridMapping(prev => ({
-      ...prev,
-      [uuid]: position
-    }));
-    // TODO: Save mapping to storage or API
-  };
-
-  // Highlight all entries of a specific type on the grid
-  const highlightTypeOnGrid = (type) => {
-    // This function will be implemented when we create the LED control system
-    console.log(`Highlighting all ${type} entries on grid`);
-    // Return entries of the given type
-    return entries.filter(entry => entry.type === type);
-  };
 
   /**
    * Check if a specific filter is active
@@ -645,10 +623,6 @@ export const DataProvider = ({ children, entryIdFromUrl }) => {
         setSelectedEntry,
         getEntryByUUID,
         
-        // Grid functionality
-        getGridPositionByUUID,
-        setGridPositionForUUID,
-        highlightTypeOnGrid
       }}
     >
       {children}
