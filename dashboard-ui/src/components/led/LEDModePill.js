@@ -202,8 +202,7 @@ const LEDModePill = () => {
   const changeMode = useCallback((newMode, reason = 'unknown') => {
     if (newMode === mode) return;
     
-    console.log(`[LEDModePill] Changing LED mode to ${newMode} (reason: ${reason})`);
-    console.log(`[LEDModePill] Current state - entries: ${entries?.length || 0}, allEntries: ${allEntries?.length || 0}`);
+    console.log(`Changing LED mode to ${newMode} (reason: ${reason})`);
     
     // Build the complete mode change message
     const modeChangeMsg = {
@@ -222,7 +221,6 @@ const LEDModePill = () => {
       // Get currently filtered entries (use allEntries if no filter is active)
       const filteredEntries = entries && entries.length > 0 ? entries : allEntries;
       
-      console.log(`[LEDModePill] Building LED data for ${filteredEntries.length} entries (filtered: ${entries?.length}, all: ${allEntries.length})`);
       
       // Build LED data for filtered entries
       const ledData = filteredEntries.map(entry => {
@@ -242,7 +240,6 @@ const LEDModePill = () => {
       
       // Include LED data in the mode change message
       modeChangeMsg.interactiveLedData = ledData;
-      console.log(`[LEDModePill] Including ${ledData.length} LEDs in mode change to interactive`);
     }
     
     // Update local state optimistically
@@ -277,8 +274,6 @@ const LEDModePill = () => {
 
   // Handle manual mode change from UI
   const handleManualModeChange = useCallback((newMode) => {
-    console.log(`Manual mode change to ${newMode}`);
-    
     // Clear interaction history so we don't immediately switch back
     lastEntriesRef.current = entries;
     lastSelectedEntryRef.current = selectedEntry;
@@ -307,7 +302,6 @@ const LEDModePill = () => {
     lastEntriesRef.current = entries;
     lastSelectedEntryRef.current = selectedEntry;
     
-    console.log('Data activity detected', { entriesChanged, selectionChanged });
     
     // If in visualization mode, switch back to interactive
     if (mode === 'visualization') {

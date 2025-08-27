@@ -108,7 +108,6 @@ class LEDController:
             logger.debug("Skipping interactive update - not in interactive mode")
             return
         
-        logger.info(f"Updating interactive mode with {len(entries)} entries")
         # Extract indices and find selected
         new_indices = set()
         new_selected = None
@@ -151,7 +150,6 @@ class LEDController:
         if self._pixels:
             self._pixels.show()
         
-        logger.info(f"LED Update: {len(new_indices)} on, {len(to_turn_off)} turned off, selected: {new_selected}")
     
     async def _set_pixel(self, index: int, rgb: Tuple[int, int, int]):
         """Set a single pixel"""

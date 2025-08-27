@@ -108,12 +108,6 @@ class TypeDistributionVisualization:
         self.types = list(set(entry.get('type', '') for entry in entries if entry.get('type')))
         # Sort for consistent ordering
         self.types.sort()
-        logger.info(f"Visualization initialized with types from data: {self.types}")
-        
-        # Log which types have defined colors
-        for t in self.types:
-            color = ColorManager.get_type_color(t)
-            logger.info(f"  Type '{t}' -> RGB{color}")
         
     def _calculate_type_distribution(self) -> Dict[str, int]:
         """Calculate how many entries of each type we have"""
@@ -145,19 +139,13 @@ class TypeDistributionVisualization:
         # Get entries of current type
         type_entries = [e for e in self.entries if e.get('type') == current_type]
         
-        # Log current state
-        if len(type_entries) > 0:
-            logger.debug(f"Showing type '{current_type}' with {len(type_entries)} entries at brightness {brightness:.2f}")
         
         if type_entries:
             # Get RGB color for this type using ColorManager
             rgb = ColorManager.get_type_color(current_type)
-            if current_type not in ColorManager.SAND_TYPE_COLORS:
-                logger.warning(f"No color defined for type '{current_type}', using white")
             
-            # Log raw RGB and brightness-applied RGB
+            # Apply brightness to the color
             rgb_with_brightness = ColorManager.apply_brightness(rgb, brightness)
-            logger.debug(f"Type '{current_type}' -> RGB {rgb} -> Brightness {brightness:.2f} -> Final RGB {rgb_with_brightness}")
             
             # Light up pixels for entries of this type
             for entry in type_entries:
@@ -210,14 +198,7 @@ class VisualizationEngine:
         self.current_mode = viz_type
         self.running = True
         
-        logger.info(f"Starting visualization {viz_type.value} with {len(self.entries_data)} entries")
-        
-        # Log entry types for debugging
-        type_counts = {}
-        for entry in self.entries_data:
-            entry_type = entry.get('type', 'Unknown')
-            type_counts[entry_type] = type_counts.get(entry_type, 0) + 1
-        logger.info(f"Entry types: {type_counts}")
+        logger.info(f"Starting {viz_type.value} visualization")
         
         # Start the visualization task
         self.current_task = asyncio.create_task(self._run_visualization(viz_type))
@@ -252,8 +233,6 @@ class VisualizationEngine:
                     logger.error("LED hardware not available for visualization")
                     return
                 
-                logger.info(f"Starting {viz_type.value} animation loop")
-                
                 while self.running:
                     # Calculate phase (0.0 to 1.0)
                     elapsed = time.time() - start_time
@@ -262,9 +241,6 @@ class VisualizationEngine:
                     # Generate and display frame
                     frame = viz.generate_frame(phase)
                     
-                    # Log frame info for debugging
-                    if len(frame.pixels) > 0:
-                        logger.debug(f"Frame has {len(frame.pixels)} pixels to light")
                     
                     # Don't clear all LEDs - just update what needs to change
                     # First, create a set of current frame indices
@@ -277,24 +253,13 @@ class VisualizationEngine:
                         self.led_controller._pixels[physical_idx] = (0, 0, 0)
                     
                     # Set pixels for this frame
-                    pixel_count = 0
-                    first_pixel_debug = True
                     for idx, rgb in frame.pixels:
                         if 0 <= idx < self.led_controller.config.num_pixels:
                             physical_idx = self.led_controller._get_pixel_index(idx)
                             self.led_controller._pixels[physical_idx] = rgb
-                            pixel_count += 1
-                            # Log first pixel for debug
-                            if first_pixel_debug:
-                                logger.debug(f"Setting pixel {idx} (physical {physical_idx}) to RGB{rgb}")
-                                first_pixel_debug = False
-                        else:
-                            logger.warning(f"Pixel index {idx} out of range")
                     
                     # Show the frame
                     self.led_controller._pixels.show()
-                    if pixel_count > 0:
-                        logger.debug(f"Visualization: Set {pixel_count} pixels, showing frame")
                     
                     # Wait for frame duration
                     await asyncio.sleep(frame.duration_ms / 1000.0)

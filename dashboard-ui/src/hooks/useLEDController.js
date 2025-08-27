@@ -68,15 +68,14 @@ export const useLEDController = () => {
       
       lastSentRef.current = dataString;
       
-      console.log('LED Update:', {
-        totalEntries: allEntries.length,
-        filteredCount: filteredEntries.length,
-        ledCount: ledData.length,
-        hasSelected: !!selectedEntry
-      });
-      
-      // Diagnostic logging (remove after debugging)
+      // Diagnostic logging in debug mode
       if (window.location.search.includes('debug=led')) {
+        console.log('LED Update:', {
+          totalEntries: allEntries.length,
+          filteredCount: filteredEntries.length,
+          ledCount: ledData.length,
+          hasSelected: !!selectedEntry
+        });
         createLEDDiagnosticLog(allEntries, filteredEntries, ledData);
       }
     }
