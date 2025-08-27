@@ -21,6 +21,7 @@ from config import config, ServerConfig
 from services.nfc_service import NFCService, NFCError, TagInfo
 from services.led_controller import get_led_controller, LEDMode
 from services.led_visualizations import VisualizationType
+from services.led_mode_manager import LEDModeManager
 
 # Configure structured logging
 logging.basicConfig(
@@ -72,6 +73,7 @@ class NFCWebSocketServer:
         self.config = server_config or config.server
         self.nfc_service = NFCService()
         self.led_controller = get_led_controller()
+        self.led_mode_manager = LEDModeManager(self.led_controller)
         self.sessions: Dict[str, ClientSession] = {}
         self.rate_limiter = RateLimiter(
             self.config.rate_limit_requests,
@@ -455,62 +457,39 @@ class NFCWebSocketServer:
             
             # Extract LED command type
             command = data.get('command', 'set_selected')
+            status = None
             
             if command == 'update_interactive':
                 # Update LEDs for interactive mode
                 entries = data.get('entries', [])
-                await self.led_controller.update_interactive_mode(entries)
+                await self.led_mode_manager.handle_interactive_update(entries)
                 logger.info(f"LED: Updated interactive mode with {len(entries)} entries")
                 
             elif command == 'clear_all':
                 # Clear all LEDs
-                await self.led_controller.clear_all()
+                await self.led_mode_manager.clear_all()
                 logger.info("LED: Cleared all LEDs")
                 
             elif command == 'set_mode':
                 # Switch LED mode
                 mode_str = data.get('mode', 'interactive')
                 mode = LEDMode.INTERACTIVE if mode_str == 'interactive' else LEDMode.VISUALIZATION
-                await self.led_controller.set_mode(mode)
+                
+                # Update entries if provided (for visualization mode)
+                if 'allEntries' in data:
+                    await self.led_mode_manager.update_entries(data['allEntries'])
+                
+                status = await self.led_mode_manager.set_mode(mode)
                 logger.info(f"LED: Mode set to {mode.value}")
                 
-            elif command == 'start_visualization':
-                # Start a specific visualization
-                viz_type_str = data.get('visualization', 'type_distribution')
-                
-                # Ensure we're in visualization mode
-                await self.led_controller.set_mode(LEDMode.VISUALIZATION)
-                
-                # Map string to enum
-                viz_map = {
-                    'type_distribution': VisualizationType.TYPE_DISTRIBUTION,
-                    'geographic_heat': VisualizationType.GEOGRAPHIC_HEAT,
-                    'timeline_wave': VisualizationType.TIMELINE_WAVE,
-                    'color_waves': VisualizationType.COLOR_WAVES,
-                }
-                viz_type = viz_map.get(viz_type_str, VisualizationType.TYPE_DISTRIBUTION)
-                
-                # Update entries data and start visualization
-                viz_engine = self.led_controller.get_visualization_engine()
-                
-                # Get all entries for visualization (not just filtered)
-                all_entries = data.get('allEntries', [])
-                viz_engine.update_entries(all_entries)
-                
-                await viz_engine.start_visualization(viz_type)
-                logger.info(f"LED: Started visualization {viz_type.value}")
-                
-            elif command == 'stop_visualization':
-                # Stop visualization and return to interactive mode
-                viz_engine = self.led_controller.get_visualization_engine()
-                await viz_engine.stop_visualization()
-                await self.led_controller.set_mode(LEDMode.INTERACTIVE)
-                logger.info("LED: Stopped visualization")
+            # Get current status if not already set
+            if status is None:
+                status = self.led_mode_manager.get_status()
             
-            # Send acknowledgment
+            # Send acknowledgment with current status
             await self.sio.emit('led_status', {
                 'success': True,
-                'status': self.led_controller.get_status()
+                'status': status
             }, room=sid)
             
         except Exception as e:

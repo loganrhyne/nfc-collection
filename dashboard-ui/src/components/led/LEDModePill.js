@@ -32,7 +32,7 @@ const StatusDot = styled.div`
   height: 8px;
   border-radius: 50%;
   background-color: ${props => props.$visualizationMode ? '#64B5F6' : '#BA68C8'};
-  animation: ${props => props.$running ? 'pulse 2s infinite' : 'none'};
+  animation: ${props => props.$visualizationMode ? 'pulse 2s infinite' : 'none'};
   
   @keyframes pulse {
     0% { opacity: 1; }
@@ -137,37 +137,6 @@ const ModeButton = styled.button`
   }
 `;
 
-const VisualizationSelect = styled.select`
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  margin-bottom: 12px;
-`;
-
-const StartButton = styled.button`
-  width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: 4px;
-  background: #2196F3;
-  color: white;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background 0.2s;
-
-  &:hover {
-    background: #1976D2;
-  }
-
-  &:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-  }
-`;
-
 const StatusText = styled.div`
   margin-top: 12px;
   font-size: 12px;
@@ -201,58 +170,53 @@ const AutoSwitchNotification = styled.div`
 `;
 
 const LEDModePill = () => {
-  const { sendMessage, connected } = useWebSocket();
+  const { sendMessage, connected, lastMessage } = useWebSocket();
   const { allEntries, entries, selectedEntry } = useData();
   const [showModal, setShowModal] = useState(false);
   const [mode, setMode] = useState('interactive');
-  const [selectedVisualization, setSelectedVisualization] = useState('type_distribution');
-  const [isRunning, setIsRunning] = useState(false);
   const [autoSwitchMessage, setAutoSwitchMessage] = useState('');
   
   // Auto-switch timeout management
   const inactivityTimerRef = useRef(null);
   const lastActivityRef = useRef(Date.now());
-  // Use 30 seconds for debug mode, 5 minutes for production
+  const manualOverrideRef = useRef(false);
   const INACTIVITY_TIMEOUT = window.location.search.includes('debug=led') 
     ? 30 * 1000  // 30 seconds for testing
     : 5 * 60 * 1000; // 5 minutes
 
-  const visualizations = [
-    { id: 'type_distribution', name: 'Type Distribution', description: 'Cycles through sand types with brightness ramping' },
-    { id: 'geographic_heat', name: 'Geographic Heatmap', description: 'Shows intensity by region (Coming soon)', disabled: true },
-    { id: 'timeline_wave', name: 'Timeline Wave', description: 'Temporal patterns (Coming soon)', disabled: true },
-    { id: 'color_waves', name: 'Color Waves', description: 'Artistic color patterns (Coming soon)', disabled: true },
-  ];
+  // Handle LED status updates from server
+  useEffect(() => {
+    if (lastMessage && lastMessage.type === 'led_status' && lastMessage.data?.status) {
+      const serverMode = lastMessage.data.status.current_mode;
+      if (serverMode && serverMode !== mode) {
+        console.log(`LED mode sync: ${mode} -> ${serverMode}`);
+        setMode(serverMode);
+      }
+    }
+  }, [lastMessage, mode]);
 
-  const currentVisualization = visualizations.find(v => v.id === selectedVisualization);
-
-  // Define mode change handler first (will be used by recordActivity)
-  const handleModeChange = useCallback((newMode) => {
+  // Function to change mode (handles both manual and auto switches)
+  const changeMode = useCallback((newMode, isManual = false) => {
+    if (newMode === mode) return;
+    
+    console.log(`Changing LED mode to ${newMode} (${isManual ? 'manual' : 'auto'})`);
+    
+    // Set manual override flag if user initiated
+    if (isManual) {
+      manualOverrideRef.current = true;
+      // Clear override after a delay to allow auto-switch again
+      setTimeout(() => {
+        manualOverrideRef.current = false;
+      }, 30000); // 30 seconds
+    }
+    
+    // Update local state immediately
     setMode(newMode);
     
-    if (newMode === 'interactive') {
-      // Stop visualization
-      sendMessage('led_update', {
-        command: 'stop_visualization'
-      });
-      setIsRunning(false);
-    } else {
-      // Set visualization mode
-      sendMessage('led_update', {
-        command: 'set_mode',
-        mode: 'visualization'
-      });
-    }
-  }, [sendMessage]);
-
-  // Define start visualization handler
-  const handleStartVisualization = useCallback(() => {
-    if (!connected || !allEntries) return;
-
-    // Send all entries data for visualization
+    // Send mode change to server with entries data
     sendMessage('led_update', {
-      command: 'start_visualization',
-      visualization: selectedVisualization,
+      command: 'set_mode',
+      mode: newMode,
       allEntries: allEntries.map(entry => ({
         type: entry.type,
         title: entry.title,
@@ -260,50 +224,47 @@ const LEDModePill = () => {
         creationDate: entry.creationDate
       }))
     });
+    
+    // Show notification for auto switches
+    if (!isManual) {
+      const message = newMode === 'visualization' 
+        ? 'No activity for 5 minutes - starting visualization'
+        : 'Activity detected - switching to interactive mode';
+      setAutoSwitchMessage(message);
+      setTimeout(() => setAutoSwitchMessage(''), 3000);
+    }
+  }, [mode, sendMessage, allEntries]);
 
-    setIsRunning(true);
-  }, [connected, allEntries, selectedVisualization, sendMessage]);
-
-  // Function to record user activity
+  // Record user activity
   const recordActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
     
-    // If we're in visualization mode due to inactivity, switch back to interactive
-    if (mode === 'visualization' && isRunning) {
-      console.log('User activity detected - switching to interactive mode');
-      setAutoSwitchMessage('Activity detected - switching to interactive mode');
-      setTimeout(() => setAutoSwitchMessage(''), 3000);
-      handleModeChange('interactive');
+    // If in visualization mode and not manually set, switch back to interactive
+    if (mode === 'visualization' && !manualOverrideRef.current) {
+      changeMode('interactive', false);
     }
     
-    // Reset the inactivity timer
+    // Reset inactivity timer
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
     
-    // Start a new timer for auto-visualization
-    if (mode === 'interactive') {
+    // Start new timer for auto-visualization (only if not manually overridden)
+    if (mode === 'interactive' && !manualOverrideRef.current) {
       inactivityTimerRef.current = setTimeout(() => {
-        console.log('5 minutes of inactivity - starting visualization mode');
-        setAutoSwitchMessage('No activity for 5 minutes - starting visualization');
-        setTimeout(() => setAutoSwitchMessage(''), 3000);
-        handleModeChange('visualization');
-        // Auto-start the first visualization
-        setTimeout(() => {
-          if (connected && allEntries && allEntries.length > 0) {
-            handleStartVisualization();
-          }
-        }, 100);
+        if (!manualOverrideRef.current) {
+          changeMode('visualization', false);
+        }
       }, INACTIVITY_TIMEOUT);
     }
-  }, [mode, isRunning, connected, allEntries, handleModeChange, handleStartVisualization]);
+  }, [mode, changeMode, INACTIVITY_TIMEOUT]);
 
-  // Monitor filter changes and selection changes
+  // Monitor filter and selection changes
   useEffect(() => {
     recordActivity();
   }, [entries, selectedEntry, recordActivity]);
 
-  // Initialize inactivity timer on mount
+  // Initialize on mount
   useEffect(() => {
     recordActivity();
     
@@ -313,24 +274,6 @@ const LEDModePill = () => {
       }
     };
   }, [recordActivity]);
-
-  // Stop visualization when component unmounts
-  useEffect(() => {
-    return () => {
-      if (mode === 'visualization' && isRunning) {
-        sendMessage('led_update', {
-          command: 'stop_visualization'
-        });
-      }
-    };
-  }, [mode, isRunning, sendMessage]);
-
-  const handleStopVisualization = useCallback(() => {
-    sendMessage('led_update', {
-      command: 'stop_visualization'
-    });
-    setIsRunning(false);
-  }, [sendMessage]);
 
   const handleModalClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -342,9 +285,7 @@ const LEDModePill = () => {
 
   const pillText = mode === 'interactive' 
     ? 'Interactive Mode' 
-    : isRunning 
-      ? `Visualizing: ${currentVisualization?.name || 'None'}`
-      : `Visualization Mode`;
+    : 'Visualization Mode';
 
   return (
     <>
@@ -354,10 +295,7 @@ const LEDModePill = () => {
         onClick={() => setShowModal(true)}
         title="Click to configure LED mode"
       >
-        <StatusDot 
-          $visualizationMode={mode === 'visualization'}
-          $running={isRunning}
-        />
+        <StatusDot $visualizationMode={mode === 'visualization'} />
         {pillText}
       </StatusPill>
 
@@ -378,59 +316,24 @@ const LEDModePill = () => {
             <ModeToggle>
               <ModeButton 
                 $active={mode === 'interactive'} 
-                onClick={() => handleModeChange('interactive')}
+                onClick={() => changeMode('interactive', true)}
               >
                 Interactive
               </ModeButton>
               <ModeButton 
                 $active={mode === 'visualization'} 
-                onClick={() => handleModeChange('visualization')}
+                onClick={() => changeMode('visualization', true)}
               >
                 Visualization
               </ModeButton>
             </ModeToggle>
 
-            {mode === 'visualization' && (
-              <>
-                <VisualizationSelect 
-                  value={selectedVisualization} 
-                  onChange={(e) => setSelectedVisualization(e.target.value)}
-                  disabled={isRunning}
-                >
-                  {visualizations.map(viz => (
-                    <option key={viz.id} value={viz.id} disabled={viz.disabled}>
-                      {viz.name} {viz.disabled ? '(Coming soon)' : ''}
-                    </option>
-                  ))}
-                </VisualizationSelect>
-
-                {isRunning ? (
-                  <StartButton onClick={handleStopVisualization}>
-                    Stop Visualization
-                  </StartButton>
-                ) : (
-                  <StartButton 
-                    onClick={handleStartVisualization}
-                    disabled={!allEntries || allEntries.length === 0}
-                  >
-                    Start Visualization
-                  </StartButton>
-                )}
-
-                <StatusText>
-                  {isRunning 
-                    ? `Running: ${currentVisualization?.description}`
-                    : currentVisualization?.description
-                  }
-                </StatusText>
-              </>
-            )}
-
-            {mode === 'interactive' && (
-              <StatusText>
-                LEDs show filtered entries. Selected entry appears brighter.
-              </StatusText>
-            )}
+            <StatusText>
+              {mode === 'interactive' 
+                ? 'LEDs show filtered entries. Selected entry appears brighter.'
+                : 'Cycling through data visualizations.'
+              }
+            </StatusText>
           </ControlPanel>
         </Modal>
       )}
