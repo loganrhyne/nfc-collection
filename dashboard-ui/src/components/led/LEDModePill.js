@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useData } from '../../context/DataContext';
 import { useLEDController } from '../../hooks/useLEDController';
+import { getLEDColor } from '../../utils/colorSchemeEnhanced';
 
 const StatusPill = styled.div`
   position: fixed;
@@ -203,11 +204,8 @@ const LEDModePill = () => {
     
     console.log(`Changing LED mode to ${newMode} (reason: ${reason})`);
     
-    // Update local state
-    setMode(newMode);
-    
-    // Send mode change to server
-    sendMessage('led_update', {
+    // Build the complete mode change message
+    const modeChangeMsg = {
       command: 'set_mode',
       mode: newMode,
       allEntries: allEntries.map(entry => ({
@@ -216,16 +214,39 @@ const LEDModePill = () => {
         location: entry.location,
         creationDate: entry.creationDate
       }))
-    });
+    };
     
-    // If switching to interactive mode, force an LED update
+    // If switching to interactive mode, include the current LED state
     if (newMode === 'interactive') {
-      // Small delay to ensure mode change is processed first
-      setTimeout(() => {
-        console.log('Forcing LED update after mode switch to interactive');
-        updateLEDs();
-      }, 100);
+      // Get currently filtered entries
+      const filteredEntries = entries || [];
+      
+      // Build LED data for filtered entries
+      const ledData = filteredEntries.map(entry => {
+        // Always use allEntries for consistent indexing
+        const sortedEntries = [...allEntries].sort((a, b) => 
+          new Date(a.creationDate) - new Date(b.creationDate)
+        );
+        const index = sortedEntries.findIndex(e => e.uuid === entry.uuid);
+        
+        return {
+          index,
+          color: entry.type ? getLEDColor(entry.type) : '#FFFFFF',
+          type: entry.type,
+          isSelected: selectedEntry?.uuid === entry.uuid
+        };
+      }).filter(item => item.index !== null && item.index >= 0);
+      
+      // Include LED data in the mode change message
+      modeChangeMsg.interactiveLedData = ledData;
+      console.log(`Including ${ledData.length} LEDs in mode change to interactive`);
     }
+    
+    // Update local state optimistically
+    setMode(newMode);
+    
+    // Send combined mode change + LED data to server
+    sendMessage('led_update', modeChangeMsg);
     
     // Show notification for auto switches
     if (reason === 'inactivity') {
@@ -235,7 +256,7 @@ const LEDModePill = () => {
       setAutoSwitchMessage('Activity detected - switching to interactive mode');
       setTimeout(() => setAutoSwitchMessage(''), 3000);
     }
-  }, [mode, sendMessage, allEntries, updateLEDs]);
+  }, [mode, sendMessage, allEntries, entries, selectedEntry, updateLEDs]);
 
   // Reset inactivity timer
   const resetInactivityTimer = useCallback(() => {
@@ -294,16 +315,6 @@ const LEDModePill = () => {
     resetInactivityTimer();
   }, [mode, changeMode, resetInactivityTimer, entries, selectedEntry]);
 
-  // Handle request_led_update from server
-  useEffect(() => {
-    if (!lastMessage) return;
-    
-    if (lastMessage.type === 'request_led_update') {
-      console.log('Server requested LED update');
-      // Force an immediate LED update
-      updateLEDs();
-    }
-  }, [lastMessage, updateLEDs]);
 
   // Monitor filter and selection changes
   useEffect(() => {

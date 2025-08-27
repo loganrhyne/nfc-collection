@@ -479,8 +479,15 @@ class NFCWebSocketServer:
                 if 'allEntries' in data:
                     await self.led_mode_manager.update_entries(data['allEntries'])
                 
+                # Set the mode
                 status = await self.led_mode_manager.set_mode(mode)
                 logger.info(f"LED: Mode set to {mode.value}")
+                
+                # If switching to interactive mode and LED data is included, update immediately
+                if mode == LEDMode.INTERACTIVE and 'interactiveLedData' in data:
+                    led_data = data['interactiveLedData']
+                    logger.info(f"LED: Updating interactive mode with {len(led_data)} entries from mode change")
+                    await self.led_mode_manager.handle_interactive_update(led_data)
                 
             # Get current status if not already set
             if status is None:
@@ -491,11 +498,6 @@ class NFCWebSocketServer:
                 'success': True,
                 'status': status
             }, room=sid)
-            
-            # If we just switched to interactive mode, request current LED data
-            if command == 'set_mode' and mode == LEDMode.INTERACTIVE:
-                await self.sio.emit('request_led_update', {}, room=sid)
-                logger.info("Requested LED update after switching to interactive mode")
             
         except Exception as e:
             logger.error(f"Error handling LED update: {e}", exc_info=True)

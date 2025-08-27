@@ -107,6 +107,8 @@ class LEDController:
         if self._mode != LEDMode.INTERACTIVE:
             logger.debug("Skipping interactive update - not in interactive mode")
             return
+        
+        logger.info(f"Updating interactive mode with {len(entries)} entries")
         # Extract indices and find selected
         new_indices = set()
         new_selected = None
@@ -181,10 +183,15 @@ class LEDController:
         
         self._mode = mode
         
-        # Only clear LEDs when switching TO visualization mode
-        # When switching to interactive, let the client send new data
+        # Clear LEDs when switching TO visualization mode
         if mode == LEDMode.VISUALIZATION:
             await self.clear_all()
+        elif mode == LEDMode.INTERACTIVE:
+            # When switching to interactive, reset tracking but don't clear pixels yet
+            # The client will send the new state immediately
+            self._current_indices.clear()
+            self._selected_index = None
+            logger.info("Reset LED tracking for interactive mode")
         
         logger.info(f"LED mode changed to: {mode.value}")
     

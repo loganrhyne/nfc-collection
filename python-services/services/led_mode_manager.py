@@ -40,14 +40,16 @@ class LEDModeManager:
         if self._current_mode == LEDMode.VISUALIZATION:
             await self._stop_visualization()
         
-        # Set new mode
+        # Set new mode - this is now simplified
         self._current_mode = mode
+        
+        # Update the controller mode without clearing
+        # The controller's set_mode is updated to only clear when going TO visualization
         await self.led_controller.set_mode(mode)
         
-        # Initialize new mode
+        # Initialize visualization if needed
         if mode == LEDMode.VISUALIZATION and auto_start_viz:
             await self._start_visualization()
-        # Don't clear on interactive mode - let the client send its data
         
         return self.get_status()
     
