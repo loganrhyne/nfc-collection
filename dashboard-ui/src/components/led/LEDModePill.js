@@ -176,10 +176,10 @@ const LEDModePill = () => {
   const [mode, setMode] = useState('interactive');
   const [autoSwitchMessage, setAutoSwitchMessage] = useState('');
   
-  // Auto-switch timeout management
+  // Refs for managing state
   const inactivityTimerRef = useRef(null);
-  const lastActivityRef = useRef(Date.now());
-  const manualOverrideRef = useRef(false);
+  const lastEntriesRef = useRef(entries);
+  const lastSelectedEntryRef = useRef(selectedEntry);
   const INACTIVITY_TIMEOUT = window.location.search.includes('debug=led') 
     ? 30 * 1000  // 30 seconds for testing
     : 5 * 60 * 1000; // 5 minutes
@@ -195,25 +195,16 @@ const LEDModePill = () => {
     }
   }, [lastMessage, mode]);
 
-  // Function to change mode (handles both manual and auto switches)
-  const changeMode = useCallback((newMode, isManual = false) => {
+  // Function to change mode
+  const changeMode = useCallback((newMode, reason = 'unknown') => {
     if (newMode === mode) return;
     
-    console.log(`Changing LED mode to ${newMode} (${isManual ? 'manual' : 'auto'})`);
+    console.log(`Changing LED mode to ${newMode} (reason: ${reason})`);
     
-    // Set manual override flag if user initiated
-    if (isManual) {
-      manualOverrideRef.current = true;
-      // Clear override after a delay to allow auto-switch again
-      setTimeout(() => {
-        manualOverrideRef.current = false;
-      }, 30000); // 30 seconds
-    }
-    
-    // Update local state immediately
+    // Update local state
     setMode(newMode);
     
-    // Send mode change to server with entries data
+    // Send mode change to server
     sendMessage('led_update', {
       command: 'set_mode',
       mode: newMode,
@@ -226,54 +217,97 @@ const LEDModePill = () => {
     });
     
     // Show notification for auto switches
-    if (!isManual) {
-      const message = newMode === 'visualization' 
-        ? 'No activity for 5 minutes - starting visualization'
-        : 'Activity detected - switching to interactive mode';
-      setAutoSwitchMessage(message);
+    if (reason === 'inactivity') {
+      setAutoSwitchMessage('No activity for 5 minutes - starting visualization');
+      setTimeout(() => setAutoSwitchMessage(''), 3000);
+    } else if (reason === 'activity') {
+      setAutoSwitchMessage('Activity detected - switching to interactive mode');
       setTimeout(() => setAutoSwitchMessage(''), 3000);
     }
   }, [mode, sendMessage, allEntries]);
 
-  // Record user activity
-  const recordActivity = useCallback(() => {
-    lastActivityRef.current = Date.now();
-    
-    // If in visualization mode and not manually set, switch back to interactive
-    if (mode === 'visualization' && !manualOverrideRef.current) {
-      changeMode('interactive', false);
-    }
-    
-    // Reset inactivity timer
+  // Reset inactivity timer
+  const resetInactivityTimer = useCallback(() => {
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
     
-    // Start new timer for auto-visualization (only if not manually overridden)
-    if (mode === 'interactive' && !manualOverrideRef.current) {
+    // Only set timer if in interactive mode
+    if (mode === 'interactive') {
       inactivityTimerRef.current = setTimeout(() => {
-        if (!manualOverrideRef.current) {
-          changeMode('visualization', false);
-        }
+        changeMode('visualization', 'inactivity');
       }, INACTIVITY_TIMEOUT);
     }
   }, [mode, changeMode, INACTIVITY_TIMEOUT]);
 
+  // Handle manual mode change from UI
+  const handleManualModeChange = useCallback((newMode) => {
+    console.log(`Manual mode change to ${newMode}`);
+    
+    // Clear interaction history so we don't immediately switch back
+    lastEntriesRef.current = entries;
+    lastSelectedEntryRef.current = selectedEntry;
+    
+    // Change mode
+    changeMode(newMode, 'manual');
+    
+    // Reset timer if going to interactive
+    if (newMode === 'interactive') {
+      resetInactivityTimer();
+    }
+  }, [changeMode, resetInactivityTimer, entries, selectedEntry]);
+
+  // Handle data activity (filter/selection changes)
+  const handleDataActivity = useCallback(() => {
+    // Check if there's actual change in data
+    const entriesChanged = entries !== lastEntriesRef.current;
+    const selectionChanged = selectedEntry !== lastSelectedEntryRef.current;
+    
+    if (!entriesChanged && !selectionChanged) {
+      // No actual change, don't trigger activity
+      return;
+    }
+    
+    // Update our tracked values
+    lastEntriesRef.current = entries;
+    lastSelectedEntryRef.current = selectedEntry;
+    
+    console.log('Data activity detected', { entriesChanged, selectionChanged });
+    
+    // If in visualization mode, switch back to interactive
+    if (mode === 'visualization') {
+      changeMode('interactive', 'activity');
+    }
+    
+    // Reset inactivity timer
+    resetInactivityTimer();
+  }, [mode, changeMode, resetInactivityTimer, entries, selectedEntry]);
+
   // Monitor filter and selection changes
   useEffect(() => {
-    recordActivity();
-  }, [entries, selectedEntry, recordActivity]);
+    handleDataActivity();
+  }, [entries, selectedEntry, handleDataActivity]);
 
   // Initialize on mount
   useEffect(() => {
-    recordActivity();
+    // Set initial values to prevent first render from triggering activity
+    lastEntriesRef.current = entries;
+    lastSelectedEntryRef.current = selectedEntry;
+    
+    // Start inactivity timer
+    resetInactivityTimer();
     
     return () => {
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
       }
     };
-  }, [recordActivity]);
+  }, []); // Empty deps - only run on mount
+
+  // Reset timer when mode changes
+  useEffect(() => {
+    resetInactivityTimer();
+  }, [mode, resetInactivityTimer]);
 
   const handleModalClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -316,13 +350,13 @@ const LEDModePill = () => {
             <ModeToggle>
               <ModeButton 
                 $active={mode === 'interactive'} 
-                onClick={() => changeMode('interactive', true)}
+                onClick={() => handleManualModeChange('interactive')}
               >
                 Interactive
               </ModeButton>
               <ModeButton 
                 $active={mode === 'visualization'} 
-                onClick={() => changeMode('visualization', true)}
+                onClick={() => handleManualModeChange('visualization')}
               >
                 Visualization
               </ModeButton>
