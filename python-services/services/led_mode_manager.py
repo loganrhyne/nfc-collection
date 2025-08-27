@@ -47,9 +47,7 @@ class LEDModeManager:
         # Initialize new mode
         if mode == LEDMode.VISUALIZATION and auto_start_viz:
             await self._start_visualization()
-        elif mode == LEDMode.INTERACTIVE:
-            # Clear any visualization data
-            await self.led_controller.clear_all()
+        # Don't clear on interactive mode - let the client send its data
         
         return self.get_status()
     

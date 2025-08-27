@@ -222,6 +222,7 @@ const LEDModePill = () => {
     if (newMode === 'interactive') {
       // Small delay to ensure mode change is processed first
       setTimeout(() => {
+        console.log('Forcing LED update after mode switch to interactive');
         updateLEDs();
       }, 100);
     }
@@ -292,6 +293,17 @@ const LEDModePill = () => {
     // Reset inactivity timer
     resetInactivityTimer();
   }, [mode, changeMode, resetInactivityTimer, entries, selectedEntry]);
+
+  // Handle request_led_update from server
+  useEffect(() => {
+    if (!lastMessage) return;
+    
+    if (lastMessage.type === 'request_led_update') {
+      console.log('Server requested LED update');
+      // Force an immediate LED update
+      updateLEDs();
+    }
+  }, [lastMessage, updateLEDs]);
 
   // Monitor filter and selection changes
   useEffect(() => {

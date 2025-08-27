@@ -181,8 +181,10 @@ class LEDController:
         
         self._mode = mode
         
-        # Clear LEDs when switching modes
-        await self.clear_all()
+        # Only clear LEDs when switching TO visualization mode
+        # When switching to interactive, let the client send new data
+        if mode == LEDMode.VISUALIZATION:
+            await self.clear_all()
         
         logger.info(f"LED mode changed to: {mode.value}")
     
