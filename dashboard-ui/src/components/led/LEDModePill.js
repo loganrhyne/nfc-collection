@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useData } from '../../context/DataContext';
+import { useLEDController } from '../../hooks/useLEDController';
 
 const StatusPill = styled.div`
   position: fixed;
@@ -172,6 +173,7 @@ const AutoSwitchNotification = styled.div`
 const LEDModePill = () => {
   const { sendMessage, connected, lastMessage } = useWebSocket();
   const { allEntries, entries, selectedEntry } = useData();
+  const { updateLEDs } = useLEDController();
   const [showModal, setShowModal] = useState(false);
   const [mode, setMode] = useState('interactive');
   const [autoSwitchMessage, setAutoSwitchMessage] = useState('');
@@ -216,6 +218,14 @@ const LEDModePill = () => {
       }))
     });
     
+    // If switching to interactive mode, force an LED update
+    if (newMode === 'interactive') {
+      // Small delay to ensure mode change is processed first
+      setTimeout(() => {
+        updateLEDs();
+      }, 100);
+    }
+    
     // Show notification for auto switches
     if (reason === 'inactivity') {
       setAutoSwitchMessage('No activity for 5 minutes - starting visualization');
@@ -224,7 +234,7 @@ const LEDModePill = () => {
       setAutoSwitchMessage('Activity detected - switching to interactive mode');
       setTimeout(() => setAutoSwitchMessage(''), 3000);
     }
-  }, [mode, sendMessage, allEntries]);
+  }, [mode, sendMessage, allEntries, updateLEDs]);
 
   // Reset inactivity timer
   const resetInactivityTimer = useCallback(() => {
