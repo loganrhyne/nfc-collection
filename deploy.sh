@@ -53,9 +53,10 @@ echo -e "${YELLOW}Step 3: Deploying to Raspberry Pi...${NC}"
 # Ensure directory exists
 ssh $PI_HOST "mkdir -p $PI_APP_DIR"
 
-# Sync built files
+# Sync built files (excluding data directory)
 echo "Syncing build files..."
 rsync -avz --delete \
+    --exclude 'data' \
     $DEPLOY_TEMP/build/ \
     $PI_HOST:$PI_APP_DIR/dashboard-ui/build/
 
@@ -65,8 +66,38 @@ rsync -avz \
     $DEPLOY_TEMP/deployment/ \
     $PI_HOST:$PI_APP_DIR/deployment/
 
-# Step 4: Update code on Pi
-echo -e "${YELLOW}Step 4: Updating code on Raspberry Pi...${NC}"
+# Step 4: Setup media symlinks
+echo -e "${YELLOW}Step 4: Setting up media symlinks...${NC}"
+ssh $PI_HOST << EOF
+    set -e
+    cd $PI_APP_DIR
+    
+    # Create persistent media directory if it doesn't exist
+    MEDIA_DIR="/home/loganrhyne/nfc-media"
+    if [ ! -d "\$MEDIA_DIR" ]; then
+        echo "Creating persistent media directory: \$MEDIA_DIR"
+        mkdir -p "\$MEDIA_DIR"/{photos,videos}
+    fi
+    
+    # Remove old data directory if it exists (not a symlink)
+    if [ -d "dashboard-ui/build/data" ] && [ ! -L "dashboard-ui/build/data" ]; then
+        echo "Removing old data directory..."
+        rm -rf dashboard-ui/build/data
+    fi
+    
+    # Create symlink to persistent media directory
+    if [ ! -L "dashboard-ui/build/data" ]; then
+        echo "Creating symlink to media directory..."
+        ln -s "\$MEDIA_DIR" dashboard-ui/build/data
+    fi
+    
+    # Verify symlink
+    echo "Data directory symlink:"
+    ls -la dashboard-ui/build/data
+EOF
+
+# Step 5: Update code on Pi
+echo -e "${YELLOW}Step 5: Updating code on Raspberry Pi...${NC}"
 ssh $PI_HOST << EOF
     set -e
     cd $PI_APP_DIR
@@ -101,8 +132,8 @@ ssh $PI_HOST << EOF
     echo -e "${GREEN}✓ Code updated successfully${NC}"
 EOF
 
-# Step 5: Restart services
-echo -e "${YELLOW}Step 5: Restarting services...${NC}"
+# Step 6: Restart services
+echo -e "${YELLOW}Step 6: Restarting services...${NC}"
 ssh $PI_HOST << 'EOF'
     set -e
     
@@ -131,11 +162,17 @@ EOF
 # Cleanup
 rm -rf $DEPLOY_TEMP
 
-# Step 6: Verify deployment
-echo -e "${YELLOW}Step 6: Verifying deployment...${NC}"
+# Step 7: Verify deployment
+echo -e "${YELLOW}Step 7: Verifying deployment...${NC}"
 ssh $PI_HOST << 'EOF'
     echo "Checking build timestamp..."
     ls -la /home/loganrhyne/nfc-collection/dashboard-ui/build/index.html
+    
+    echo ""
+    echo "Checking media directory setup..."
+    ls -la /home/loganrhyne/nfc-collection/dashboard-ui/build/data
+    echo "Media directory contents:"
+    ls -la /home/loganrhyne/nfc-media/ 2>/dev/null || echo "Media directory not yet populated"
     
     echo ""
     echo "Checking what's serving on port 80..."
@@ -159,3 +196,7 @@ echo ""
 echo "If you see an old version, run on the Pi:"
 echo "  sudo deployment/diagnose-web-server.sh"
 echo "  sudo deployment/fix-web-server.sh"
+echo ""
+echo -e "${YELLOW}Note: Media files are now stored separately in /home/loganrhyne/nfc-media${NC}"
+echo "To sync media from your other machine, run:"
+echo "  ./scripts/sync-media.sh"
