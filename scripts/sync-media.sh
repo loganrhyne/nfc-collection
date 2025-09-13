@@ -4,7 +4,7 @@
 
 # Configuration
 SOURCE_BASE_DIR="$HOME/Public/Drop Box/Day One Exports"
-PI_HOST="nfc-pi.local"  # Or use IP address
+PI_HOST="192.168.1.114"  # Or use nfc-pi.local if DNS works
 PI_USER="loganrhyne"
 PI_MEDIA_DIR="/home/loganrhyne/nfc-media"
 
