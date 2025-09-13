@@ -4,7 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
+User=loganrhyne
+Group=loganrhyne
+SupplementaryGroups=gpio
 WorkingDirectory=/home/loganrhyne/nfc-collection/python-services
 Environment="PATH=/home/loganrhyne/nfc-collection/python-services/venv/bin:/home/loganrhyne/.local/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
