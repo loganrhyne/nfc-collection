@@ -125,9 +125,8 @@ ssh $PI_HOST << EOF
     source venv/bin/activate
     pip install -r requirements.txt --upgrade
     
-    # Set LED controller to hardware mode
-    echo "Configuring LED controller for hardware mode..."
-    sed -i 's/FORCE_MOCK = True/FORCE_MOCK = False/' services/led_controller.py
+    # LED controller auto-detects hardware mode, no config needed
+    echo "LED controller will auto-detect hardware mode..."
     
     echo -e "${GREEN}✓ Code updated successfully${NC}"
 EOF
