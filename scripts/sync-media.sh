@@ -3,7 +3,7 @@
 # Run this from your non-dev machine to sync Day One exports to the Pi
 
 # Configuration
-SOURCE_BASE_DIR="$HOME/public/Drop Box/Day One Export"
+SOURCE_BASE_DIR="$HOME/Public/Drop Box/Day One Exports"
 PI_HOST="nfc-pi.local"  # Or use IP address
 PI_USER="loganrhyne"
 PI_MEDIA_DIR="/home/loganrhyne/nfc-media"
@@ -17,9 +17,10 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}NFC Collection - Media Sync${NC}"
 echo "==============================="
 
-# Find the most recent Day One export directory
+# Find the most recent Day One export directory (date-based directories)
 echo -e "\n${YELLOW}Finding most recent export...${NC}"
-LATEST_EXPORT=$(find "$SOURCE_BASE_DIR" -maxdepth 1 -type d -name "Journal*" | sort -r | head -n 1)
+# Look for directories with date pattern (MM-DD-YYYY) or just get the most recent directory
+LATEST_EXPORT=$(find "$SOURCE_BASE_DIR" -maxdepth 1 -type d ! -path "$SOURCE_BASE_DIR" | sort -r | head -n 1)
 
 if [ -z "$LATEST_EXPORT" ]; then
     echo -e "${RED}Error: No Day One export directories found in $SOURCE_BASE_DIR${NC}"
