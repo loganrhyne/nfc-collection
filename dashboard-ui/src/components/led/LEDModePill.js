@@ -146,6 +146,59 @@ const StatusText = styled.div`
   text-align: center;
 `;
 
+const SliderContainer = styled.div`
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+`;
+
+const SliderLabel = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #333;
+`;
+
+const Slider = styled.input`
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #ddd;
+  outline: none;
+  -webkit-appearance: none;
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  &::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4CAF50;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+
+  &:hover::-webkit-slider-thumb {
+    transform: scale(1.1);
+  }
+
+  &:hover::-moz-range-thumb {
+    transform: scale(1.1);
+  }
+`;
+
 const AutoSwitchNotification = styled.div`
   position: fixed;
   bottom: 110px;
@@ -178,6 +231,7 @@ const LEDModePill = () => {
   const [showModal, setShowModal] = useState(false);
   const [mode, setMode] = useState('interactive');
   const [autoSwitchMessage, setAutoSwitchMessage] = useState('');
+  const [brightness, setBrightness] = useState(50); // Default 50% brightness
   
   // Refs for managing state
   const inactivityTimerRef = useRef(null);
@@ -287,6 +341,18 @@ const LEDModePill = () => {
     }
   }, [changeMode, resetInactivityTimer, entries, selectedEntry]);
 
+  // Handle brightness change
+  const handleBrightnessChange = useCallback((newBrightness) => {
+    setBrightness(newBrightness);
+
+    // Send brightness update to server
+    if (connected) {
+      sendMessage('led_brightness', {
+        brightness: newBrightness / 100  // Convert to 0-1 range
+      });
+    }
+  }, [connected, sendMessage]);
+
   // Handle data activity (filter/selection changes)
   const handleDataActivity = useCallback(() => {
     // Check if there's actual change in data
@@ -393,11 +459,25 @@ const LEDModePill = () => {
             </ModeToggle>
 
             <StatusText>
-              {mode === 'interactive' 
+              {mode === 'interactive'
                 ? 'LEDs show filtered entries. Selected entry appears brighter.'
                 : 'Cycling through data visualizations.'
               }
             </StatusText>
+
+            <SliderContainer>
+              <SliderLabel>
+                <span>Brightness</span>
+                <span>{brightness}%</span>
+              </SliderLabel>
+              <Slider
+                type="range"
+                min="5"
+                max="100"
+                value={brightness}
+                onChange={(e) => handleBrightnessChange(parseInt(e.target.value))}
+              />
+            </SliderContainer>
           </ControlPanel>
         </Modal>
       )}

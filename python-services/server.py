@@ -163,6 +163,7 @@ class NFCWebSocketServer:
         self.sio.on('register_tag_start', self.handle_register_tag_start)
         self.sio.on('register_tag_cancel', self.handle_register_tag_cancel)
         self.sio.on('led_update', self.handle_led_update)
+        self.sio.on('led_brightness', self.handle_led_brightness)
     
     async def _check_auth(self, sid: str, auth: Dict[str, Any]) -> bool:
         """Check authentication if enabled"""
@@ -505,7 +506,37 @@ class NFCWebSocketServer:
                 'success': False,
                 'error': str(e)
             }, room=sid)
-    
+
+    async def handle_led_brightness(self, sid: str, data: Dict):
+        """Handle LED brightness changes"""
+        session = self.sessions.get(sid)
+        if not session:
+            return
+
+        try:
+            brightness = data.get('brightness', 0.5)
+            logger.info(f"LED brightness update from {sid}: {brightness:.0%}")
+
+            # Update brightness on LED controller
+            led_controller = get_led_controller()
+            await led_controller.set_brightness(brightness)
+
+            # Send confirmation back to client
+            await self.sio.emit('led_status', {
+                'success': True,
+                'status': {
+                    'brightness': brightness,
+                    'current_mode': self.led_mode_manager.current_mode.value
+                }
+            }, room=sid)
+
+        except Exception as e:
+            logger.error(f"Error handling LED brightness: {e}", exc_info=True)
+            await self.sio.emit('led_status', {
+                'success': False,
+                'error': str(e)
+            }, room=sid)
+
     async def start_background_tasks(self, app):
         """Start background tasks"""
         # Start NFC scanning

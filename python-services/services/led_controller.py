@@ -53,6 +53,7 @@ class LEDController:
         self._selected_index: Optional[int] = None
         self._mode = LEDMode.INTERACTIVE
         self._visualization_engine = None
+        self._global_brightness = 0.5  # Default 50% brightness
         
         # Initialize hardware if available
         if HARDWARE_AVAILABLE and not self.config.mock_mode:
@@ -136,9 +137,10 @@ class LEDController:
             color_hex, is_selected = entry_map[index]
             rgb = self.hex_to_rgb(color_hex)
             
-            # Apply brightness
-            brightness = self.config.brightness_selected if is_selected else self.config.brightness_filtered
-            rgb_with_brightness = tuple(int(c * brightness) for c in rgb)
+            # Apply brightness (combine global brightness with selection brightness)
+            base_brightness = self.config.brightness_selected if is_selected else self.config.brightness_filtered
+            effective_brightness = base_brightness * self._global_brightness
+            rgb_with_brightness = tuple(int(c * effective_brightness) for c in rgb)
             
             await self._set_pixel(index, rgb_with_brightness)
         
@@ -170,6 +172,22 @@ class LEDController:
         
         logger.debug("All LEDs cleared")
     
+    async def set_brightness(self, brightness: float):
+        """
+        Set global brightness for all LEDs
+
+        Args:
+            brightness: Value from 0.0 to 1.0
+        """
+        self._global_brightness = max(0.05, min(1.0, brightness))  # Clamp between 5% and 100%
+        logger.info(f"Global brightness set to: {self._global_brightness:.0%}")
+
+        # If in interactive mode, refresh current LEDs with new brightness
+        if self._mode == LEDMode.INTERACTIVE and self._current_indices:
+            # Re-apply brightness to currently lit LEDs by triggering a refresh
+            # This will be handled by the next update
+            pass
+
     async def set_mode(self, mode: LEDMode):
         """Switch between interactive and visualization modes"""
         if self._mode == mode:

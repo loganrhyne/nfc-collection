@@ -256,7 +256,10 @@ class VisualizationEngine:
                     for idx, rgb in frame.pixels:
                         if 0 <= idx < self.led_controller.config.num_pixels:
                             physical_idx = self.led_controller._get_pixel_index(idx)
-                            self.led_controller._pixels[physical_idx] = rgb
+                            # Apply global brightness
+                            brightness = self.led_controller._global_brightness
+                            rgb_with_brightness = tuple(int(c * brightness) for c in rgb)
+                            self.led_controller._pixels[physical_idx] = rgb_with_brightness
                     
                     # Show the frame
                     self.led_controller._pixels.show()
