@@ -16,7 +16,6 @@ import NFCScanner from './components/nfc/NFCScanner';
 import WebSocketStatus from './components/nfc/WebSocketStatus';
 import ActiveFilters from './components/filters/ActiveFilters';
 import VersionInfo from './components/VersionInfo';
-import TimelineDebug from './components/timeline/TimelineDebug';
 import LEDController from './components/led/LEDController';
 import LEDModePill from './components/led/LEDModePill';
 import DebugPage from './components/debug/DebugPage';

@@ -106,9 +106,6 @@ export const DataProvider = ({ children, entryIdFromUrl }) => {
     };
     
     loadJournalData();
-    
-    // TODO: Load grid mapping from storage or API
-    // For now we'll use an empty object
   }, [entryIdFromUrl]);
 
   /**

@@ -2,7 +2,13 @@
 
 ## Overview
 
-The LED visualization system provides real-time visual feedback that mirrors the digital dashboard interface. It consists of 100 WS2812B RGB LEDs arranged in a 20x5 grid, representing the sand collection samples. The system supports two modes: Interactive Mode (shows filtered entries) and Visualization Mode (animated data patterns).
+The LED visualization system provides real-time visual feedback that mirrors the digital dashboard interface. It consists of 100 WS2812B RGB LEDs arranged in a 20x5 grid, representing the sand collection samples.
+
+### Key Features
+- **Dual Modes**: Interactive (shows filtered entries) and Visualization (animated patterns)
+- **Automatic Mode Switching**: Enters visualization after 5 minutes of inactivity
+- **Brightness Control**: User-adjustable brightness from 5% to 100%
+- **Real-time Sync**: LEDs update instantly with dashboard interactions
 
 ## Hardware Configuration
 
@@ -141,7 +147,12 @@ Physical LEDs
    - Parameters: `entries` (array of {index, color, type, isSelected})
    - Only affects LEDs when in interactive mode
 
-3. **clear_all**
+3. **led_brightness**
+   - Adjust global LED brightness
+   - Parameters: `brightness` (0.0 to 1.0)
+   - Affects both Interactive and Visualization modes
+
+4. **clear_all**
    - Turns off all LEDs
    - No parameters required
 

@@ -246,7 +246,6 @@ const LEDModePill = () => {
     if (lastMessage && lastMessage.type === 'led_status' && lastMessage.data?.status) {
       const serverMode = lastMessage.data.status.current_mode;
       if (serverMode && serverMode !== mode) {
-        console.log(`LED mode sync: ${mode} -> ${serverMode}`);
         setMode(serverMode);
       }
     }
@@ -256,7 +255,6 @@ const LEDModePill = () => {
   const changeMode = useCallback((newMode, reason = 'unknown') => {
     if (newMode === mode) return;
     
-    console.log(`Changing LED mode to ${newMode} (reason: ${reason})`);
     
     // Build the complete mode change message
     const modeChangeMsg = {
