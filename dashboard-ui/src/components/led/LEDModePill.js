@@ -321,11 +321,13 @@ const LEDModePill = () => {
         }
       } else if (lastMessage.type === 'visualization_status') {
         // Direct visualization status update
-        setVisualizationInfo(lastMessage.data);
-        setAvailableVisualizations(lastMessage.data.available_visualizations || []);
-        // Update duration if provided
-        if (lastMessage.data.duration) {
-          setVisualizationDuration(lastMessage.data.duration);
+        if (lastMessage.data) {
+          setVisualizationInfo(lastMessage.data);
+          setAvailableVisualizations(lastMessage.data.available_visualizations || []);
+          // Update duration if provided
+          if (lastMessage.data.duration) {
+            setVisualizationDuration(lastMessage.data.duration);
+          }
         }
       }
     }
@@ -409,15 +411,20 @@ const LEDModePill = () => {
     // Clear interaction history so we don't immediately switch back
     lastEntriesRef.current = entries;
     lastSelectedEntryRef.current = selectedEntry;
-    
+
     // Change mode
     changeMode(newMode, 'manual');
-    
+
     // Reset timer if going to interactive
     if (newMode === 'interactive') {
       resetInactivityTimer();
+    } else if (newMode === 'visualization') {
+      // Request visualization status when switching to visualization mode
+      sendMessage('visualization_control', {
+        command: 'get_status'
+      });
     }
-  }, [changeMode, resetInactivityTimer, entries, selectedEntry]);
+  }, [changeMode, resetInactivityTimer, entries, selectedEntry, sendMessage]);
 
   // Handle brightness change
   const handleBrightnessChange = useCallback((newBrightness) => {
@@ -613,11 +620,19 @@ const LEDModePill = () => {
                     value={visualizationInfo?.current_visualization || ''}
                     onChange={(e) => handleVisualizationSelect(e.target.value)}
                   >
-                    {availableVisualizations.map((viz) => (
-                      <option key={viz.type} value={viz.type}>
-                        {viz.name}
-                      </option>
-                    ))}
+                    {availableVisualizations && availableVisualizations.length > 0 ? (
+                      availableVisualizations.map((viz) => (
+                        <option key={viz.type} value={viz.type}>
+                          {viz.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="type_distribution">Type Distribution</option>
+                        <option value="chronology">Timeline</option>
+                        <option value="region_map">Geographic Regions</option>
+                      </>
+                    )}
                   </Select>
                 </VisualizationControl>
 
