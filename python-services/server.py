@@ -74,6 +74,8 @@ class NFCWebSocketServer:
         self.nfc_service = NFCService()
         self.led_controller = get_led_controller()
         self.led_mode_manager = LEDModeManager(self.led_controller)
+        # Set up status callback for visualization updates
+        self.led_mode_manager.set_status_callback(self.send_visualization_status)
         self.sessions: Dict[str, ClientSession] = {}
         self.rate_limiter = RateLimiter(
             self.config.rate_limit_requests,
@@ -164,6 +166,7 @@ class NFCWebSocketServer:
         self.sio.on('register_tag_cancel', self.handle_register_tag_cancel)
         self.sio.on('led_update', self.handle_led_update)
         self.sio.on('led_brightness', self.handle_led_brightness)
+        self.sio.on('visualization_control', self.handle_visualization_control)
     
     async def _check_auth(self, sid: str, auth: Dict[str, Any]) -> bool:
         """Check authentication if enabled"""
@@ -536,6 +539,49 @@ class NFCWebSocketServer:
                 'success': False,
                 'error': str(e)
             }, room=sid)
+
+    async def handle_visualization_control(self, sid: str, data: Dict):
+        """Handle visualization control commands"""
+        session = self.sessions.get(sid)
+        if not session:
+            return
+
+        try:
+            command = data.get('command')
+            logger.info(f"Visualization control from {sid}: {command}")
+
+            if command == 'select':
+                # Select specific visualization
+                viz_type = data.get('visualization_type')
+                if viz_type:
+                    await self.led_mode_manager.select_visualization(viz_type)
+
+            elif command == 'set_duration':
+                # Set visualization duration
+                duration = data.get('duration', 60)
+                await self.led_mode_manager.set_visualization_duration(duration)
+
+            elif command == 'get_status':
+                # Get current visualization status
+                pass  # Status will be sent below
+
+            # Send updated status
+            status = self.led_mode_manager.get_status()
+            await self.sio.emit('led_status', {
+                'success': True,
+                'status': status
+            }, room=sid)
+
+        except Exception as e:
+            logger.error(f"Error handling visualization control: {e}", exc_info=True)
+            await self.sio.emit('led_status', {
+                'success': False,
+                'error': str(e)
+            }, room=sid)
+
+    async def send_visualization_status(self, status: Dict):
+        """Callback to send visualization status updates to all clients"""
+        await self.sio.emit('visualization_status', status)
 
     async def start_background_tasks(self, app):
         """Start background tasks"""

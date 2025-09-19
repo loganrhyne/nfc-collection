@@ -24,6 +24,7 @@ class LEDModeManager:
         self._current_mode = LEDMode.INTERACTIVE
         self._visualization_task = None
         self._entries_data = []
+        self._status_callback = None  # For sending status updates to frontend
         
     async def set_mode(self, mode: LEDMode, auto_start_viz: bool = True) -> Dict:
         """
@@ -62,18 +63,43 @@ class LEDModeManager:
             viz_engine = self.led_controller.get_visualization_engine()
             viz_engine.update_entries(entries)
     
+    def set_status_callback(self, callback):
+        """Set callback for sending status updates to frontend"""
+        self._status_callback = callback
+        # Also set it on the visualization engine
+        viz_engine = self.led_controller.get_visualization_engine()
+        viz_engine.set_status_callback(callback)
+
     async def _start_visualization(self):
-        """Start visualization cycle"""
+        """Start visualization rotation cycle"""
         if self._visualization_task:
             await self._stop_visualization()
-        
+
         # Update entries in visualization engine
         viz_engine = self.led_controller.get_visualization_engine()
         viz_engine.update_entries(self._entries_data)
-        
-        # Start with type distribution (only one implemented so far)
-        await viz_engine.start_visualization(VisualizationType.TYPE_DISTRIBUTION)
-        logger.info("Started visualization cycle")
+
+        # Start rotation
+        await viz_engine.start_rotation()
+        logger.info("Started visualization rotation")
+
+    async def select_visualization(self, viz_type_str: str):
+        """Manually select a specific visualization"""
+        try:
+            from services.led_visualizations import VisualizationType
+            viz_type = VisualizationType(viz_type_str)
+
+            viz_engine = self.led_controller.get_visualization_engine()
+            await viz_engine.start_specific_visualization(viz_type)
+            logger.info(f"Manually selected {viz_type_str} visualization")
+        except ValueError:
+            logger.error(f"Unknown visualization type: {viz_type_str}")
+
+    async def set_visualization_duration(self, seconds: int):
+        """Set visualization rotation duration"""
+        viz_engine = self.led_controller.get_visualization_engine()
+        viz_engine.set_duration(seconds)
+        logger.info(f"Set visualization duration to {seconds} seconds")
     
     async def _stop_visualization(self):
         """Stop visualization and clean up"""
@@ -84,12 +110,20 @@ class LEDModeManager:
     def get_status(self) -> Dict:
         """Get current status for frontend sync"""
         base_status = self.led_controller.get_status()
-        
-        return {
+
+        status = {
             **base_status,
             'current_mode': self._current_mode.value,
             'has_entries': len(self._entries_data) > 0,
         }
+
+        # Add visualization status if in visualization mode
+        if self._current_mode == LEDMode.VISUALIZATION:
+            viz_engine = self.led_controller.get_visualization_engine()
+            viz_status = viz_engine.get_status()
+            status['visualization'] = viz_status
+
+        return status
     
     async def handle_interactive_update(self, entries: List[Dict]):
         """Handle LED update for interactive mode"""

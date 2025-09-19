@@ -19,9 +19,8 @@ logger = logging.getLogger(__name__)
 class VisualizationType(Enum):
     """Available visualization types"""
     TYPE_DISTRIBUTION = "type_distribution"
-    GEOGRAPHIC_HEAT = "geographic_heat"
-    TIMELINE_WAVE = "timeline_wave"
-    COLOR_WAVES = "color_waves"
+    CHRONOLOGY = "chronology"
+    REGION_MAP = "region_map"
 
 
 @dataclass
@@ -162,23 +161,276 @@ class TypeDistributionVisualization:
         )
 
 
+class ChronologyVisualization:
+    """
+    Visualization showing timeline of collection by year
+    Lights up entries year by year, then fades to baseline
+    """
+
+    def __init__(self, entries: List[Dict], total_pixels: int = 100):
+        self.entries = entries
+        self.total_pixels = total_pixels
+        self.entries_by_year = self._organize_by_year()
+        self.years = sorted(self.entries_by_year.keys()) if self.entries_by_year else []
+        self.baseline_brightness = 0.15  # Baseline after highlighting
+
+    def _organize_by_year(self) -> Dict[int, List[Dict]]:
+        """Organize entries by year"""
+        by_year = {}
+        for entry in self.entries:
+            date_str = entry.get('creationDate', '')
+            if date_str:
+                try:
+                    year = int(date_str.split('-')[0])
+                    if year not in by_year:
+                        by_year[year] = []
+                    by_year[year].append(entry)
+                except (ValueError, IndexError):
+                    pass
+        return by_year
+
+    def generate_frame(self, phase: float) -> VisualizationFrame:
+        """
+        Generate a frame showing year-by-year progression
+        phase: 0.0 to 1.0 representing position in the animation cycle
+        """
+        pixels = []
+
+        if not self.years:
+            return VisualizationFrame(pixels=[], duration_ms=50)
+
+        # Add a "reset" phase at the beginning where all LEDs are off
+        reset_duration = 0.1  # 10% of cycle for reset
+        if phase < reset_duration:
+            # All LEDs off during reset
+            return VisualizationFrame(pixels=[], duration_ms=50)
+
+        # Adjust phase for the remaining time
+        adjusted_phase = (phase - reset_duration) / (1.0 - reset_duration)
+
+        # Each year gets equal time in the remaining cycle
+        time_per_year = 1.0 / len(self.years)
+
+        # Determine which year we're currently highlighting
+        current_year_index = min(int(adjusted_phase / time_per_year), len(self.years) - 1)
+        local_phase = (adjusted_phase % time_per_year) / time_per_year
+
+        # Phase within the year: ramp up, hold, fade to baseline
+        if local_phase < 0.2:  # Ramp up (20% of year time)
+            highlight_brightness = local_phase / 0.2
+        elif local_phase < 0.6:  # Hold at full brightness (40% of year time)
+            highlight_brightness = 1.0
+        else:  # Fade to baseline (40% of year time)
+            fade_phase = (local_phase - 0.6) / 0.4
+            highlight_brightness = 1.0 - (fade_phase * (1.0 - self.baseline_brightness))
+
+        # Light up all entries up to and including current year
+        for year_idx, year in enumerate(self.years):
+            if year_idx <= current_year_index:
+                year_entries = self.entries_by_year[year]
+
+                # Determine brightness for this year's entries
+                if year_idx == current_year_index:
+                    # Current year uses animated brightness
+                    brightness = highlight_brightness * 0.8  # Max 80% brightness
+                else:
+                    # Previous years at baseline
+                    brightness = self.baseline_brightness
+
+                # Get color based on entry type for visual variety
+                for entry in year_entries:
+                    index = entry.get('index')
+                    if index is not None and 0 <= index < self.total_pixels:
+                        entry_type = entry.get('type', '')
+                        rgb = ColorManager.get_type_color(entry_type)
+                        rgb_with_brightness = ColorManager.apply_brightness(rgb, brightness)
+                        pixels.append((index, rgb_with_brightness))
+
+        return VisualizationFrame(
+            pixels=pixels,
+            duration_ms=50
+        )
+
+
+class RegionVisualization:
+    """
+    Visualization showing geographic distribution by region
+    Similar to type distribution but organized by region
+    """
+
+    def __init__(self, entries: List[Dict], total_pixels: int = 100):
+        self.entries = entries
+        self.total_pixels = total_pixels
+        self.entries_by_region = self._organize_by_region()
+        self.regions = sorted(self.entries_by_region.keys()) if self.entries_by_region else []
+
+    def _organize_by_region(self) -> Dict[str, List[Dict]]:
+        """Organize entries by region"""
+        by_region = {}
+        for entry in self.entries:
+            location = entry.get('location', {})
+            # Try to get region from location data
+            region = location.get('administrativeArea', '') or \
+                    location.get('country', '') or \
+                    location.get('region', '') or \
+                    'Unknown'
+
+            if region not in by_region:
+                by_region[region] = []
+            by_region[region].append(entry)
+        return by_region
+
+    def _get_region_color(self, region: str) -> Tuple[int, int, int]:
+        """Get a consistent color for a region"""
+        # Use a hash-based approach for consistent colors per region
+        hash_val = hash(region)
+        hue = (hash_val % 360) / 360.0
+        r, g, b = colorsys.hsv_to_rgb(hue, 0.8, 0.9)
+        return (int(r * 255), int(g * 255), int(b * 255))
+
+    def generate_frame(self, phase: float) -> VisualizationFrame:
+        """
+        Generate a frame showing region-by-region distribution
+        phase: 0.0 to 1.0 representing position in the animation cycle
+        """
+        pixels = []
+
+        if not self.regions:
+            return VisualizationFrame(pixels=[], duration_ms=50)
+
+        # Determine which region we're showing
+        region_phase = (phase * len(self.regions)) % len(self.regions)
+        current_region = self.regions[int(region_phase)]
+
+        # Calculate brightness ramp within region's phase
+        local_phase = region_phase - int(region_phase)
+        brightness = math.sin(local_phase * math.pi)  # Sine wave for smooth ramp
+
+        # Apply brightness range (0.05 to 0.8)
+        brightness = 0.05 + (brightness * 0.75)
+
+        # Get entries for current region
+        region_entries = self.entries_by_region.get(current_region, [])
+
+        if region_entries:
+            # Get color for this region
+            rgb = self._get_region_color(current_region)
+            rgb_with_brightness = ColorManager.apply_brightness(rgb, brightness)
+
+            # Light up pixels for entries from this region
+            for entry in region_entries:
+                index = entry.get('index')
+                if index is not None and 0 <= index < self.total_pixels:
+                    pixels.append((index, rgb_with_brightness))
+
+        return VisualizationFrame(
+            pixels=pixels,
+            duration_ms=33
+        )
+
+
+class VisualizationScheduler:
+    """
+    Manages visualization rotation and scheduling
+    """
+
+    def __init__(self):
+        self.visualizations = [
+            VisualizationType.TYPE_DISTRIBUTION,
+            VisualizationType.CHRONOLOGY,
+            VisualizationType.REGION_MAP
+        ]
+        self.current_index = 0
+        self.duration_seconds = 60  # Default 60 seconds per visualization
+        self.start_time = None
+        self.manual_selection = None
+
+    def set_duration(self, seconds: int):
+        """Set duration for each visualization"""
+        self.duration_seconds = max(10, min(300, seconds))  # Clamp between 10s and 5min
+
+    def select_visualization(self, viz_type: VisualizationType):
+        """Manually select a specific visualization"""
+        if viz_type in self.visualizations:
+            self.current_index = self.visualizations.index(viz_type)
+            self.manual_selection = viz_type
+            self.start_time = time.time()
+
+    def get_next_visualization(self) -> VisualizationType:
+        """Get the next visualization in rotation"""
+        if self.manual_selection:
+            # Clear manual selection and continue from there
+            self.manual_selection = None
+        self.current_index = (self.current_index + 1) % len(self.visualizations)
+        self.start_time = time.time()
+        return self.visualizations[self.current_index]
+
+    def get_current_visualization(self) -> VisualizationType:
+        """Get the current visualization"""
+        return self.visualizations[self.current_index]
+
+    def get_time_remaining(self) -> float:
+        """Get time remaining for current visualization in seconds"""
+        if self.start_time:
+            elapsed = time.time() - self.start_time
+            return max(0, self.duration_seconds - elapsed)
+        return self.duration_seconds
+
+    def should_rotate(self) -> bool:
+        """Check if it's time to rotate to next visualization"""
+        return self.get_time_remaining() <= 0
+
+    def get_status(self) -> Dict:
+        """Get current scheduler status"""
+        current = self.get_current_visualization()
+        return {
+            'current_visualization': current.value,
+            'visualization_name': self._get_friendly_name(current),
+            'time_remaining': self.get_time_remaining(),
+            'duration': self.duration_seconds,
+            'available_visualizations': [
+                {
+                    'type': viz.value,
+                    'name': self._get_friendly_name(viz)
+                }
+                for viz in self.visualizations
+            ]
+        }
+
+    def _get_friendly_name(self, viz_type: VisualizationType) -> str:
+        """Get user-friendly name for visualization"""
+        names = {
+            VisualizationType.TYPE_DISTRIBUTION: "Type Distribution",
+            VisualizationType.CHRONOLOGY: "Timeline",
+            VisualizationType.REGION_MAP: "Geographic Regions"
+        }
+        return names.get(viz_type, viz_type.value)
+
+
 class VisualizationEngine:
     """
-    Main engine for running LED visualizations
+    Main engine for running LED visualizations with rotation support
     """
-    
+
     def __init__(self, led_controller):
         self.led_controller = led_controller
-        self.current_mode = None
+        self.scheduler = VisualizationScheduler()
+        self.current_viz = None
         self.running = False
         self.current_task = None
+        self.rotation_task = None
         self.entries_data = []
+        self.status_callback = None  # Callback for status updates
         
+    def set_status_callback(self, callback):
+        """Set callback for status updates"""
+        self.status_callback = callback
+
     def update_entries(self, entries: List[Dict]):
         """Update the entries data used for visualizations"""
         # Sort by oldest first and add indices
         sorted_entries = sorted(entries, key=lambda e: e.get('creationDate', ''))
-        
+
         self.entries_data = []
         for idx, entry in enumerate(sorted_entries):
             if idx < self.led_controller.config.num_pixels:
@@ -190,85 +442,159 @@ class VisualizationEngine:
                     'creationDate': entry.get('creationDate')
                 }
                 self.entries_data.append(entry_data)
-    
-    async def start_visualization(self, viz_type: VisualizationType):
-        """Start a specific visualization"""
+
+    async def start_rotation(self):
+        """Start visualization rotation cycle"""
         await self.stop_visualization()
-        
-        self.current_mode = viz_type
+
         self.running = True
-        
-        logger.info(f"Starting {viz_type.value} visualization")
-        
-        # Start the visualization task
-        self.current_task = asyncio.create_task(self._run_visualization(viz_type))
+        logger.info("Starting visualization rotation")
+
+        # Start rotation task
+        self.rotation_task = asyncio.create_task(self._rotation_loop())
+
+    async def start_specific_visualization(self, viz_type: VisualizationType):
+        """Start a specific visualization (manual selection)"""
+        await self.stop_visualization()
+
+        self.scheduler.select_visualization(viz_type)
+        self.running = True
+
+        logger.info(f"Manually starting {viz_type.value} visualization")
+
+        # Start rotation from selected visualization
+        self.rotation_task = asyncio.create_task(self._rotation_loop())
+
+    def set_duration(self, seconds: int):
+        """Set visualization duration"""
+        self.scheduler.set_duration(seconds)
+        logger.info(f"Set visualization duration to {seconds} seconds")
+
+    def get_status(self) -> Dict:
+        """Get current visualization status"""
+        return self.scheduler.get_status()
     
     async def stop_visualization(self):
         """Stop current visualization"""
         self.running = False
-        
-        if self.current_task:
-            self.current_task.cancel()
-            try:
-                await self.current_task
-            except asyncio.CancelledError:
-                pass
-            self.current_task = None
-        
+
+        # Cancel tasks
+        for task in [self.current_task, self.rotation_task]:
+            if task:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+        self.current_task = None
+        self.rotation_task = None
+
         # Clear all LEDs
         await self.led_controller.clear_all()
-    
-    async def _run_visualization(self, viz_type: VisualizationType):
-        """Run the visualization loop"""
+
+    async def _rotation_loop(self):
+        """Main rotation loop for visualizations"""
         try:
+            while self.running:
+                # Get current visualization
+                viz_type = self.scheduler.get_current_visualization()
+
+                # Run current visualization
+                self.current_task = asyncio.create_task(
+                    self._run_single_visualization(viz_type)
+                )
+
+                # Send status update
+                if self.status_callback:
+                    await self.status_callback(self.get_status())
+
+                # Wait for duration or cancellation
+                while self.running and not self.scheduler.should_rotate():
+                    await asyncio.sleep(1)  # Check every second
+
+                    # Send periodic status updates
+                    if self.status_callback:
+                        await self.status_callback(self.get_status())
+
+                # Cancel current visualization
+                if self.current_task:
+                    self.current_task.cancel()
+                    try:
+                        await self.current_task
+                    except asyncio.CancelledError:
+                        pass
+                    self.current_task = None
+
+                # Move to next visualization
+                if self.running:
+                    self.scheduler.get_next_visualization()
+
+        except asyncio.CancelledError:
+            logger.info("Visualization rotation cancelled")
+            raise
+        except Exception as e:
+            logger.error(f"Error in rotation loop: {e}", exc_info=True)
+
+    async def _run_single_visualization(self, viz_type: VisualizationType):
+        """Run a single visualization"""
+        try:
+            # Check if LED hardware is available
+            if not self.led_controller._pixels:
+                logger.error("LED hardware not available for visualization")
+                return
+
+            # Create appropriate visualization instance
             if viz_type == VisualizationType.TYPE_DISTRIBUTION:
                 viz = TypeDistributionVisualization(self.entries_data)
-                
-                # Animation loop
-                start_time = time.time()
                 cycle_duration = 15.0  # 15 seconds to cycle through all types
-                
-                # Check if LED hardware is available
-                if not self.led_controller._pixels:
-                    logger.error("LED hardware not available for visualization")
-                    return
-                
-                while self.running:
-                    # Calculate phase (0.0 to 1.0)
-                    elapsed = time.time() - start_time
-                    phase = (elapsed % cycle_duration) / cycle_duration
-                    
-                    # Generate and display frame
-                    frame = viz.generate_frame(phase)
-                    
-                    
-                    # Don't clear all LEDs - just update what needs to change
-                    # First, create a set of current frame indices
-                    frame_indices = {idx for idx, _ in frame.pixels}
-                    
-                    # Turn off LEDs that aren't in this frame
-                    all_indices = set(range(self.led_controller.config.num_pixels))
-                    for idx in all_indices - frame_indices:
+            elif viz_type == VisualizationType.CHRONOLOGY:
+                viz = ChronologyVisualization(self.entries_data)
+                cycle_duration = 30.0  # 30 seconds for full timeline
+            elif viz_type == VisualizationType.REGION_MAP:
+                viz = RegionVisualization(self.entries_data)
+                cycle_duration = 20.0  # 20 seconds to cycle through regions
+            else:
+                logger.error(f"Unknown visualization type: {viz_type}")
+                return
+
+            logger.info(f"Running {viz_type.value} visualization")
+
+            # Animation loop
+            start_time = time.time()
+
+            while self.running:
+                # Calculate phase (0.0 to 1.0)
+                elapsed = time.time() - start_time
+                phase = (elapsed % cycle_duration) / cycle_duration
+
+                # Generate and display frame
+                frame = viz.generate_frame(phase)
+
+                # Update LEDs efficiently
+                frame_indices = {idx for idx, _ in frame.pixels}
+
+                # Turn off LEDs that aren't in this frame
+                all_indices = set(range(self.led_controller.config.num_pixels))
+                for idx in all_indices - frame_indices:
+                    physical_idx = self.led_controller._get_pixel_index(idx)
+                    self.led_controller._pixels[physical_idx] = (0, 0, 0)
+
+                # Set pixels for this frame
+                for idx, rgb in frame.pixels:
+                    if 0 <= idx < self.led_controller.config.num_pixels:
                         physical_idx = self.led_controller._get_pixel_index(idx)
-                        self.led_controller._pixels[physical_idx] = (0, 0, 0)
-                    
-                    # Set pixels for this frame
-                    for idx, rgb in frame.pixels:
-                        if 0 <= idx < self.led_controller.config.num_pixels:
-                            physical_idx = self.led_controller._get_pixel_index(idx)
-                            # Apply global brightness
-                            brightness = self.led_controller._global_brightness
-                            rgb_with_brightness = tuple(int(c * brightness) for c in rgb)
-                            self.led_controller._pixels[physical_idx] = rgb_with_brightness
-                    
-                    # Show the frame
-                    self.led_controller._pixels.show()
-                    
-                    # Wait for frame duration
-                    await asyncio.sleep(frame.duration_ms / 1000.0)
-            
-            # Add other visualization types here
-            
+                        # Apply global brightness
+                        brightness = self.led_controller._global_brightness
+                        rgb_with_brightness = tuple(int(c * brightness) for c in rgb)
+                        self.led_controller._pixels[physical_idx] = rgb_with_brightness
+
+                # Show the frame
+                self.led_controller._pixels.show()
+
+                # Wait for frame duration
+                await asyncio.sleep(frame.duration_ms / 1000.0)
+
         except asyncio.CancelledError:
             logger.info(f"Visualization {viz_type.value} cancelled")
             raise

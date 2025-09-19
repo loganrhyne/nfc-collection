@@ -22,7 +22,8 @@ const StatusPill = styled.div`
   gap: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  
+  min-width: 150px;
+
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.3);
@@ -211,7 +212,7 @@ const AutoSwitchNotification = styled.div`
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   animation: slideIn 0.3s ease;
   z-index: 1001;
-  
+
   @keyframes slideIn {
     from {
       transform: translateX(100%);
@@ -224,6 +225,60 @@ const AutoSwitchNotification = styled.div`
   }
 `;
 
+const VisualizationInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1;
+`;
+
+const VisualizationName = styled.div`
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+`;
+
+const TimeRemaining = styled.div`
+  font-size: 10px;
+  opacity: 0.9;
+  white-space: nowrap;
+`;
+
+const Select = styled.select`
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: #2196F3;
+  }
+`;
+
+const SectionDivider = styled.div`
+  margin: 20px 0;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+`;
+
+const VisualizationControl = styled.div`
+  margin-bottom: 16px;
+`;
+
+const ControlLabel = styled.label`
+  display: block;
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 8px;
+  font-weight: 500;
+`;
+
 const LEDModePill = () => {
   const { sendMessage, connected, lastMessage } = useWebSocket();
   const { allEntries, entries, selectedEntry } = useData();
@@ -232,6 +287,9 @@ const LEDModePill = () => {
   const [mode, setMode] = useState('interactive');
   const [autoSwitchMessage, setAutoSwitchMessage] = useState('');
   const [brightness, setBrightness] = useState(50); // Default 50% brightness
+  const [visualizationInfo, setVisualizationInfo] = useState(null);
+  const [visualizationDuration, setVisualizationDuration] = useState(60); // Default 60s
+  const [availableVisualizations, setAvailableVisualizations] = useState([]);
   
   // Refs for managing state
   const inactivityTimerRef = useRef(null);
@@ -243,10 +301,32 @@ const LEDModePill = () => {
 
   // Handle LED status updates from server
   useEffect(() => {
-    if (lastMessage && lastMessage.type === 'led_status' && lastMessage.data?.status) {
-      const serverMode = lastMessage.data.status.current_mode;
-      if (serverMode && serverMode !== mode) {
-        setMode(serverMode);
+    if (lastMessage) {
+      if (lastMessage.type === 'led_status' && lastMessage.data?.status) {
+        const serverMode = lastMessage.data.status.current_mode;
+        if (serverMode && serverMode !== mode) {
+          setMode(serverMode);
+        }
+
+        // Update visualization info if present
+        if (lastMessage.data.status.visualization) {
+          setVisualizationInfo(lastMessage.data.status.visualization);
+          setAvailableVisualizations(
+            lastMessage.data.status.visualization.available_visualizations || []
+          );
+          // Update duration if provided
+          if (lastMessage.data.status.visualization.duration) {
+            setVisualizationDuration(lastMessage.data.status.visualization.duration);
+          }
+        }
+      } else if (lastMessage.type === 'visualization_status') {
+        // Direct visualization status update
+        setVisualizationInfo(lastMessage.data);
+        setAvailableVisualizations(lastMessage.data.available_visualizations || []);
+        // Update duration if provided
+        if (lastMessage.data.duration) {
+          setVisualizationDuration(lastMessage.data.duration);
+        }
       }
     }
   }, [lastMessage, mode]);
@@ -351,6 +431,32 @@ const LEDModePill = () => {
     }
   }, [connected, sendMessage]);
 
+  // Handle visualization duration change
+  const handleDurationChange = useCallback((newDuration) => {
+    setVisualizationDuration(newDuration);
+
+    // Send duration update to server
+    if (connected) {
+      sendMessage('visualization_control', {
+        command: 'set_duration',
+        duration: newDuration
+      });
+    }
+  }, [connected, sendMessage]);
+
+  // Handle visualization selection
+  const handleVisualizationSelect = useCallback((vizType) => {
+    if (!vizType) return;
+
+    // Send selection to server
+    if (connected) {
+      sendMessage('visualization_control', {
+        command: 'select',
+        visualization_type: vizType
+      });
+    }
+  }, [connected, sendMessage]);
+
   // Handle data activity (filter/selection changes)
   const handleDataActivity = useCallback(() => {
     // Check if there's actual change in data
@@ -409,22 +515,42 @@ const LEDModePill = () => {
     }
   };
 
-  if (!connected) return null;
+  // Helper to format time remaining
+  const formatTimeRemaining = (seconds) => {
+    if (!seconds || seconds < 0) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    if (mins > 0) {
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${secs}s`;
+  };
 
-  const pillText = mode === 'interactive' 
-    ? 'Interactive Mode' 
-    : 'Visualization Mode';
+  if (!connected) return null;
 
   return (
     <>
-      <StatusPill 
+      <StatusPill
         $visualizationMode={mode === 'visualization'}
         $stacked={true}
         onClick={() => setShowModal(true)}
         title="Click to configure LED mode"
       >
         <StatusDot $visualizationMode={mode === 'visualization'} />
-        {pillText}
+        {mode === 'interactive' ? (
+          'Interactive Mode'
+        ) : (
+          <VisualizationInfo>
+            <VisualizationName>
+              {visualizationInfo?.visualization_name || 'Visualization'}
+            </VisualizationName>
+            {visualizationInfo?.time_remaining !== undefined && (
+              <TimeRemaining>
+                {formatTimeRemaining(visualizationInfo.time_remaining)}
+              </TimeRemaining>
+            )}
+          </VisualizationInfo>
+        )}
       </StatusPill>
 
       {autoSwitchMessage && (
@@ -476,6 +602,41 @@ const LEDModePill = () => {
                 onChange={(e) => handleBrightnessChange(parseInt(e.target.value))}
               />
             </SliderContainer>
+
+            {mode === 'visualization' && (
+              <>
+                <SectionDivider />
+
+                <VisualizationControl>
+                  <ControlLabel>Visualization Type</ControlLabel>
+                  <Select
+                    value={visualizationInfo?.current_visualization || ''}
+                    onChange={(e) => handleVisualizationSelect(e.target.value)}
+                  >
+                    {availableVisualizations.map((viz) => (
+                      <option key={viz.type} value={viz.type}>
+                        {viz.name}
+                      </option>
+                    ))}
+                  </Select>
+                </VisualizationControl>
+
+                <VisualizationControl>
+                  <SliderLabel>
+                    <span>Duration</span>
+                    <span>{visualizationDuration}s</span>
+                  </SliderLabel>
+                  <Slider
+                    type="range"
+                    min="10"
+                    max="300"
+                    step="10"
+                    value={visualizationDuration}
+                    onChange={(e) => handleDurationChange(parseInt(e.target.value))}
+                  />
+                </VisualizationControl>
+              </>
+            )}
           </ControlPanel>
         </Modal>
       )}

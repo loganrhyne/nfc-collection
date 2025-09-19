@@ -10,14 +10,8 @@ from typing import Dict, Tuple, Optional, List, Set
 from dataclasses import dataclass
 from enum import Enum
 
-# Try to import hardware library
+# Hardware libraries will be imported when needed
 HARDWARE_AVAILABLE = False
-try:
-    import board
-    import neopixel
-    HARDWARE_AVAILABLE = True
-except ImportError:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +50,10 @@ class LEDController:
         self._global_brightness = 0.5  # Default 50% brightness
         
         # Initialize hardware if available
-        if HARDWARE_AVAILABLE and not self.config.mock_mode:
+        if not self.config.mock_mode:
             try:
+                import board
+                import neopixel
                 pin = getattr(board, self.config.gpio_pin)
                 self._pixels = neopixel.NeoPixel(
                     pin,
@@ -70,8 +66,10 @@ class LEDController:
                 self._pixels.fill((0, 0, 0))
                 self._pixels.show()
                 logger.info("LED hardware initialized successfully")
+                global HARDWARE_AVAILABLE
+                HARDWARE_AVAILABLE = True
             except Exception as e:
-                logger.error(f"Failed to initialize LED hardware: {e}")
+                logger.info(f"LED hardware not available, using mock mode: {e}")
                 self._pixels = None
     
     def hex_to_rgb(self, hex_color: str) -> Tuple[int, int, int]:
