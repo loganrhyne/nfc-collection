@@ -229,7 +229,7 @@ const VisualizationInfo = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 4px;
   flex: 1;
 `;
 
@@ -240,10 +240,20 @@ const VisualizationName = styled.div`
   line-height: 1.2;
 `;
 
-const TimeRemaining = styled.div`
-  font-size: 10px;
-  opacity: 0.9;
-  white-space: nowrap;
+const ProgressBarContainer = styled.div`
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+`;
+
+const ProgressBar = styled.div`
+  height: 100%;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 2px;
+  width: ${props => props.$progress}%;
+  transition: width 0.5s linear;
 `;
 
 const Select = styled.select`
@@ -577,10 +587,12 @@ const LEDModePill = () => {
                 return visualizationInfo?.visualization_name || 'Visualization';
               })()}
             </VisualizationName>
-            {visualizationInfo?.time_remaining !== undefined && (
-              <TimeRemaining>
-                {formatTimeRemaining(visualizationInfo.time_remaining)}
-              </TimeRemaining>
+            {visualizationInfo?.time_remaining !== undefined && visualizationInfo?.duration && (
+              <ProgressBarContainer>
+                <ProgressBar
+                  $progress={(visualizationInfo.time_remaining / visualizationInfo.duration) * 100}
+                />
+              </ProgressBarContainer>
             )}
           </VisualizationInfo>
         )}
