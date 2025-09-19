@@ -255,7 +255,7 @@ class ChronologyVisualization:
 class RegionVisualization:
     """
     Visualization showing geographic distribution by region
-    Similar to type distribution but organized by region
+    Falls back to type-based grouping if region data is not available
     """
 
     def __init__(self, entries: List[Dict], total_pixels: int = 100):
@@ -264,24 +264,68 @@ class RegionVisualization:
         self.entries_by_region = self._organize_by_region()
         self.regions = sorted(self.entries_by_region.keys()) if self.entries_by_region else []
 
+        # If we only have "Unknown" region, fall back to type-based grouping
+        if self.regions == ['Unknown'] or not self.regions:
+            logger.info("No region data available, falling back to type-based grouping")
+            self.entries_by_region = self._organize_by_type()
+            self.regions = sorted(self.entries_by_region.keys()) if self.entries_by_region else []
+
     def _organize_by_region(self) -> Dict[str, List[Dict]]:
-        """Organize entries by region"""
+        """Organize entries by region - matching frontend's approach"""
         by_region = {}
         for entry in self.entries:
-            location = entry.get('location', {})
-            # Try to get region from location data
-            region = location.get('administrativeArea', '') or \
-                    location.get('country', '') or \
-                    location.get('region', '') or \
-                    'Unknown'
+            # Frontend extracts region from tags array with format "Region: X"
+            # Since we're getting data from LED mode manager, check if region field exists
+            region = entry.get('region', '')
+
+            # If no region field, try location data as fallback
+            if not region:
+                location = entry.get('location', {})
+                # Try to get region from location data - check if it's a string or dict
+                if isinstance(location, str):
+                    # Location might be stored as a string like "California, USA"
+                    parts = location.split(',')
+                    region = parts[0].strip() if parts else 'Unknown'
+                elif isinstance(location, dict):
+                    # Try various fields in the location dict
+                    region = location.get('administrativeArea', '') or \
+                            location.get('state', '') or \
+                            location.get('country', '') or \
+                            location.get('region', '') or \
+                            location.get('name', '') or \
+                            'Unknown'
+                else:
+                    region = 'Unknown'
+
+            # Default to Unknown if still no region
+            if not region:
+                region = 'Unknown'
 
             if region not in by_region:
                 by_region[region] = []
             by_region[region].append(entry)
+
+        logger.info(f"Region visualization: Found {len(by_region)} regions: {list(by_region.keys())}")
         return by_region
 
+    def _organize_by_type(self) -> Dict[str, List[Dict]]:
+        """Fallback: Organize entries by type when region data isn't available"""
+        by_type = {}
+        for entry in self.entries:
+            entry_type = entry.get('type', 'Unknown')
+            if entry_type not in by_type:
+                by_type[entry_type] = []
+            by_type[entry_type].append(entry)
+
+        logger.info(f"Region visualization fallback: Using {len(by_type)} types: {list(by_type.keys())}")
+        return by_type
+
     def _get_region_color(self, region: str) -> Tuple[int, int, int]:
-        """Get a consistent color for a region"""
+        """Get a consistent color for a region or type"""
+        # Check if this is actually a sand type (when using fallback)
+        if region in ColorManager.SAND_TYPE_COLORS:
+            return ColorManager.SAND_TYPE_COLORS[region]
+
         # Use a hash-based approach for consistent colors per region
         hash_val = hash(region)
         hue = (hash_val % 360) / 360.0
@@ -296,6 +340,7 @@ class RegionVisualization:
         pixels = []
 
         if not self.regions:
+            logger.warning("No regions found for visualization")
             return VisualizationFrame(pixels=[], duration_ms=50)
 
         # Determine which region we're showing
@@ -311,6 +356,10 @@ class RegionVisualization:
 
         # Get entries for current region
         region_entries = self.entries_by_region.get(current_region, [])
+
+        # Debug log only first time for each region
+        if local_phase < 0.1:  # Log only at start of each region's cycle
+            logger.debug(f"Region {current_region}: {len(region_entries)} entries, brightness {brightness:.2f}")
 
         if region_entries:
             # Get color for this region
@@ -439,6 +488,7 @@ class VisualizationEngine:
                     'type': entry.get('type'),
                     'title': entry.get('title'),
                     'location': entry.get('location', {}),
+                    'region': entry.get('region', ''),  # Include region field
                     'creationDate': entry.get('creationDate')
                 }
                 self.entries_data.append(entry_data)

@@ -346,6 +346,7 @@ const LEDModePill = () => {
         type: entry.type,
         title: entry.title,
         location: entry.location,
+        region: entry.region,  // Include region field for visualization
         creationDate: entry.creationDate
       }))
     };
