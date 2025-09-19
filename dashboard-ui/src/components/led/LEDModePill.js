@@ -305,7 +305,12 @@ const LEDModePill = () => {
     if (lastMessage) {
       console.log('LEDModePill received message:', lastMessage.type, lastMessage.data);
 
+      // Log the entire message structure for debugging
+      console.log('Full message structure:', JSON.stringify(lastMessage, null, 2));
+
       if (lastMessage.type === 'led_status' && lastMessage.data?.status) {
+        console.log('Processing led_status, full status object:', lastMessage.data.status);
+
         const serverMode = lastMessage.data.status.current_mode;
         if (serverMode && serverMode !== mode) {
           setMode(serverMode);
@@ -324,7 +329,7 @@ const LEDModePill = () => {
           }
         } else if (serverMode === 'visualization') {
           // We're in visualization mode but no viz info yet
-          console.log('In visualization mode but no viz info in status');
+          console.log('In visualization mode but no viz info in status object:', lastMessage.data.status);
         }
       } else if (lastMessage.type === 'visualization_status') {
         // Direct visualization status update
