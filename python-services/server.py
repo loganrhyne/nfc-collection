@@ -496,7 +496,12 @@ class NFCWebSocketServer:
             # Get current status if not already set
             if status is None:
                 status = self.led_mode_manager.get_status()
-            
+
+            # Log the status being sent
+            logger.info(f"Sending LED status to {sid}: mode={status.get('current_mode')}, has_viz={bool(status.get('visualization'))}")
+            if status.get('visualization'):
+                logger.info(f"Visualization details: {status['visualization']}")
+
             # Send acknowledgment with current status
             await self.sio.emit('led_status', {
                 'success': True,
@@ -567,6 +572,12 @@ class NFCWebSocketServer:
 
             # Send updated status
             status = self.led_mode_manager.get_status()
+
+            # Log what we're sending
+            logger.info(f"Visualization control response - mode={status.get('current_mode')}, has_viz={bool(status.get('visualization'))}")
+            if status.get('visualization'):
+                logger.info(f"Visualization details being sent: {status['visualization']}")
+
             await self.sio.emit('led_status', {
                 'success': True,
                 'status': status

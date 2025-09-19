@@ -500,6 +500,9 @@ class VisualizationEngine:
         self.running = True
         logger.info("Starting visualization rotation")
 
+        # Initialize the scheduler's start time
+        self.scheduler.start_time = time.time()
+
         # Start rotation task
         self.rotation_task = asyncio.create_task(self._rotation_loop())
 
