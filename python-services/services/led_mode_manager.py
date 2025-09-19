@@ -56,12 +56,9 @@ class LEDModeManager:
             if self._status_callback:
                 viz_engine = self.led_controller.get_visualization_engine()
                 viz_status = viz_engine.get_status()
-                logger.info(f"Sending visualization status: {viz_status}")
                 await self._status_callback(viz_status)
 
-        final_status = self.get_status()
-        logger.info(f"Returning final status from set_mode: {final_status.get('visualization', 'No viz info')}")
-        return final_status
+        return self.get_status()
     
     async def update_entries(self, entries: List[Dict]):
         """Update entries data for visualizations"""

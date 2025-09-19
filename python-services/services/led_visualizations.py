@@ -94,11 +94,25 @@ class ColorManager:
 
 class TypeDistributionVisualization:
     """
-    Visualization showing sand type distribution
-    Slowly ramps brightness up and down for each type
+    Visualization showing sand type distribution.
+
+    Cycles through each sand type, gradually ramping brightness up and down
+    to highlight entries of that type. Each type gets equal time in the cycle.
+
+    Attributes:
+        entries: List of entry dictionaries with type and index fields
+        total_pixels: Total number of LED pixels available
+        types: Sorted list of unique sand types found in entries
     """
-    
+
     def __init__(self, entries: List[Dict], total_pixels: int = 100):
+        """
+        Initialize the type distribution visualization.
+
+        Args:
+            entries: List of entry dictionaries
+            total_pixels: Total number of LED pixels
+        """
         self.entries = entries
         self.total_pixels = total_pixels
         self.type_counts = self._calculate_type_distribution()
@@ -163,11 +177,27 @@ class TypeDistributionVisualization:
 
 class ChronologyVisualization:
     """
-    Visualization showing timeline of collection by year
-    Lights up entries year by year, then fades to baseline
+    Visualization showing timeline of collection by year.
+
+    Progressively lights up entries year by year, with the current year
+    highlighted brightly before fading to a baseline brightness. Previous
+    years remain visible at the baseline level, creating a cumulative effect.
+
+    Attributes:
+        entries: List of entry dictionaries with creationDate fields
+        total_pixels: Total number of LED pixels available
+        years: Sorted list of years found in entries
+        baseline_brightness: Dim brightness level for non-highlighted years
     """
 
     def __init__(self, entries: List[Dict], total_pixels: int = 100):
+        """
+        Initialize the chronology visualization.
+
+        Args:
+            entries: List of entry dictionaries
+            total_pixels: Total number of LED pixels
+        """
         self.entries = entries
         self.total_pixels = total_pixels
         self.entries_by_year = self._organize_by_year()
@@ -254,11 +284,26 @@ class ChronologyVisualization:
 
 class RegionVisualization:
     """
-    Visualization showing geographic distribution by region
-    Falls back to type-based grouping if region data is not available
+    Visualization showing geographic distribution by region.
+
+    Cycles through geographic regions, highlighting entries from each region
+    with a unique color. If region data is not available, falls back to
+    grouping by sand type for a meaningful display.
+
+    Attributes:
+        entries: List of entry dictionaries with region or location fields
+        total_pixels: Total number of LED pixels available
+        regions: Sorted list of regions or types (if using fallback)
     """
 
     def __init__(self, entries: List[Dict], total_pixels: int = 100):
+        """
+        Initialize the region visualization.
+
+        Args:
+            entries: List of entry dictionaries
+            total_pixels: Total number of LED pixels
+        """
         self.entries = entries
         self.total_pixels = total_pixels
         self.entries_by_region = self._organize_by_region()
@@ -380,10 +425,23 @@ class RegionVisualization:
 
 class VisualizationScheduler:
     """
-    Manages visualization rotation and scheduling
+    Manages visualization rotation and scheduling.
+
+    Controls the timing and sequencing of different visualizations,
+    supporting both automatic rotation and manual selection.
+
+    Attributes:
+        visualizations: List of available visualization types
+        current_index: Index of the current visualization in the rotation
+        duration_seconds: How long each visualization runs before rotating
+        start_time: Timestamp when current visualization started
+        manual_selection: Currently manually selected visualization, if any
     """
 
     def __init__(self):
+        """
+        Initialize the visualization scheduler with default settings.
+        """
         self.visualizations = [
             VisualizationType.TYPE_DISTRIBUTION,
             VisualizationType.CHRONOLOGY,
@@ -458,10 +516,26 @@ class VisualizationScheduler:
 
 class VisualizationEngine:
     """
-    Main engine for running LED visualizations with rotation support
+    Main engine for managing LED visualizations.
+
+    Handles visualization lifecycle, rotation scheduling, and status updates
+    for the LED display system. Supports multiple visualization types including
+    type distribution, chronological timeline, and geographic regions.
+
+    Attributes:
+        led_controller: The LED controller instance for display operations
+        scheduler: VisualizationScheduler instance for managing rotations
+        running: Boolean indicating if visualizations are active
+        entries_data: List of entry data for visualizations
     """
 
     def __init__(self, led_controller):
+        """
+        Initialize the visualization engine.
+
+        Args:
+            led_controller: LED controller instance for hardware control
+        """
         self.led_controller = led_controller
         self.scheduler = VisualizationScheduler()
         self.current_viz = None
@@ -547,7 +621,14 @@ class VisualizationEngine:
         await self.led_controller.clear_all()
 
     async def _rotation_loop(self):
-        """Main rotation loop for visualizations"""
+        """Main rotation loop for visualizations.
+
+        Continuously cycles through visualizations based on the scheduler's
+        duration settings. Sends status updates to the frontend via callbacks.
+
+        Raises:
+            asyncio.CancelledError: When the rotation is stopped
+        """
         try:
             while self.running:
                 # Get current visualization
@@ -560,7 +641,10 @@ class VisualizationEngine:
 
                 # Send status update
                 if self.status_callback:
-                    await self.status_callback(self.get_status())
+                    try:
+                        await self.status_callback(self.get_status())
+                    except Exception as e:
+                        logger.error(f"Error sending status update: {e}")
 
                 # Wait for duration or cancellation
                 while self.running and not self.scheduler.should_rotate():
@@ -568,7 +652,10 @@ class VisualizationEngine:
 
                     # Send periodic status updates
                     if self.status_callback:
-                        await self.status_callback(self.get_status())
+                        try:
+                            await self.status_callback(self.get_status())
+                        except Exception as e:
+                            logger.error(f"Error sending periodic status: {e}")
 
                 # Cancel current visualization
                 if self.current_task:
@@ -588,13 +675,26 @@ class VisualizationEngine:
             raise
         except Exception as e:
             logger.error(f"Error in rotation loop: {e}", exc_info=True)
+            self.running = False
 
     async def _run_single_visualization(self, viz_type: VisualizationType):
-        """Run a single visualization"""
+        """Run a single visualization.
+
+        Args:
+            viz_type: The type of visualization to run
+
+        Raises:
+            asyncio.CancelledError: When the visualization is stopped
+        """
         try:
             # Check if LED hardware is available
             if not self.led_controller._pixels:
                 logger.error("LED hardware not available for visualization")
+                return
+
+            # Check if we have data to visualize
+            if not self.entries_data:
+                logger.warning("No entries data available for visualization")
                 return
 
             # Create appropriate visualization instance

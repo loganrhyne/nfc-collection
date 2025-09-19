@@ -313,45 +313,37 @@ const LEDModePill = () => {
   // Handle LED status updates from server
   useEffect(() => {
     if (lastMessage) {
-      console.log('LEDModePill received message:', lastMessage.type, lastMessage.data);
-
-      // Log the entire message structure for debugging
-      console.log('Full message structure:', JSON.stringify(lastMessage, null, 2));
-
-      if (lastMessage.type === 'led_status' && lastMessage.data?.status) {
-        console.log('Processing led_status, full status object:', lastMessage.data.status);
-
-        const serverMode = lastMessage.data.status.current_mode;
-        if (serverMode && serverMode !== mode) {
-          setMode(serverMode);
-        }
-
-        // Update visualization info if present
-        if (lastMessage.data.status.visualization) {
-          console.log('LED status has visualization info:', lastMessage.data.status.visualization);
-          setVisualizationInfo(lastMessage.data.status.visualization);
-          setAvailableVisualizations(
-            lastMessage.data.status.visualization.available_visualizations || []
-          );
-          // Update duration if provided
-          if (lastMessage.data.status.visualization.duration) {
-            setVisualizationDuration(lastMessage.data.status.visualization.duration);
+      try {
+        if (lastMessage.type === 'led_status' && lastMessage.data?.status) {
+          const serverMode = lastMessage.data.status.current_mode;
+          if (serverMode && serverMode !== mode) {
+            setMode(serverMode);
           }
-        } else if (serverMode === 'visualization') {
-          // We're in visualization mode but no viz info yet
-          console.log('In visualization mode but no viz info in status object:', lastMessage.data.status);
-        }
-      } else if (lastMessage.type === 'visualization_status') {
-        // Direct visualization status update
-        console.log('Received visualization_status:', lastMessage.data);
-        if (lastMessage.data) {
-          setVisualizationInfo(lastMessage.data);
-          setAvailableVisualizations(lastMessage.data.available_visualizations || []);
-          // Update duration if provided
-          if (lastMessage.data.duration) {
-            setVisualizationDuration(lastMessage.data.duration);
+
+          // Update visualization info if present
+          if (lastMessage.data.status.visualization) {
+            setVisualizationInfo(lastMessage.data.status.visualization);
+            setAvailableVisualizations(
+              lastMessage.data.status.visualization.available_visualizations || []
+            );
+            // Update duration if provided
+            if (lastMessage.data.status.visualization.duration) {
+              setVisualizationDuration(lastMessage.data.status.visualization.duration);
+            }
+          }
+        } else if (lastMessage.type === 'visualization_status') {
+          // Direct visualization status update
+          if (lastMessage.data) {
+            setVisualizationInfo(lastMessage.data);
+            setAvailableVisualizations(lastMessage.data.available_visualizations || []);
+            // Update duration if provided
+            if (lastMessage.data.duration) {
+              setVisualizationDuration(lastMessage.data.duration);
+            }
           }
         }
+      } catch (error) {
+        console.error('Error processing LED status message:', error);
       }
     }
   }, [lastMessage, mode]);
@@ -461,39 +453,51 @@ const LEDModePill = () => {
 
   // Handle brightness change
   const handleBrightnessChange = useCallback((newBrightness) => {
-    setBrightness(newBrightness);
+    try {
+      setBrightness(newBrightness);
 
-    // Send brightness update to server
-    if (connected) {
-      sendMessage('led_brightness', {
-        brightness: newBrightness / 100  // Convert to 0-1 range
-      });
+      // Send brightness update to server
+      if (connected) {
+        sendMessage('led_brightness', {
+          brightness: newBrightness / 100  // Convert to 0-1 range
+        });
+      }
+    } catch (error) {
+      console.error('Error changing brightness:', error);
     }
   }, [connected, sendMessage]);
 
   // Handle visualization duration change
   const handleDurationChange = useCallback((newDuration) => {
-    setVisualizationDuration(newDuration);
+    try {
+      setVisualizationDuration(newDuration);
 
-    // Send duration update to server
-    if (connected) {
-      sendMessage('visualization_control', {
-        command: 'set_duration',
-        duration: newDuration
-      });
+      // Send duration update to server
+      if (connected) {
+        sendMessage('visualization_control', {
+          command: 'set_duration',
+          duration: newDuration
+        });
+      }
+    } catch (error) {
+      console.error('Error changing visualization duration:', error);
     }
   }, [connected, sendMessage]);
 
   // Handle visualization selection
   const handleVisualizationSelect = useCallback((vizType) => {
-    if (!vizType) return;
+    try {
+      if (!vizType) return;
 
-    // Send selection to server
-    if (connected) {
-      sendMessage('visualization_control', {
-        command: 'select',
-        visualization_type: vizType
-      });
+      // Send selection to server
+      if (connected) {
+        sendMessage('visualization_control', {
+          command: 'select',
+          visualization_type: vizType
+        });
+      }
+    } catch (error) {
+      console.error('Error selecting visualization:', error);
     }
   }, [connected, sendMessage]);
 
@@ -582,10 +586,7 @@ const LEDModePill = () => {
         ) : (
           <VisualizationInfo>
             <VisualizationName>
-              {(() => {
-                console.log('Rendering visualization pill, info:', visualizationInfo);
-                return visualizationInfo?.visualization_name || 'Visualization';
-              })()}
+              {visualizationInfo?.visualization_name || 'Visualization'}
             </VisualizationName>
             {visualizationInfo?.time_remaining !== undefined && visualizationInfo?.duration && (
               <ProgressBarContainer>

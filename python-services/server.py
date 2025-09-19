@@ -496,16 +496,10 @@ class NFCWebSocketServer:
                 # If switching to visualization mode, also send visualization status separately
                 elif mode == LEDMode.VISUALIZATION and status.get('visualization'):
                     await self.sio.emit('visualization_status', status['visualization'], room=sid)
-                    logger.info(f"Sent separate visualization_status message")
                 
             # Get current status if not already set
             if status is None:
                 status = self.led_mode_manager.get_status()
-
-            # Log the status being sent
-            logger.info(f"Sending LED status to {sid}: mode={status.get('current_mode')}, has_viz={bool(status.get('visualization'))}")
-            if status.get('visualization'):
-                logger.info(f"Visualization details: {status['visualization']}")
 
             # Send acknowledgment with current status
             await self.sio.emit('led_status', {
@@ -578,10 +572,7 @@ class NFCWebSocketServer:
             # Send updated status
             status = self.led_mode_manager.get_status()
 
-            # Log what we're sending
-            logger.info(f"Visualization control response - mode={status.get('current_mode')}, has_viz={bool(status.get('visualization'))}")
             if status.get('visualization'):
-                logger.info(f"Visualization details being sent: {status['visualization']}")
                 # Also send as separate visualization_status message
                 await self.sio.emit('visualization_status', status['visualization'], room=sid)
 

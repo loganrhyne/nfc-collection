@@ -170,8 +170,6 @@ export const useWebSocket = () => {
     // Generic message handler with error protection
     socket.current.onAny((eventName, data) => {
       try {
-        console.log(`WebSocket received '${eventName}':`, data);
-
         // Create message with correct structure
         // If data already has a nested structure, preserve it
         const message = {
@@ -179,7 +177,6 @@ export const useWebSocket = () => {
           data: data  // Keep data nested, don't spread it
         };
 
-        console.log('Message structure being set:', message);
         setLastMessage(message);
 
         // Call registered handlers with error protection
