@@ -478,20 +478,25 @@ class NFCWebSocketServer:
                 # Switch LED mode
                 mode_str = data.get('mode', 'interactive')
                 mode = LEDMode.INTERACTIVE if mode_str == 'interactive' else LEDMode.VISUALIZATION
-                
-                
+
+
                 # Update entries if provided (for visualization mode)
                 if 'allEntries' in data:
                     await self.led_mode_manager.update_entries(data['allEntries'])
-                
+
                 # Set the mode
                 status = await self.led_mode_manager.set_mode(mode)
                 logger.info(f"LED: Mode set to {mode.value}")
-                
+
                 # If switching to interactive mode and LED data is included, update immediately
                 if mode == LEDMode.INTERACTIVE and 'interactiveLedData' in data:
                     led_data = data['interactiveLedData']
                     await self.led_mode_manager.handle_interactive_update(led_data)
+
+                # If switching to visualization mode, also send visualization status separately
+                elif mode == LEDMode.VISUALIZATION and status.get('visualization'):
+                    await self.sio.emit('visualization_status', status['visualization'], room=sid)
+                    logger.info(f"Sent separate visualization_status message")
                 
             # Get current status if not already set
             if status is None:
@@ -577,6 +582,8 @@ class NFCWebSocketServer:
             logger.info(f"Visualization control response - mode={status.get('current_mode')}, has_viz={bool(status.get('visualization'))}")
             if status.get('visualization'):
                 logger.info(f"Visualization details being sent: {status['visualization']}")
+                # Also send as separate visualization_status message
+                await self.sio.emit('visualization_status', status['visualization'], room=sid)
 
             await self.sio.emit('led_status', {
                 'success': True,
