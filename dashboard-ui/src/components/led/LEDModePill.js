@@ -22,7 +22,7 @@ const StatusPill = styled.div`
   gap: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 150px;
+  min-width: ${props => props.$visualizationMode ? '180px' : '150px'};
 
   &:hover {
     transform: translateY(-2px);
@@ -234,9 +234,10 @@ const VisualizationInfo = styled.div`
 `;
 
 const VisualizationName = styled.div`
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
+  line-height: 1.2;
 `;
 
 const TimeRemaining = styled.div`
@@ -550,7 +551,7 @@ const LEDModePill = () => {
         ) : (
           <VisualizationInfo>
             <VisualizationName>
-              {visualizationInfo?.visualization_name || 'Visualization'}
+              {visualizationInfo?.visualization_name || 'Visualization Mode'}
             </VisualizationName>
             {visualizationInfo?.time_remaining !== undefined && (
               <TimeRemaining>
