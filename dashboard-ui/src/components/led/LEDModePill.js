@@ -311,6 +311,7 @@ const LEDModePill = () => {
 
         // Update visualization info if present
         if (lastMessage.data.status.visualization) {
+          console.log('LED status has visualization info:', lastMessage.data.status.visualization);
           setVisualizationInfo(lastMessage.data.status.visualization);
           setAvailableVisualizations(
             lastMessage.data.status.visualization.available_visualizations || []
@@ -322,6 +323,7 @@ const LEDModePill = () => {
         }
       } else if (lastMessage.type === 'visualization_status') {
         // Direct visualization status update
+        console.log('Received visualization_status:', lastMessage.data);
         if (lastMessage.data) {
           setVisualizationInfo(lastMessage.data);
           setAvailableVisualizations(lastMessage.data.available_visualizations || []);
@@ -551,7 +553,10 @@ const LEDModePill = () => {
         ) : (
           <VisualizationInfo>
             <VisualizationName>
-              {visualizationInfo?.visualization_name || 'Visualization Mode'}
+              {(() => {
+                console.log('Rendering visualization pill, info:', visualizationInfo);
+                return visualizationInfo?.visualization_name || 'Visualization';
+              })()}
             </VisualizationName>
             {visualizationInfo?.time_remaining !== undefined && (
               <TimeRemaining>
