@@ -171,9 +171,17 @@ export const useWebSocket = () => {
     socket.current.onAny((eventName, data) => {
       try {
         console.log(`WebSocket received '${eventName}':`, data);
-        const message = { type: eventName, ...data };
+
+        // Create message with correct structure
+        // If data already has a nested structure, preserve it
+        const message = {
+          type: eventName,
+          data: data  // Keep data nested, don't spread it
+        };
+
+        console.log('Message structure being set:', message);
         setLastMessage(message);
-        
+
         // Call registered handlers with error protection
         const handler = messageHandlers.current.get(eventName);
         if (handler) {
