@@ -290,12 +290,73 @@ const ControlLabel = styled.label`
   font-weight: 500;
 `;
 
+const PowerToggle = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+`;
+
+const PowerLabel = styled.span`
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+`;
+
+const ToggleSwitch = styled.label`
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 28px;
+`;
+
+const ToggleInput = styled.input`
+  opacity: 0;
+  width: 0;
+  height: 0;
+
+  &:checked + span {
+    background-color: #4CAF50;
+  }
+
+  &:checked + span:before {
+    transform: translateX(32px);
+  }
+`;
+
+const ToggleSlider = styled.span`
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.3s;
+  border-radius: 28px;
+
+  &:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+  }
+`;
+
 const LEDModePill = () => {
   const { sendMessage, connected, lastMessage } = useWebSocket();
   const { allEntries, entries, selectedEntry } = useData();
   const { updateLEDs } = useLEDController();
   const [showModal, setShowModal] = useState(false);
   const [mode, setMode] = useState('interactive');
+  const [ledsOn, setLedsOn] = useState(true); // Track if LEDs are on or off
   const [autoSwitchMessage, setAutoSwitchMessage] = useState('');
   const [brightness, setBrightness] = useState(50); // Default 50% brightness
   const [visualizationInfo, setVisualizationInfo] = useState(null);
@@ -316,8 +377,14 @@ const LEDModePill = () => {
       try {
         if (lastMessage.type === 'led_status' && lastMessage.data?.status) {
           const serverMode = lastMessage.data.status.current_mode;
-          if (serverMode && serverMode !== mode) {
-            setMode(serverMode);
+          if (serverMode) {
+            if (serverMode === 'off') {
+              setLedsOn(false);
+              setMode('interactive'); // Keep last active mode
+            } else {
+              setLedsOn(true);
+              setMode(serverMode);
+            }
           }
 
           // Update visualization info if present
@@ -350,7 +417,17 @@ const LEDModePill = () => {
 
   // Function to change mode
   const changeMode = useCallback((newMode, reason = 'unknown') => {
-    if (newMode === mode) return;
+    if (newMode === mode && newMode !== 'off') return;
+
+    // Handle OFF mode specially
+    if (newMode === 'off') {
+      setLedsOn(false);
+      sendMessage('led_update', {
+        command: 'set_mode',
+        mode: 'off'
+      });
+      return;
+    }
 
 
     // Build the complete mode change message
@@ -420,17 +497,39 @@ const LEDModePill = () => {
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
-    
-    // Only set timer if in interactive mode
-    if (mode === 'interactive') {
+
+    // Only set timer if in interactive mode and LEDs are on
+    if (mode === 'interactive' && ledsOn) {
       inactivityTimerRef.current = setTimeout(() => {
         changeMode('visualization', 'inactivity');
       }, INACTIVITY_TIMEOUT);
     }
-  }, [mode, changeMode, INACTIVITY_TIMEOUT]);
+  }, [mode, ledsOn, changeMode, INACTIVITY_TIMEOUT]);
+
+  // Handle LED on/off toggle
+  const handleLedToggle = useCallback((isOn) => {
+    setLedsOn(isOn);
+
+    if (isOn) {
+      // Turn LEDs back on with the current mode
+      changeMode(mode, 'manual');
+      // Reset inactivity timer
+      resetInactivityTimer();
+    } else {
+      // Turn LEDs off
+      changeMode('off', 'manual');
+      // Clear inactivity timer when turning off
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+    }
+  }, [mode, changeMode, resetInactivityTimer]);
 
   // Handle manual mode change from UI
   const handleManualModeChange = useCallback((newMode) => {
+    // Don't change mode if LEDs are off
+    if (!ledsOn) return;
+
     // Clear interaction history so we don't immediately switch back
     lastEntriesRef.current = entries;
     lastSelectedEntryRef.current = selectedEntry;
@@ -449,7 +548,7 @@ const LEDModePill = () => {
         });
       }, 500); // Small delay to ensure mode is fully switched
     }
-  }, [changeMode, resetInactivityTimer, entries, selectedEntry, sendMessage]);
+  }, [ledsOn, changeMode, resetInactivityTimer, entries, selectedEntry, sendMessage]);
 
   // Handle brightness change
   const handleBrightnessChange = useCallback((newBrightness) => {
@@ -503,28 +602,30 @@ const LEDModePill = () => {
 
   // Handle data activity (filter/selection changes)
   const handleDataActivity = useCallback(() => {
+    // Don't handle activity if LEDs are off
+    if (!ledsOn) return;
+
     // Check if there's actual change in data
     const entriesChanged = entries !== lastEntriesRef.current;
     const selectionChanged = selectedEntry !== lastSelectedEntryRef.current;
-    
+
     if (!entriesChanged && !selectionChanged) {
       // No actual change, don't trigger activity
       return;
     }
-    
+
     // Update our tracked values
     lastEntriesRef.current = entries;
     lastSelectedEntryRef.current = selectedEntry;
-    
-    
+
     // If in visualization mode, switch back to interactive
     if (mode === 'visualization') {
       changeMode('interactive', 'activity');
     }
-    
+
     // Reset inactivity timer
     resetInactivityTimer();
-  }, [mode, changeMode, resetInactivityTimer, entries, selectedEntry]);
+  }, [mode, ledsOn, changeMode, resetInactivityTimer, entries, selectedEntry]);
 
 
   // Monitor filter and selection changes
@@ -579,9 +680,15 @@ const LEDModePill = () => {
         $stacked={true}
         onClick={() => setShowModal(true)}
         title="Click to configure LED mode"
+        style={{
+          backgroundColor: !ledsOn ? '#666' : mode === 'visualization' ? '#2196F3' : '#9C27B0',
+          opacity: !ledsOn ? 0.8 : 1
+        }}
       >
         <StatusDot $visualizationMode={mode === 'visualization'} />
-        {mode === 'interactive' ? (
+        {!ledsOn ? (
+          'LEDs Off'
+        ) : mode === 'interactive' ? (
           'Interactive Mode'
         ) : (
           <VisualizationInfo>
@@ -612,16 +719,28 @@ const LEDModePill = () => {
               <Title>LED Control</Title>
               <CloseButton onClick={() => setShowModal(false)}>×</CloseButton>
             </Header>
-            
-            <ModeToggle>
-              <ModeButton 
-                $active={mode === 'interactive'} 
+
+            <PowerToggle>
+              <PowerLabel>LEDs</PowerLabel>
+              <ToggleSwitch>
+                <ToggleInput
+                  type="checkbox"
+                  checked={ledsOn}
+                  onChange={(e) => handleLedToggle(e.target.checked)}
+                />
+                <ToggleSlider />
+              </ToggleSwitch>
+            </PowerToggle>
+
+            <ModeToggle style={{ opacity: ledsOn ? 1 : 0.4, pointerEvents: ledsOn ? 'auto' : 'none' }}>
+              <ModeButton
+                $active={mode === 'interactive'}
                 onClick={() => handleManualModeChange('interactive')}
               >
                 Interactive
               </ModeButton>
-              <ModeButton 
-                $active={mode === 'visualization'} 
+              <ModeButton
+                $active={mode === 'visualization'}
                 onClick={() => handleManualModeChange('visualization')}
               >
                 Visualization
@@ -629,13 +748,15 @@ const LEDModePill = () => {
             </ModeToggle>
 
             <StatusText>
-              {mode === 'interactive'
+              {!ledsOn
+                ? 'LEDs are turned off. Toggle on to activate.'
+                : mode === 'interactive'
                 ? 'LEDs show filtered entries. Selected entry appears brighter.'
                 : 'Cycling through data visualizations.'
               }
             </StatusText>
 
-            <SliderContainer>
+            <SliderContainer style={{ opacity: ledsOn ? 1 : 0.4, pointerEvents: ledsOn ? 'auto' : 'none' }}>
               <SliderLabel>
                 <span>Brightness</span>
                 <span>{brightness}%</span>
@@ -649,7 +770,7 @@ const LEDModePill = () => {
               />
             </SliderContainer>
 
-            {mode === 'visualization' && (
+            {mode === 'visualization' && ledsOn && (
               <>
                 <SectionDivider />
 

@@ -35,6 +35,7 @@ class LEDMode(Enum):
     """LED operation modes"""
     INTERACTIVE = "interactive"
     VISUALIZATION = "visualization"
+    OFF = "off"
 
 
 class LEDController:
@@ -187,28 +188,31 @@ class LEDController:
             pass
 
     async def set_mode(self, mode: LEDMode):
-        """Switch between interactive and visualization modes"""
+        """Switch between interactive, visualization, and off modes"""
         if self._mode == mode:
             return
-            
+
         # Stop visualization if switching away from it
         if self._mode == LEDMode.VISUALIZATION and self._visualization_engine:
             await self._visualization_engine.stop_visualization()
-        
+
         self._mode = mode
-        
+
         # Handle mode-specific initialization
-        if mode == LEDMode.VISUALIZATION:
+        if mode == LEDMode.OFF:
+            # Turn off all LEDs and keep them off
+            await self.clear_all()
+        elif mode == LEDMode.VISUALIZATION:
             # Clear all LEDs when entering visualization mode
             await self.clear_all()
         elif mode == LEDMode.INTERACTIVE:
-            # When switching to interactive mode from visualization
+            # When switching to interactive mode from visualization or off
             # The visualization engine should have already cleared its pixels when stopping
             # Just reset our tracking state
             self._current_indices.clear()
             self._selected_index = None
             logger.info("Switched to interactive mode, ready for new data")
-        
+
         logger.info(f"LED mode changed to: {mode.value}")
     
     def get_visualization_engine(self):

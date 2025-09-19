@@ -57,6 +57,9 @@ class LEDModeManager:
                 viz_engine = self.led_controller.get_visualization_engine()
                 viz_status = viz_engine.get_status()
                 await self._status_callback(viz_status)
+        elif mode == LEDMode.OFF:
+            # When switching to OFF mode, ensure all LEDs are turned off
+            await self.led_controller.clear_all()
 
         return self.get_status()
     
@@ -139,7 +142,11 @@ class LEDModeManager:
         if self._current_mode != LEDMode.INTERACTIVE:
             logger.warning("Received interactive update while not in interactive mode")
             return
-        
+
+        # Don't process updates if LEDs are turned off
+        if self._current_mode == LEDMode.OFF:
+            return
+
         await self.led_controller.update_interactive_mode(entries)
     
     async def clear_all(self):
