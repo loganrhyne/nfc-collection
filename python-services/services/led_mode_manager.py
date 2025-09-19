@@ -32,26 +32,32 @@ class LEDModeManager:
         Returns status dict for frontend sync
         """
         logger.info(f"Setting LED mode to: {mode.value}")
-        
+
         # If already in this mode, just return status
         if self._current_mode == mode:
             return self.get_status()
-        
+
         # Clean up current mode
         if self._current_mode == LEDMode.VISUALIZATION:
             await self._stop_visualization()
-        
+
         # Set new mode - this is now simplified
         self._current_mode = mode
-        
+
         # Update the controller mode without clearing
         # The controller's set_mode is updated to only clear when going TO visualization
         await self.led_controller.set_mode(mode)
-        
+
         # Initialize visualization if needed
         if mode == LEDMode.VISUALIZATION and auto_start_viz:
             await self._start_visualization()
-        
+
+            # Send visualization status immediately after starting
+            if self._status_callback:
+                viz_engine = self.led_controller.get_visualization_engine()
+                viz_status = viz_engine.get_status()
+                await self._status_callback(viz_status)
+
         return self.get_status()
     
     async def update_entries(self, entries: List[Dict]):

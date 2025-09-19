@@ -303,6 +303,8 @@ const LEDModePill = () => {
   // Handle LED status updates from server
   useEffect(() => {
     if (lastMessage) {
+      console.log('LEDModePill received message:', lastMessage.type, lastMessage.data);
+
       if (lastMessage.type === 'led_status' && lastMessage.data?.status) {
         const serverMode = lastMessage.data.status.current_mode;
         if (serverMode && serverMode !== mode) {
@@ -320,6 +322,9 @@ const LEDModePill = () => {
           if (lastMessage.data.status.visualization.duration) {
             setVisualizationDuration(lastMessage.data.status.visualization.duration);
           }
+        } else if (serverMode === 'visualization') {
+          // We're in visualization mode but no viz info yet
+          console.log('In visualization mode but no viz info in status');
         }
       } else if (lastMessage.type === 'visualization_status') {
         // Direct visualization status update
@@ -339,8 +344,8 @@ const LEDModePill = () => {
   // Function to change mode
   const changeMode = useCallback((newMode, reason = 'unknown') => {
     if (newMode === mode) return;
-    
-    
+
+
     // Build the complete mode change message
     const modeChangeMsg = {
       command: 'set_mode',
@@ -353,21 +358,21 @@ const LEDModePill = () => {
         creationDate: entry.creationDate
       }))
     };
-    
+
     // If switching to interactive mode, include the current LED state
     if (newMode === 'interactive') {
       // Get currently filtered entries (use allEntries if no filter is active)
       const filteredEntries = entries && entries.length > 0 ? entries : allEntries;
-      
-      
+
+
       // Build LED data for filtered entries
       const ledData = filteredEntries.map(entry => {
         // Always use allEntries for consistent indexing
-        const sortedEntries = [...allEntries].sort((a, b) => 
+        const sortedEntries = [...allEntries].sort((a, b) =>
           new Date(a.creationDate) - new Date(b.creationDate)
         );
         const index = sortedEntries.findIndex(e => e.uuid === entry.uuid);
-        
+
         return {
           index,
           color: entry.type ? getLEDColor(entry.type) : '#FFFFFF',
@@ -375,17 +380,24 @@ const LEDModePill = () => {
           isSelected: selectedEntry?.uuid === entry.uuid
         };
       }).filter(item => item.index !== null && item.index >= 0);
-      
+
       // Include LED data in the mode change message
       modeChangeMsg.interactiveLedData = ledData;
+    } else if (newMode === 'visualization') {
+      // Request visualization status after a short delay
+      setTimeout(() => {
+        sendMessage('visualization_control', {
+          command: 'get_status'
+        });
+      }, 500);
     }
-    
+
     // Update local state optimistically
     setMode(newMode);
-    
+
     // Send combined mode change + LED data to server
     sendMessage('led_update', modeChangeMsg);
-    
+
     // Show notification for auto switches
     if (reason === 'inactivity') {
       setAutoSwitchMessage('No activity for 5 minutes - starting visualization');
@@ -424,9 +436,11 @@ const LEDModePill = () => {
       resetInactivityTimer();
     } else if (newMode === 'visualization') {
       // Request visualization status when switching to visualization mode
-      sendMessage('visualization_control', {
-        command: 'get_status'
-      });
+      setTimeout(() => {
+        sendMessage('visualization_control', {
+          command: 'get_status'
+        });
+      }, 500); // Small delay to ensure mode is fully switched
     }
   }, [changeMode, resetInactivityTimer, entries, selectedEntry, sendMessage]);
 
