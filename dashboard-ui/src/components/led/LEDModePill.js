@@ -420,7 +420,9 @@ const LEDModePill = () => {
   // Function to change mode
   const changeMode = useCallback((newMode, reason = 'unknown') => {
     console.log(`[LED] changeMode called: newMode=${newMode}, currentMode=${mode}, reason=${reason}`);
-    if (newMode === mode && newMode !== 'off') return;
+
+    // Skip if already in this mode UNLESS we're restoring from off state
+    if (newMode === mode && newMode !== 'off' && reason !== 'restore') return;
 
     // Handle OFF mode specially
     if (newMode === 'off') {
@@ -523,7 +525,16 @@ const LEDModePill = () => {
       // This fixes the issue where mode might still be 'interactive' when LEDs are off
       const modeToRestore = lastActiveMode || 'interactive';
       console.log(`[LED] Restoring mode: ${modeToRestore}`);
-      changeMode(modeToRestore, 'manual');
+      changeMode(modeToRestore, 'restore');  // Use 'restore' reason to force update
+
+      // For interactive mode, also trigger an LED update after a short delay
+      // This ensures the LEDs get data after the mode is set
+      if (modeToRestore === 'interactive') {
+        setTimeout(() => {
+          updateLEDs();
+        }, 100);
+      }
+
       // Reset inactivity timer
       resetInactivityTimer();
     } else {
@@ -534,7 +545,7 @@ const LEDModePill = () => {
         clearTimeout(inactivityTimerRef.current);
       }
     }
-  }, [lastActiveMode, mode, changeMode, resetInactivityTimer]);
+  }, [lastActiveMode, mode, changeMode, resetInactivityTimer, updateLEDs]);
 
   // Handle manual mode change from UI
   const handleManualModeChange = useCallback((newMode) => {
