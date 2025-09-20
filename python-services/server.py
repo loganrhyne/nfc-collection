@@ -477,8 +477,14 @@ class NFCWebSocketServer:
             elif command == 'set_mode':
                 # Switch LED mode
                 mode_str = data.get('mode', 'interactive')
-                mode = LEDMode.INTERACTIVE if mode_str == 'interactive' else LEDMode.VISUALIZATION
 
+                # Properly handle all three modes
+                if mode_str == 'off':
+                    mode = LEDMode.OFF
+                elif mode_str == 'visualization':
+                    mode = LEDMode.VISUALIZATION
+                else:
+                    mode = LEDMode.INTERACTIVE
 
                 # Update entries if provided (for visualization mode)
                 if 'allEntries' in data:

@@ -356,6 +356,7 @@ const LEDModePill = () => {
   const { updateLEDs } = useLEDController();
   const [showModal, setShowModal] = useState(false);
   const [mode, setMode] = useState('interactive');
+  const [lastActiveMode, setLastActiveMode] = useState('interactive'); // Track last active mode for restore
   const [ledsOn, setLedsOn] = useState(true); // Track if LEDs are on or off
   const [autoSwitchMessage, setAutoSwitchMessage] = useState('');
   const [brightness, setBrightness] = useState(50); // Default 50% brightness
@@ -380,10 +381,11 @@ const LEDModePill = () => {
           if (serverMode) {
             if (serverMode === 'off') {
               setLedsOn(false);
-              setMode('interactive'); // Keep last active mode
+              // Don't change mode when off, it's preserved
             } else {
               setLedsOn(true);
               setMode(serverMode);
+              setLastActiveMode(serverMode); // Remember this as the last active mode
             }
           }
 
@@ -417,10 +419,12 @@ const LEDModePill = () => {
 
   // Function to change mode
   const changeMode = useCallback((newMode, reason = 'unknown') => {
+    console.log(`[LED] changeMode called: newMode=${newMode}, currentMode=${mode}, reason=${reason}`);
     if (newMode === mode && newMode !== 'off') return;
 
     // Handle OFF mode specially
     if (newMode === 'off') {
+      console.log('[LED] Turning LEDs off');
       setLedsOn(false);
       sendMessage('led_update', {
         command: 'set_mode',
@@ -478,6 +482,9 @@ const LEDModePill = () => {
 
     // Update local state optimistically
     setMode(newMode);
+    if (newMode !== 'off') {
+      setLastActiveMode(newMode); // Remember the last active mode
+    }
 
     // Send combined mode change + LED data to server
     sendMessage('led_update', modeChangeMsg);
@@ -490,7 +497,7 @@ const LEDModePill = () => {
       setAutoSwitchMessage('Activity detected - switching to interactive mode');
       setTimeout(() => setAutoSwitchMessage(''), 3000);
     }
-  }, [mode, sendMessage, allEntries, entries, selectedEntry, updateLEDs]);
+  }, [mode, sendMessage, allEntries, entries, selectedEntry]);
 
   // Reset inactivity timer
   const resetInactivityTimer = useCallback(() => {
@@ -508,11 +515,15 @@ const LEDModePill = () => {
 
   // Handle LED on/off toggle
   const handleLedToggle = useCallback((isOn) => {
+    console.log(`[LED] Toggle: ${isOn ? 'ON' : 'OFF'}, lastActiveMode=${lastActiveMode}, currentMode=${mode}`);
     setLedsOn(isOn);
 
     if (isOn) {
-      // Turn LEDs back on with the current mode
-      changeMode(mode, 'manual');
+      // Turn LEDs back on with the LAST ACTIVE mode, not current mode
+      // This fixes the issue where mode might still be 'interactive' when LEDs are off
+      const modeToRestore = lastActiveMode || 'interactive';
+      console.log(`[LED] Restoring mode: ${modeToRestore}`);
+      changeMode(modeToRestore, 'manual');
       // Reset inactivity timer
       resetInactivityTimer();
     } else {
@@ -523,7 +534,7 @@ const LEDModePill = () => {
         clearTimeout(inactivityTimerRef.current);
       }
     }
-  }, [mode, changeMode, resetInactivityTimer]);
+  }, [lastActiveMode, mode, changeMode, resetInactivityTimer]);
 
   // Handle manual mode change from UI
   const handleManualModeChange = useCallback((newMode) => {
