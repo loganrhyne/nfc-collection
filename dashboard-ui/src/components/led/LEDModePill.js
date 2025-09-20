@@ -65,11 +65,10 @@ const Modal = styled.div`
 
 const ControlPanel = styled.div`
   background: white;
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  min-width: 300px;
-  max-width: 400px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  width: 420px;
+  overflow: hidden;
   animation: slideIn 0.2s ease;
   
   @keyframes slideIn {
@@ -88,55 +87,150 @@ const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin: 0;
 `;
 
 const Title = styled.h3`
   margin: 0;
-  font-size: 18px;
-  color: #333;
+  font-size: 16px;
+  color: white;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const BodyContent = styled.div`
+  padding: 24px;
+`;
+
+const HeaderControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
 `;
 
 const CloseButton = styled.button`
-  background: none;
+  background: rgba(255, 255, 255, 0.2);
   border: none;
-  font-size: 24px;
-  color: #666;
+  font-size: 18px;
+  color: white;
   cursor: pointer;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: all 0.2s;
-  
+
   &:hover {
-    background: #f5f5f5;
-    color: #333;
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
   }
 `;
 
 const ModeToggle = styled.div`
   display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 24px;
 `;
 
 const ModeButton = styled.button`
   flex: 1;
-  padding: 10px 16px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: ${props => props.$active ? '#4CAF50' : 'white'};
-  color: ${props => props.$active ? 'white' : '#333'};
+  padding: 12px 20px;
+  border: 2px solid ${props => props.$active ? '#667eea' : '#e0e0e0'};
+  border-radius: 8px;
+  background: ${props => props.$active ? '#667eea' : 'white'};
+  color: ${props => props.$active ? 'white' : '#666'};
   cursor: pointer;
   font-size: 14px;
-  transition: all 0.2s;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 
-  &:hover {
-    background: ${props => props.$active ? '#45a049' : '#f5f5f5'};
+  &:hover:not(:disabled) {
+    background: ${props => props.$active ? '#5a67d8' : '#f7f7f7'};
+    border-color: #667eea;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
+const CompactToggle = styled.label`
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 26px;
+  cursor: pointer;
+`;
+
+const CompactToggleInput = styled.input`
+  opacity: 0;
+  width: 0;
+  height: 0;
+
+  &:checked + span {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+
+  &:checked + span:after {
+    content: 'ON';
+    left: 5px;
+    color: rgba(102, 126, 234, 1);
+  }
+
+  &:checked + span:before {
+    transform: translateX(26px);
+  }
+
+  & + span:after {
+    content: 'OFF';
+    right: 5px;
+    color: white;
+  }
+`;
+
+const CompactToggleSlider = styled.span`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.2);
+  transition: 0.3s;
+  border-radius: 13px;
+
+  &:after {
+    position: absolute;
+    font-size: 9px;
+    font-weight: 700;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: 0.3s;
+    letter-spacing: 0.5px;
+  }
+
+  &:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
 `;
 
@@ -145,6 +239,9 @@ const StatusText = styled.div`
   font-size: 12px;
   color: #666;
   text-align: center;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
 `;
 
 const SliderContainer = styled.div`
@@ -166,37 +263,41 @@ const Slider = styled.input`
   width: 100%;
   height: 6px;
   border-radius: 3px;
-  background: #ddd;
+  background: linear-gradient(to right, #e0e0e0 0%, #e0e0e0 ${props => props.value}%, #f0f0f0 ${props => props.value}%, #f0f0f0 100%);
   outline: none;
   -webkit-appearance: none;
 
   &::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    background: #4CAF50;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     cursor: pointer;
     transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
   }
 
   &::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    background: #4CAF50;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     cursor: pointer;
     border: none;
     transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
   }
 
   &:hover::-webkit-slider-thumb {
-    transform: scale(1.1);
+    transform: scale(1.15);
+    box-shadow: 0 3px 12px rgba(102, 126, 234, 0.4);
   }
 
   &:hover::-moz-range-thumb {
-    transform: scale(1.1);
+    transform: scale(1.15);
+    box-shadow: 0 3px 12px rgba(102, 126, 234, 0.4);
   }
 `;
 
@@ -290,65 +391,7 @@ const ControlLabel = styled.label`
   font-weight: 500;
 `;
 
-const PowerToggle = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e0e0e0;
-`;
-
-const PowerLabel = styled.span`
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-`;
-
-const ToggleSwitch = styled.label`
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 28px;
-`;
-
-const ToggleInput = styled.input`
-  opacity: 0;
-  width: 0;
-  height: 0;
-
-  &:checked + span {
-    background-color: #4CAF50;
-  }
-
-  &:checked + span:before {
-    transform: translateX(32px);
-  }
-`;
-
-const ToggleSlider = styled.span`
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: 0.3s;
-  border-radius: 28px;
-
-  &:before {
-    position: absolute;
-    content: "";
-    height: 20px;
-    width: 20px;
-    left: 4px;
-    bottom: 4px;
-    background-color: white;
-    transition: 0.3s;
-    border-radius: 50%;
-  }
-`;
+// Removed old PowerToggle components - they're replaced by CompactToggle in the header
 
 const LEDModePill = () => {
   const { sendMessage, connected, lastMessage } = useWebSocket();
@@ -419,14 +462,11 @@ const LEDModePill = () => {
 
   // Function to change mode
   const changeMode = useCallback((newMode, reason = 'unknown') => {
-    console.log(`[LED] changeMode called: newMode=${newMode}, currentMode=${mode}, reason=${reason}`);
-
     // Skip if already in this mode UNLESS we're restoring from off state
     if (newMode === mode && newMode !== 'off' && reason !== 'restore') return;
 
     // Handle OFF mode specially
     if (newMode === 'off') {
-      console.log('[LED] Turning LEDs off');
       setLedsOn(false);
       sendMessage('led_update', {
         command: 'set_mode',
@@ -517,14 +557,12 @@ const LEDModePill = () => {
 
   // Handle LED on/off toggle
   const handleLedToggle = useCallback((isOn) => {
-    console.log(`[LED] Toggle: ${isOn ? 'ON' : 'OFF'}, lastActiveMode=${lastActiveMode}, currentMode=${mode}`);
     setLedsOn(isOn);
 
     if (isOn) {
       // Turn LEDs back on with the LAST ACTIVE mode, not current mode
       // This fixes the issue where mode might still be 'interactive' when LEDs are off
       const modeToRestore = lastActiveMode || 'interactive';
-      console.log(`[LED] Restoring mode: ${modeToRestore}`);
       changeMode(modeToRestore, 'restore');  // Use 'restore' reason to force update
 
       // For interactive mode, also trigger an LED update after a short delay
@@ -738,61 +776,64 @@ const LEDModePill = () => {
         <Modal onClick={handleModalClick}>
           <ControlPanel>
             <Header>
-              <Title>LED Control</Title>
-              <CloseButton onClick={() => setShowModal(false)}>×</CloseButton>
+              <Title>
+                💡 LED Control
+              </Title>
+              <HeaderControls>
+                <CompactToggle>
+                  <CompactToggleInput
+                    type="checkbox"
+                    checked={ledsOn}
+                    onChange={(e) => handleLedToggle(e.target.checked)}
+                  />
+                  <CompactToggleSlider />
+                </CompactToggle>
+                <CloseButton onClick={() => setShowModal(false)}>✕</CloseButton>
+              </HeaderControls>
             </Header>
 
-            <PowerToggle>
-              <PowerLabel>LEDs</PowerLabel>
-              <ToggleSwitch>
-                <ToggleInput
-                  type="checkbox"
-                  checked={ledsOn}
-                  onChange={(e) => handleLedToggle(e.target.checked)}
+            <BodyContent>
+              <ModeToggle>
+                <ModeButton
+                  $active={mode === 'interactive'}
+                  onClick={() => handleManualModeChange('interactive')}
+                  disabled={!ledsOn}
+                >
+                  Interactive
+                </ModeButton>
+                <ModeButton
+                  $active={mode === 'visualization'}
+                  onClick={() => handleManualModeChange('visualization')}
+                  disabled={!ledsOn}
+                >
+                  Visualization
+                </ModeButton>
+              </ModeToggle>
+
+              <StatusText>
+                {!ledsOn
+                  ? 'LEDs are turned off. Toggle on to activate.'
+                  : mode === 'interactive'
+                  ? 'LEDs show filtered entries. Selected entry appears brighter.'
+                  : 'Cycling through data visualizations.'
+                }
+              </StatusText>
+
+                <SliderContainer style={{ opacity: ledsOn ? 1 : 0.4, pointerEvents: ledsOn ? 'auto' : 'none' }}>
+                <SliderLabel>
+                  <span>Brightness</span>
+                  <span>{brightness}%</span>
+                </SliderLabel>
+                <Slider
+                  type="range"
+                  min="5"
+                  max="100"
+                  value={brightness}
+                  onChange={(e) => handleBrightnessChange(parseInt(e.target.value))}
                 />
-                <ToggleSlider />
-              </ToggleSwitch>
-            </PowerToggle>
+              </SliderContainer>
 
-            <ModeToggle style={{ opacity: ledsOn ? 1 : 0.4, pointerEvents: ledsOn ? 'auto' : 'none' }}>
-              <ModeButton
-                $active={mode === 'interactive'}
-                onClick={() => handleManualModeChange('interactive')}
-              >
-                Interactive
-              </ModeButton>
-              <ModeButton
-                $active={mode === 'visualization'}
-                onClick={() => handleManualModeChange('visualization')}
-              >
-                Visualization
-              </ModeButton>
-            </ModeToggle>
-
-            <StatusText>
-              {!ledsOn
-                ? 'LEDs are turned off. Toggle on to activate.'
-                : mode === 'interactive'
-                ? 'LEDs show filtered entries. Selected entry appears brighter.'
-                : 'Cycling through data visualizations.'
-              }
-            </StatusText>
-
-            <SliderContainer style={{ opacity: ledsOn ? 1 : 0.4, pointerEvents: ledsOn ? 'auto' : 'none' }}>
-              <SliderLabel>
-                <span>Brightness</span>
-                <span>{brightness}%</span>
-              </SliderLabel>
-              <Slider
-                type="range"
-                min="5"
-                max="100"
-                value={brightness}
-                onChange={(e) => handleBrightnessChange(parseInt(e.target.value))}
-              />
-            </SliderContainer>
-
-            {mode === 'visualization' && ledsOn && (
+              {mode === 'visualization' && ledsOn && (
               <>
                 <SectionDivider />
 
@@ -834,6 +875,7 @@ const LEDModePill = () => {
                 </VisualizationControl>
               </>
             )}
+            </BodyContent>
           </ControlPanel>
         </Modal>
       )}
