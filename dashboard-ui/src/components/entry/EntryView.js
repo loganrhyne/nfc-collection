@@ -47,22 +47,22 @@ const RegisterButton = styled.button`
   display: flex;
   align-items: center;
   gap: 6px;
-  background-color: #4a90e2;
-  color: white;
-  border: none;
-  padding: 8px 16px;
+  background-color: white;
+  color: #4a90e2;
+  border: 1px solid #4a90e2;
+  padding: 6px 12px;
   border-radius: 4px;
   font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   transition: all 0.2s;
   font-size: 0.9rem;
-  
+
   &:hover {
-    background-color: #3a80d2;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+    background-color: #f0f7ff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
-  
+
   &:before {
     content: "📱";
     font-size: 16px;
@@ -71,7 +71,7 @@ const RegisterButton = styled.button`
 
 const HeaderButtons = styled.div`
   display: flex;
-  gap: 12px;
+  justify-content: space-between;
   align-items: center;
 `;
 

@@ -88,7 +88,7 @@ const Header = styled.div`
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #6366f1;
   margin: 0;
 `;
 
@@ -142,9 +142,9 @@ const ModeToggle = styled.div`
 const ModeButton = styled.button`
   flex: 1;
   padding: 12px 20px;
-  border: 2px solid ${props => props.$active ? '#667eea' : '#e0e0e0'};
+  border: 2px solid ${props => props.$active ? '#6366f1' : '#e0e0e0'};
   border-radius: 8px;
-  background: ${props => props.$active ? '#667eea' : 'white'};
+  background: ${props => props.$active ? '#6366f1' : 'white'};
   color: ${props => props.$active ? 'white' : '#666'};
   cursor: pointer;
   font-size: 14px;
@@ -154,10 +154,10 @@ const ModeButton = styled.button`
   overflow: hidden;
 
   &:hover:not(:disabled) {
-    background: ${props => props.$active ? '#5a67d8' : '#f7f7f7'};
-    border-color: #667eea;
+    background: ${props => props.$active ? '#5558dd' : '#f7f7f7'};
+    border-color: #6366f1;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
   }
 
   &:disabled {
@@ -186,7 +186,7 @@ const CompactToggleInput = styled.input`
   &:checked + span:after {
     content: 'ON';
     left: 5px;
-    color: rgba(102, 126, 234, 1);
+    color: #6366f1;
   }
 
   &:checked + span:before {
@@ -263,7 +263,7 @@ const Slider = styled.input`
   width: 100%;
   height: 6px;
   border-radius: 3px;
-  background: linear-gradient(to right, #e0e0e0 0%, #e0e0e0 ${props => props.value}%, #f0f0f0 ${props => props.value}%, #f0f0f0 100%);
+  background: #e0e0e0;
   outline: none;
   -webkit-appearance: none;
 
@@ -273,31 +273,31 @@ const Slider = styled.input`
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #6366f1;
     cursor: pointer;
     transition: all 0.2s;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
   }
 
   &::-moz-range-thumb {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #6366f1;
     cursor: pointer;
     border: none;
     transition: all 0.2s;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
   }
 
   &:hover::-webkit-slider-thumb {
     transform: scale(1.15);
-    box-shadow: 0 3px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 3px 12px rgba(99, 102, 241, 0.4);
   }
 
   &:hover::-moz-range-thumb {
     transform: scale(1.15);
-    box-shadow: 0 3px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 3px 12px rgba(99, 102, 241, 0.4);
   }
 `;
 
