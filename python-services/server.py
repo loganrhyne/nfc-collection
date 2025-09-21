@@ -442,21 +442,31 @@ class NFCWebSocketServer:
         """Handle scanned tag data with validation"""
         try:
             logger.info(f"Tag scanned with data: {tag_data}")
-            
+
             # Validate tag data
             if not isinstance(tag_data, dict) or 'id' not in tag_data:
-                logger.warning("Invalid tag data received")
+                logger.warning(f"Invalid tag data received: {tag_data}")
                 return
-            
+
+            # Log the entry ID that will be sent
+            entry_id = tag_data.get('id')
+            logger.info(f"Emitting tag_scanned event for entry_id: {entry_id}")
+
+            # Count connected clients
+            num_clients = len(self.sessions)
+            logger.debug(f"Broadcasting to {num_clients} connected clients")
+
             # Emit to all connected clients
             await self.sio.emit('tag_scanned', {
-                'entry_id': tag_data.get('id'),
+                'entry_id': entry_id,
                 'tag_data': tag_data,
                 'timestamp': datetime.utcnow().isoformat()
             })
-            
+
+            logger.info(f"Tag scanned event emitted successfully for entry: {entry_id}")
+
         except Exception as e:
-            logger.error(f"Error handling scanned tag: {e}")
+            logger.error(f"Error handling scanned tag: {e}", exc_info=True)
     
     async def handle_led_update(self, sid: str, data: Dict):
         """Handle LED update commands"""

@@ -11,8 +11,9 @@ const NFCScanner = () => {
     
     const cleanup = registerHandler('tag_scanned', (message) => {
       console.log('Tag scanned event received:', message);
-      
-      const entryId = message.entry_id;
+
+      // Extract entry_id from the nested data structure
+      const entryId = message.data?.entry_id;
       if (entryId) {
         // Navigate to the entry view
         console.log(`Navigating to entry: ${entryId}`);
