@@ -27,35 +27,55 @@ sleep 2
 start_websocket() {
     echo -e "${YELLOW}Starting WebSocket server...${NC}"
 
-    # Try systemd first
+    # First try direct start (most reliable during deployment)
+    echo "  Trying direct start method..."
+    if [ -f /home/loganrhyne/nfc-collection/deployment/start-websocket-direct.sh ]; then
+        chmod +x /home/loganrhyne/nfc-collection/deployment/start-websocket-direct.sh
+        if /home/loganrhyne/nfc-collection/deployment/start-websocket-direct.sh; then
+            echo -e "  ${GREEN}✓ WebSocket started directly${NC}"
+            return 0
+        fi
+    fi
+
+    # If direct start failed or script doesn't exist, try systemd
+    echo "  Direct start failed, trying systemd..."
+
+    # First reload systemd if service file was updated
+    sudo systemctl daemon-reload 2>/dev/null
+
     for i in $(seq 1 $MAX_ATTEMPTS); do
         echo "  Attempt $i/$MAX_ATTEMPTS (systemd)..."
         sudo systemctl reset-failed nfc-websocket 2>/dev/null
+        sudo systemctl stop nfc-websocket 2>/dev/null
+        sleep 1
         sudo systemctl start nfc-websocket
-        sleep 3
 
-        if sudo systemctl is-active --quiet nfc-websocket; then
+        # Wait longer for service to actually start
+        sleep 5
+
+        # Check both service status AND port
+        if sudo systemctl is-active --quiet nfc-websocket && sudo lsof -i:$WEBSOCKET_PORT > /dev/null 2>&1; then
             echo -e "  ${GREEN}✓ WebSocket started via systemd${NC}"
             return 0
         fi
     done
 
-    # Fallback to manual start
-    echo "  Systemd failed, starting manually..."
+    # Last resort: manual start with screen
+    echo "  All methods failed, trying screen session..."
     cd /home/loganrhyne/nfc-collection/python-services
 
-    # Start in background with proper detachment
-    (
-        source venv/bin/activate
-        python server.py > /tmp/nfc-websocket.log 2>&1
-    ) &
+    # Kill any stuck processes first
+    sudo pkill -f 'python.*server.py' 2>/dev/null
+    sleep 2
 
-    local pid=$!
+    # Start in a screen session
+    screen -dmS nfc-ws bash -c "source venv/bin/activate && python server.py 2>&1 | tee /tmp/nfc-websocket.log"
     sleep 3
 
     # Verify it's running
-    if kill -0 $pid 2>/dev/null && sudo lsof -i:$WEBSOCKET_PORT > /dev/null 2>&1; then
-        echo -e "  ${GREEN}✓ WebSocket started manually (PID: $pid)${NC}"
+    if pgrep -f "python.*server.py" > /dev/null && sudo lsof -i:$WEBSOCKET_PORT > /dev/null 2>&1; then
+        echo -e "  ${GREEN}✓ WebSocket started in screen session 'nfc-ws'${NC}"
+        echo "  Attach with: screen -r nfc-ws"
         echo "  Logs: tail -f /tmp/nfc-websocket.log"
         return 0
     else

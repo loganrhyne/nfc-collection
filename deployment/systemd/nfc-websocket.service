@@ -1,27 +1,45 @@
 [Unit]
 Description=NFC Collection WebSocket Server
 After=network.target
+Wants=network-online.target
+After=network-online.target
 
 [Service]
 Type=simple
 User=loganrhyne
 Group=loganrhyne
-SupplementaryGroups=gpio
+SupplementaryGroups=gpio,spi,i2c
+
 WorkingDirectory=/home/loganrhyne/nfc-collection/python-services
 Environment="PATH=/home/loganrhyne/nfc-collection/python-services/venv/bin:/home/loganrhyne/.local/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
 Environment="VIRTUAL_ENV=/home/loganrhyne/nfc-collection/python-services/venv"
-ExecStart=/home/loganrhyne/nfc-collection/python-services/venv/bin/python server.py
-Restart=always
+Environment="PYTHONPATH=/home/loganrhyne/nfc-collection/python-services"
+
+# Use wrapper script that handles GPIO cleanup
+ExecStartPre=/bin/bash -c 'chmod +x /home/loganrhyne/nfc-collection/python-services/start-server.sh'
+ExecStart=/bin/bash /home/loganrhyne/nfc-collection/python-services/start-server.sh
+
+# Give it more time to start
+TimeoutStartSec=60
+
+# Restart on failure with backoff
+Restart=on-failure
 RestartSec=10
+StartLimitBurst=3
+StartLimitIntervalSec=120
 
 # Logging
 StandardOutput=journal
 StandardError=journal
 
-# Security
-NoNewPrivileges=true
-PrivateTmp=true
+# Reduced security to allow GPIO access
+NoNewPrivileges=false
+PrivateTmp=false
+PrivateDevices=false
+
+# Allow sudo for GPIO cleanup
+AmbientCapabilities=CAP_SYS_ADMIN CAP_DAC_OVERRIDE
 
 [Install]
 WantedBy=multi-user.target
