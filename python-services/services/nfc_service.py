@@ -168,33 +168,31 @@ class NFCService:
             try:
                 logger.info(f"Initializing NFC hardware (attempt {attempt + 1}/{max_attempts})")
 
-                # Try I2C first (most common for Pi)
-                try:
-                    logger.info("Attempting I2C connection...")
-                    i2c = busio.I2C(board.SCL, board.SDA)
-                    from adafruit_pn532.i2c import PN532_I2C
-                    self._pn532 = PN532_I2C(i2c, debug=False)
-                    logger.info("Using I2C connection")
-                except Exception as i2c_error:
-                    logger.warning(f"I2C failed: {i2c_error}, trying SPI...")
-                    # Fall back to SPI
-                    spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
-                    cs_pin = DigitalInOut(getattr(board, self.config.cs_pin))
-                    self._pn532 = PN532_SPI(spi, cs_pin, debug=False)
-                    logger.info("Using SPI connection")
+                # Based on deployment docs, PN532 is connected via I2C at address 0x24
+                logger.info("Connecting to PN532 via I2C (address 0x24)...")
+                i2c = busio.I2C(board.SCL, board.SDA)
+
+                # Import I2C module
+                from adafruit_pn532.i2c import PN532_I2C
+
+                # Create PN532 instance with I2C
+                # Note: I2C address is handled by the library (default 0x24)
+                self._pn532 = PN532_I2C(i2c, debug=False)
+                logger.info("I2C connection established")
 
                 # Verify connection
                 ic, ver, rev, support = self._pn532.firmware_version
                 logger.info(f"PN532 Firmware Version: {ver}.{rev}")
 
-                # Configure SAM
+                # Configure SAM (Secure Access Module)
                 self._pn532.SAM_configuration()
-                logger.info("NFC hardware initialized successfully")
+                logger.info("NFC hardware initialized successfully via I2C")
                 return
 
             except Exception as e:
                 logger.error(f"Hardware initialization attempt {attempt + 1} failed: {e}")
                 if attempt < max_attempts - 1:
+                    logger.info("Retrying in 1 second...")
                     time.sleep(1)
                 else:
                     raise NFCHardwareError(f"Failed to initialize hardware after {max_attempts} attempts: {e}")

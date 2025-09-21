@@ -33,28 +33,43 @@ pip3 install board
 pip3 install busio
 
 echo -e "\n🔍 Checking I2C devices..."
-sudo i2cdetect -y 1
+echo "Looking for PN532 at address 0x24..."
+i2c_output=$(sudo i2cdetect -y 1)
+echo "$i2c_output"
+
+# Check if 0x24 is present
+if echo "$i2c_output" | grep -q "24"; then
+    echo -e "\n✅ PN532 detected at address 0x24!"
+else
+    echo -e "\n⚠️  PN532 not detected at expected address 0x24"
+    echo "Please check:"
+    echo "  1. PN532 is powered on"
+    echo "  2. PN532 DIP switches are set for I2C mode (switch 1: ON, switch 2: OFF)"
+    echo "  3. Wiring connections are correct"
+fi
 
 echo -e "\n✅ Installation complete!"
 echo ""
 echo "============================================"
 echo "Next Steps:"
 echo "============================================"
-echo "1. Check that your PN532 appears in the i2cdetect output above"
-echo "   - It should show up as address 0x24"
-echo "   - If not, check your wiring:"
-echo "     * SDA -> GPIO 2 (Pin 3)"
-echo "     * SCL -> GPIO 3 (Pin 5)"
-echo "     * VCC -> 3.3V (Pin 1)"
-echo "     * GND -> Ground (Pin 6)"
+echo "1. Verify PN532 is detected at address 0x24 (see above)"
 echo ""
-echo "2. You may need to logout and login for group changes to take effect"
+echo "2. PN532 I2C Wiring Guide:"
+echo "   * SDA (Yellow) -> GPIO 2 (Pin 3)"
+echo "   * SCL (Blue)   -> GPIO 3 (Pin 5)"
+echo "   * VCC (Red)    -> 3.3V (Pin 1 or 17)"
+echo "   * GND (Black)  -> Ground (Pin 6, 9, 14, 20, 25, 30, 34, or 39)"
 echo ""
-echo "3. Test NFC hardware:"
+echo "3. PN532 DIP Switch Settings for I2C:"
+echo "   * Switch 1: ON  (up)"
+echo "   * Switch 2: OFF (down)"
+echo ""
+echo "4. Test NFC hardware:"
 echo "   cd ~/nfc-collection"
 echo "   python3 test_nfc_pi.py"
 echo ""
-echo "4. If still having issues, try:"
-echo "   - Reboot the Pi: sudo reboot"
-echo "   - Check the PN532 DIP switches (should be set to I2C mode)"
+echo "5. If issues persist:"
+echo "   - Logout and login for group changes: exit && ssh back in"
+echo "   - Or reboot the Pi: sudo reboot"
 echo "============================================"
