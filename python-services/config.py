@@ -43,7 +43,7 @@ class NFCConfig:
 class ServerConfig:
     """WebSocket server configuration"""
     host: str = '0.0.0.0'
-    port: int = 8765
+    port: int = 8000
     cors_origins: str = '*'  # Should be restricted in production
     heartbeat_interval: int = 30
     max_message_size: int = 1048576  # 1MB
@@ -58,7 +58,7 @@ class ServerConfig:
         """Create config from environment variables"""
         return cls(
             host=os.getenv('WS_HOST', '0.0.0.0'),
-            port=int(os.getenv('WS_PORT', '8765')),
+            port=int(os.getenv('WS_PORT', '8000')),
             cors_origins=os.getenv('WS_CORS_ORIGINS', '*'),
             heartbeat_interval=int(os.getenv('WS_HEARTBEAT_INTERVAL', '30')),
             max_message_size=int(os.getenv('WS_MAX_MESSAGE_SIZE', '1048576')),
