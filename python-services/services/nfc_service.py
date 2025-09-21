@@ -162,26 +162,36 @@ class NFCService:
         if not HARDWARE_AVAILABLE:
             logger.error("NFC hardware libraries not available")
             raise NFCHardwareError("Required hardware libraries not installed")
-        
+
         max_attempts = 3
         for attempt in range(max_attempts):
             try:
                 logger.info(f"Initializing NFC hardware (attempt {attempt + 1}/{max_attempts})")
-                
-                # Initialize SPI and PN532
-                spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
-                cs_pin = DigitalInOut(getattr(board, self.config.cs_pin))
-                self._pn532 = PN532_SPI(spi, cs_pin, debug=False)
-                
+
+                # Try I2C first (most common for Pi)
+                try:
+                    logger.info("Attempting I2C connection...")
+                    i2c = busio.I2C(board.SCL, board.SDA)
+                    from adafruit_pn532.i2c import PN532_I2C
+                    self._pn532 = PN532_I2C(i2c, debug=False)
+                    logger.info("Using I2C connection")
+                except Exception as i2c_error:
+                    logger.warning(f"I2C failed: {i2c_error}, trying SPI...")
+                    # Fall back to SPI
+                    spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
+                    cs_pin = DigitalInOut(getattr(board, self.config.cs_pin))
+                    self._pn532 = PN532_SPI(spi, cs_pin, debug=False)
+                    logger.info("Using SPI connection")
+
                 # Verify connection
                 ic, ver, rev, support = self._pn532.firmware_version
                 logger.info(f"PN532 Firmware Version: {ver}.{rev}")
-                
+
                 # Configure SAM
                 self._pn532.SAM_configuration()
                 logger.info("NFC hardware initialized successfully")
                 return
-                
+
             except Exception as e:
                 logger.error(f"Hardware initialization attempt {attempt + 1} failed: {e}")
                 if attempt < max_attempts - 1:
