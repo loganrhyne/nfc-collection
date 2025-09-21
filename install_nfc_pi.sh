@@ -26,11 +26,27 @@ sudo raspi-config nonint do_i2c 0
 # Add user to i2c group
 sudo usermod -a -G i2c $USER
 
-echo -e "\n🐍 Installing Python dependencies..."
-pip3 install --upgrade pip
-pip3 install adafruit-circuitpython-pn532
-pip3 install board
-pip3 install busio
+echo -e "\n🐍 Setting up Python virtual environment..."
+
+# Check if venv exists, create if not
+VENV_PATH="$HOME/nfc-collection/python-services/venv"
+if [ ! -d "$VENV_PATH" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv "$VENV_PATH"
+fi
+
+# Activate venv and install dependencies
+echo "Installing Python dependencies in virtual environment..."
+source "$VENV_PATH/bin/activate"
+
+pip install --upgrade pip
+pip install adafruit-circuitpython-pn532
+pip install adafruit-circuitpython-busdevice
+pip install adafruit-blinka
+pip install pyserial
+
+deactivate
+echo "✅ Python dependencies installed in venv"
 
 echo -e "\n🔍 Checking I2C devices..."
 echo "Looking for PN532 at address 0x24..."
