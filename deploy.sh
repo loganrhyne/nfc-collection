@@ -25,8 +25,8 @@ echo ""
 # Step 1: Build the React app
 echo -e "${YELLOW}Step 1: Building React app...${NC}"
 cd dashboard-ui
-# Set WebSocket URL to static IP for production
-REACT_APP_WS_URL=http://192.168.1.114:8765 npm run build
+# Set WebSocket URL to static IP for production (server.py uses port 8000)
+REACT_APP_WS_URL=http://192.168.1.114:8000 npm run build
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Build successful${NC}"
 else
@@ -134,28 +134,120 @@ EOF
 # Step 6: Restart services
 echo -e "${YELLOW}Step 6: Restarting services...${NC}"
 ssh $PI_HOST << 'EOF'
-    set -e
-    
-    # Restart systemd services if they exist
-    if systemctl is-active --quiet nfc-websocket; then
-        echo "Restarting nfc-websocket service..."
-        sudo systemctl restart nfc-websocket
-    else
-        echo "Warning: nfc-websocket service not found"
+    # Note: Don't use set -e here so we can handle failures gracefully
+
+    # Function to restart or start a service
+    restart_service() {
+        local service_name=$1
+        local max_attempts=3
+        local attempt=1
+
+        echo "Managing $service_name service..."
+
+        # First, always try to stop the service cleanly
+        sudo systemctl stop $service_name 2>/dev/null || true
+        sleep 2
+
+        # Try to start the service
+        while [ $attempt -le $max_attempts ]; do
+            echo "  Attempt $attempt/$max_attempts: Starting $service_name..."
+
+            # Clear any failed state
+            sudo systemctl reset-failed $service_name 2>/dev/null || true
+
+            # Start the service
+            sudo systemctl start $service_name
+            sleep 3
+
+            # Check if it started successfully
+            if sudo systemctl is-active --quiet $service_name; then
+                echo "  ✓ $service_name started successfully"
+                return 0
+            else
+                echo "  ✗ $service_name failed to start"
+                if [ $attempt -lt $max_attempts ]; then
+                    echo "  Retrying..."
+                    sleep 2
+                fi
+            fi
+
+            attempt=$((attempt + 1))
+        done
+
+        return 1
+    }
+
+    # Kill any stray Python processes that might be holding resources
+    echo "Cleaning up any stray processes..."
+    sudo pkill -f 'python.*server.py' 2>/dev/null || true
+    sudo pkill -f 'python.*serve-spa.py' 2>/dev/null || true
+    sleep 2
+
+    # Restart services with retry logic
+    websocket_success=false
+    dashboard_success=false
+
+    if restart_service "nfc-websocket"; then
+        websocket_success=true
     fi
-    
-    if systemctl is-active --quiet nfc-dashboard; then
-        echo "Restarting nfc-dashboard service..."
-        sudo systemctl restart nfc-dashboard
-    else
-        echo "Warning: nfc-dashboard service not found"
+
+    if restart_service "nfc-dashboard"; then
+        dashboard_success=true
     fi
-    
-    # Show service status
+
+    # If systemd services failed, fall back to manual start
+    if [ "$websocket_success" = false ] || [ "$dashboard_success" = false ]; then
+        echo ""
+        echo "⚠️  Some services failed to start via systemd. Attempting manual start..."
+
+        # Manual fallback for WebSocket server
+        if [ "$websocket_success" = false ]; then
+            echo "Starting WebSocket server manually..."
+            cd /home/loganrhyne/nfc-collection/python-services
+            source venv/bin/activate
+            nohup python server.py > /tmp/nfc-websocket-manual.log 2>&1 &
+            echo "  WebSocket server started manually (PID: $!)"
+            echo "  Logs: /tmp/nfc-websocket-manual.log"
+            deactivate
+        fi
+
+        # Manual fallback for dashboard
+        if [ "$dashboard_success" = false ]; then
+            echo "Starting dashboard server manually..."
+            cd /home/loganrhyne/nfc-collection/dashboard-ui
+            sudo nohup python3 /home/loganrhyne/nfc-collection/deployment/serve-spa.py 80 > /tmp/nfc-dashboard-manual.log 2>&1 &
+            echo "  Dashboard server started manually (PID: $!)"
+            echo "  Logs: /tmp/nfc-dashboard-manual.log"
+        fi
+    fi
+
+    # Final status check
     echo ""
     echo "Service Status:"
-    sudo systemctl status nfc-websocket --no-pager || true
-    sudo systemctl status nfc-dashboard --no-pager || true
+    echo "==============="
+
+    # Check WebSocket
+    if sudo systemctl is-active --quiet nfc-websocket; then
+        echo "✓ nfc-websocket: running (systemd)"
+    elif pgrep -f "python.*server.py" > /dev/null; then
+        echo "✓ nfc-websocket: running (manual)"
+    else
+        echo "✗ nfc-websocket: not running"
+    fi
+
+    # Check Dashboard
+    if sudo systemctl is-active --quiet nfc-dashboard; then
+        echo "✓ nfc-dashboard: running (systemd)"
+    elif sudo lsof -i:80 > /dev/null 2>&1; then
+        echo "✓ nfc-dashboard: running on port 80"
+    else
+        echo "✗ nfc-dashboard: not running"
+    fi
+
+    # Show what's on port 80
+    echo ""
+    echo "Port 80 status:"
+    sudo lsof -i:80 2>/dev/null || echo "  Nothing listening on port 80"
 EOF
 
 # Cleanup
@@ -186,7 +278,7 @@ EOF
 echo ""
 echo -e "${GREEN}=== Deployment Complete ===${NC}"
 echo "Dashboard URL: http://192.168.1.114/"
-echo "WebSocket URL: http://192.168.1.114:8765/"
+echo "WebSocket URL: http://192.168.1.114:8000/"
 echo ""
 echo "To check logs on the Pi:"
 echo "  WebSocket: ssh $PI_HOST 'sudo journalctl -u nfc-websocket -f'"
