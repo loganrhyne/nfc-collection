@@ -133,7 +133,17 @@ EOF
 
 # Step 6: Restart services
 echo -e "${YELLOW}Step 6: Restarting services...${NC}"
-ssh $PI_HOST << 'EOF'
+
+# First, ensure the restart script is executable
+ssh $PI_HOST "chmod +x /home/loganrhyne/nfc-collection/deployment/restart-services.sh 2>/dev/null || true"
+
+# Now run the restart script on the Pi
+ssh $PI_HOST "bash /home/loganrhyne/nfc-collection/deployment/restart-services.sh"
+
+# Alternative approach if the script doesn't exist yet
+if [ $? -ne 0 ]; then
+    echo "Using inline restart logic..."
+    ssh $PI_HOST << 'EOF'
     # Note: Don't use set -e here so we can handle failures gracefully
 
     # Function to restart or start a service
@@ -203,23 +213,47 @@ ssh $PI_HOST << 'EOF'
         # Manual fallback for WebSocket server
         if [ "$websocket_success" = false ]; then
             echo "Starting WebSocket server manually..."
-            cd /home/loganrhyne/nfc-collection/python-services
-            source venv/bin/activate
-            nohup python server.py > /tmp/nfc-websocket-manual.log 2>&1 &
-            echo "  WebSocket server started manually (PID: $!)"
-            echo "  Logs: /tmp/nfc-websocket-manual.log"
-            deactivate
+            # Use screen or tmux if available, otherwise use proper nohup with setsid
+            if command -v screen &> /dev/null; then
+                # Use screen for persistent session
+                screen -dmS nfc-websocket bash -c "cd /home/loganrhyne/nfc-collection/python-services && source venv/bin/activate && python server.py 2>&1 | tee /tmp/nfc-websocket-manual.log"
+                echo "  WebSocket server started in screen session 'nfc-websocket'"
+                echo "  Logs: /tmp/nfc-websocket-manual.log"
+                echo "  Attach with: screen -r nfc-websocket"
+            else
+                # Use setsid to properly detach from SSH session
+                cd /home/loganrhyne/nfc-collection/python-services
+                setsid bash -c "source venv/bin/activate && exec python server.py > /tmp/nfc-websocket-manual.log 2>&1" &
+                sleep 2  # Give it time to start
+                if pgrep -f "python.*server.py" > /dev/null; then
+                    echo "  WebSocket server started manually"
+                    echo "  Logs: /tmp/nfc-websocket-manual.log"
+                else
+                    echo "  ✗ Manual start failed - check /tmp/nfc-websocket-manual.log"
+                fi
+            fi
         fi
 
         # Manual fallback for dashboard
         if [ "$dashboard_success" = false ]; then
             echo "Starting dashboard server manually..."
-            cd /home/loganrhyne/nfc-collection/dashboard-ui
-            sudo nohup python3 /home/loganrhyne/nfc-collection/deployment/serve-spa.py 80 > /tmp/nfc-dashboard-manual.log 2>&1 &
-            echo "  Dashboard server started manually (PID: $!)"
-            echo "  Logs: /tmp/nfc-dashboard-manual.log"
+            if command -v screen &> /dev/null; then
+                # Use screen for persistent session
+                sudo screen -dmS nfc-dashboard bash -c "cd /home/loganrhyne/nfc-collection/dashboard-ui && python3 /home/loganrhyne/nfc-collection/deployment/serve-spa.py 80 2>&1 | tee /tmp/nfc-dashboard-manual.log"
+                echo "  Dashboard server started in screen session 'nfc-dashboard'"
+                echo "  Logs: /tmp/nfc-dashboard-manual.log"
+            else
+                # Use setsid to properly detach
+                cd /home/loganrhyne/nfc-collection/dashboard-ui
+                sudo setsid python3 /home/loganrhyne/nfc-collection/deployment/serve-spa.py 80 > /tmp/nfc-dashboard-manual.log 2>&1 &
+                echo "  Dashboard server started manually"
+                echo "  Logs: /tmp/nfc-dashboard-manual.log"
+            fi
         fi
     fi
+
+    # Wait a bit for services to fully start
+    sleep 3
 
     # Final status check
     echo ""
@@ -244,11 +278,25 @@ ssh $PI_HOST << 'EOF'
         echo "✗ nfc-dashboard: not running"
     fi
 
-    # Show what's on port 80
+    # Show what's on ports
     echo ""
-    echo "Port 80 status:"
-    sudo lsof -i:80 2>/dev/null || echo "  Nothing listening on port 80"
+    echo "Port status:"
+    echo "  Port 80 (Dashboard):"
+    sudo lsof -i:80 2>/dev/null | grep LISTEN || echo "    Nothing listening"
+    echo "  Port 8000 (WebSocket):"
+    sudo lsof -i:8000 2>/dev/null | grep LISTEN || echo "    Nothing listening"
+
+    # Check if we can connect to WebSocket
+    echo ""
+    echo "Testing WebSocket connectivity:"
+    if nc -zv 127.0.0.1 8000 2>&1 | grep -q succeeded; then
+        echo "  ✓ WebSocket server is accepting connections on port 8000"
+    else
+        echo "  ✗ WebSocket server is NOT accepting connections"
+        echo "  Check logs: tail -f /tmp/nfc-websocket-manual.log"
+    fi
 EOF
+fi
 
 # Cleanup
 rm -rf $DEPLOY_TEMP
