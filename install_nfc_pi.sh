@@ -32,6 +32,8 @@ echo -e "\n🐍 Setting up Python virtual environment..."
 VENV_PATH="$HOME/nfc-collection/python-services/venv"
 if [ ! -d "$VENV_PATH" ]; then
     echo "Creating virtual environment..."
+    # Make sure we have python3-venv installed
+    sudo apt-get install -y python3-venv python3-full
     python3 -m venv "$VENV_PATH"
 fi
 

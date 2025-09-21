@@ -7,12 +7,19 @@ import sys
 import os
 import time
 
-# Use venv if available
+# Add venv site-packages to path
 venv_path = os.path.expanduser('~/nfc-collection/python-services/venv')
 if os.path.exists(venv_path):
-    activate_this = os.path.join(venv_path, 'bin', 'activate_this.py')
-    if os.path.exists(activate_this):
-        exec(open(activate_this).read(), {'__file__': activate_this})
+    site_packages = os.path.join(venv_path, 'lib', 'python3.11', 'site-packages')
+    if not os.path.exists(site_packages):
+        # Try python3.9 or python3.10
+        for pyver in ['python3.9', 'python3.10', 'python3.12']:
+            site_packages = os.path.join(venv_path, 'lib', pyver, 'site-packages')
+            if os.path.exists(site_packages):
+                break
+    if os.path.exists(site_packages):
+        sys.path.insert(0, site_packages)
+        print(f"Using venv at: {site_packages}")
 
 sys.path.insert(0, os.path.expanduser('~/nfc-collection/python-services'))
 
