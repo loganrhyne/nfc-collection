@@ -168,25 +168,37 @@ class NFCService:
             try:
                 logger.info(f"Initializing NFC hardware (attempt {attempt + 1}/{max_attempts})")
 
-                # Based on deployment docs, PN532 is connected via I2C at address 0x24
-                logger.info("Connecting to PN532 via I2C (address 0x24)...")
-                i2c = busio.I2C(board.SCL, board.SDA)
+                # Try SPI first (original working configuration)
+                try:
+                    logger.info("Attempting SPI connection (CS pin D25)...")
+                    spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
+                    cs_pin = DigitalInOut(getattr(board, self.config.cs_pin))
+                    self._pn532 = PN532_SPI(spi, cs_pin, debug=False)
 
-                # Import I2C module
-                from adafruit_pn532.i2c import PN532_I2C
+                    # Verify connection
+                    ic, ver, rev, support = self._pn532.firmware_version
+                    logger.info(f"✅ SPI connection successful! PN532 Firmware: {ver}.{rev}")
 
-                # Create PN532 instance with I2C
-                # Note: I2C address is handled by the library (default 0x24)
-                self._pn532 = PN532_I2C(i2c, debug=False)
-                logger.info("I2C connection established")
+                except Exception as spi_error:
+                    logger.warning(f"SPI failed: {spi_error}, trying I2C...")
 
-                # Verify connection
-                ic, ver, rev, support = self._pn532.firmware_version
-                logger.info(f"PN532 Firmware Version: {ver}.{rev}")
+                    # Fall back to I2C
+                    logger.info("Attempting I2C connection (address 0x24)...")
+                    i2c = busio.I2C(board.SCL, board.SDA)
+
+                    # Import I2C module
+                    from adafruit_pn532.i2c import PN532_I2C
+
+                    # Create PN532 instance with I2C
+                    self._pn532 = PN532_I2C(i2c, debug=False)
+
+                    # Verify connection
+                    ic, ver, rev, support = self._pn532.firmware_version
+                    logger.info(f"✅ I2C connection successful! PN532 Firmware: {ver}.{rev}")
 
                 # Configure SAM (Secure Access Module)
                 self._pn532.SAM_configuration()
-                logger.info("NFC hardware initialized successfully via I2C")
+                logger.info("NFC hardware initialized successfully")
                 return
 
             except Exception as e:
