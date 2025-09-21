@@ -21,7 +21,7 @@ class LEDModeManager:
     
     def __init__(self, led_controller: LEDController):
         self.led_controller = led_controller
-        self._current_mode = LEDMode.INTERACTIVE
+        self._current_mode = LEDMode.OFF  # Start with LEDs off for safety
         self._visualization_task = None
         self._entries_data = []
         self._status_callback = None  # For sending status updates to frontend

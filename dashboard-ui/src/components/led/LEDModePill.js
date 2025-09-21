@@ -398,9 +398,9 @@ const LEDModePill = () => {
   const { allEntries, entries, selectedEntry } = useData();
   const { updateLEDs } = useLEDController();
   const [showModal, setShowModal] = useState(false);
-  const [mode, setMode] = useState('interactive');
+  const [mode, setMode] = useState('off');  // Start with LEDs off for safety
   const [lastActiveMode, setLastActiveMode] = useState('interactive'); // Track last active mode for restore
-  const [ledsOn, setLedsOn] = useState(true); // Track if LEDs are on or off
+  const [ledsOn, setLedsOn] = useState(false); // Start with LEDs off for safety
   const [autoSwitchMessage, setAutoSwitchMessage] = useState('');
   const [brightness, setBrightness] = useState(50); // Default 50% brightness
   const [visualizationInfo, setVisualizationInfo] = useState(null);

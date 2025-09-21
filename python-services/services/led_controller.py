@@ -40,13 +40,13 @@ class LEDMode(Enum):
 
 class LEDController:
     """LED controller with interactive and visualization modes"""
-    
+
     def __init__(self, config: Optional[LEDConfig] = None):
         self.config = config or LEDConfig()
         self._pixels = None
         self._current_indices: Set[int] = set()  # Track which LEDs are currently on
         self._selected_index: Optional[int] = None
-        self._mode = LEDMode.INTERACTIVE
+        self._mode = LEDMode.OFF  # Start with LEDs off for safety
         self._visualization_engine = None
         self._global_brightness = 0.5  # Default 50% brightness
         

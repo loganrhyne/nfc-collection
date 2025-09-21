@@ -234,7 +234,15 @@ class NFCWebSocketServer:
                 'message_queue': True
             }
         }, room=sid)
-        
+
+        # Send initial LED status so client syncs with server state
+        led_status = self.led_mode_manager.get_status()
+        await self.sio.emit('led_status', {
+            'success': True,
+            'status': led_status
+        }, room=sid)
+        logger.info(f"Sent initial LED status to client {sid}: mode={led_status['current_mode']}")
+
         logger.info(f"Client {sid} connected successfully")
         return True
     
@@ -539,7 +547,7 @@ class NFCWebSocketServer:
                 'success': True,
                 'status': {
                     'brightness': brightness,
-                    'current_mode': self.led_mode_manager.current_mode.value
+                    'current_mode': self.led_mode_manager._current_mode.value
                 }
             }, room=sid)
 
