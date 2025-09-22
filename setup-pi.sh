@@ -75,12 +75,36 @@ sudo systemctl daemon-reload
 
 # Setup nginx
 echo "Configuring nginx..."
+
+# Remove ALL existing site configurations first
+sudo rm -f /etc/nginx/sites-enabled/*
+
+# Copy our configuration
 sudo cp deployment/nginx/nfc-collection.conf /etc/nginx/sites-available/
+
+# Enable only our site
 sudo ln -sf /etc/nginx/sites-available/nfc-collection.conf /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
-sudo systemctl enable nginx
+
+# Test configuration
+if sudo nginx -t; then
+    echo "Nginx configuration valid"
+
+    # Stop nginx first to ensure clean restart
+    sudo systemctl stop nginx
+    sleep 2
+
+    # Start nginx
+    if sudo systemctl start nginx; then
+        echo "✓ Nginx started successfully"
+        sudo systemctl enable nginx
+    else
+        echo "✗ Failed to start nginx"
+        echo "Check: sudo systemctl status nginx"
+        echo "Logs: sudo journalctl -xeu nginx"
+    fi
+else
+    echo "✗ Nginx configuration test failed"
+fi
 
 # Create required directories
 mkdir -p dashboard-ui/build
