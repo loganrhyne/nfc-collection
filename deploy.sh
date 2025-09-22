@@ -110,7 +110,31 @@ ssh $PI_HOST << EOF
     echo "Checking out branch: $BRANCH"
     git checkout $BRANCH
     git pull origin $BRANCH
-    
+
+    # Fix .env configuration if needed
+    echo "Ensuring correct .env configuration..."
+    cd python-services
+
+    # Create .env from example if it doesn't exist
+    if [ ! -f .env ]; then
+        if [ -f .env.example ]; then
+            cp .env.example .env
+            echo "Created .env from .env.example"
+        fi
+    fi
+
+    # Fix port configuration
+    if [ -f .env ]; then
+        # Ensure WS_PORT is 8000
+        sed -i 's/WS_PORT=8765/WS_PORT=8000/g' .env
+        # Ensure NFC_MOCK_MODE is false
+        sed -i 's/NFC_MOCK_MODE=true/NFC_MOCK_MODE=false/g' .env
+        echo "Updated .env configuration:"
+        grep -E "WS_PORT|NFC_MOCK_MODE" .env || true
+    fi
+
+    cd ..
+
     # Update Python dependencies in virtual environment
     echo "Updating Python dependencies..."
     cd python-services

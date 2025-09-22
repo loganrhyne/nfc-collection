@@ -23,6 +23,15 @@ sudo pkill -f 'python.*server.py' 2>/dev/null
 sudo pkill -f 'python.*serve-spa.py' 2>/dev/null
 sleep 2
 
+# Release GPIO pins to prevent "GPIO busy" errors
+echo -e "${YELLOW}Releasing GPIO pins...${NC}"
+for pin in 25 8 7; do
+    if [ -d "/sys/class/gpio/gpio$pin" ]; then
+        echo $pin | sudo tee /sys/class/gpio/unexport > /dev/null 2>&1
+    fi
+done
+sleep 1
+
 # Function to start WebSocket server
 start_websocket() {
     echo -e "${YELLOW}Starting WebSocket server...${NC}"
