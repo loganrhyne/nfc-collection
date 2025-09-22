@@ -4,15 +4,15 @@ After=network.target
 
 [Service]
 Type=simple
-User=loganrhyne
+User=%USER%
 Group=gpio
 SupplementaryGroups=spi,i2c
 
-WorkingDirectory=/home/loganrhyne/nfc-collection/python-services
-Environment="PATH=/home/loganrhyne/nfc-collection/python-services/venv/bin:/usr/bin:/bin"
+WorkingDirectory=/home/%USER%/nfc-collection/python-services
+Environment="PATH=/home/%USER%/nfc-collection/python-services/venv/bin:/usr/bin:/bin"
 Environment="PORT=8000"
 
-ExecStart=/home/loganrhyne/nfc-collection/python-services/venv/bin/python server_clean.py
+ExecStart=/home/%USER%/nfc-collection/python-services/venv/bin/python server_clean.py
 
 Restart=always
 RestartSec=10

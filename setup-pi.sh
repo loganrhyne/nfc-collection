@@ -32,14 +32,11 @@ deactivate
 
 # Install nginx config
 echo "Setting up nginx..."
-sudo rm -f /etc/nginx/sites-enabled/*
-sudo cp ~/nfc-collection/deployment/nginx/nfc-collection.conf /etc/nginx/sites-available/
-sudo ln -s /etc/nginx/sites-available/nfc-collection.conf /etc/nginx/sites-enabled/
-sudo systemctl restart nginx
+./setup-nginx.sh
 
 # Install systemd service
 echo "Installing service..."
-sudo cp ~/nfc-collection/deployment/systemd/nfc-server.service /etc/systemd/system/
+cat ~/nfc-collection/deployment/systemd/nfc-server.service | sed "s/%USER%/$USER/g" | sudo tee /etc/systemd/system/nfc-server.service > /dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable nfc-server
 

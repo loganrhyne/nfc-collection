@@ -3,8 +3,8 @@
 
 echo "Installing nfc-server service..."
 
-# Copy service file
-sudo cp ~/nfc-collection/deployment/systemd/nfc-server.service /etc/systemd/system/
+# Create service file with current user
+cat ~/nfc-collection/deployment/systemd/nfc-server.service | sed "s/%USER%/$USER/g" | sudo tee /etc/systemd/system/nfc-server.service > /dev/null
 
 # Reload systemd
 sudo systemctl daemon-reload
@@ -35,4 +35,4 @@ sudo systemctl is-active nfc-server && echo "✓ nfc-server running" || echo "�
 sudo systemctl is-active nginx && echo "✓ nginx running" || echo "✗ nginx not running"
 
 echo ""
-echo "Done! Check http://192.168.1.114/"
+echo "Done! Check http://$(hostname -I | awk '{print $1}')/"
