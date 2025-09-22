@@ -30,9 +30,14 @@ pip install adafruit-blinka adafruit-circuitpython-pn532
 
 deactivate
 
-# Install nginx config
+# Setup nginx (config is already in deployment/nginx/)
 echo "Setting up nginx..."
-./setup-nginx.sh
+# Copy nginx config
+sudo cp ~/nfc-collection/deployment/nginx/nfc-collection.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/nfc-collection.conf /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+# Enable nginx auto-start
+sudo systemctl enable nginx
 
 # Install systemd service
 echo "Installing service..."

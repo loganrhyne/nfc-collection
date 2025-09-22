@@ -47,8 +47,12 @@ pip install -q -r requirements.txt
 cd ~/nfc-collection
 cat deployment/systemd/nfc-server.service | sed "s/%USER%/\$USER/g" | sudo tee /etc/systemd/system/nfc-server.service > /dev/null
 
-# Restart service
+# Ensure services are enabled for auto-start
 sudo systemctl daemon-reload
+sudo systemctl enable nfc-server
+sudo systemctl enable nginx
+
+# Restart services
 sudo systemctl restart nfc-server
 sudo systemctl restart nginx
 
