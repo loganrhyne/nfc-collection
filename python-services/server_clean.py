@@ -28,6 +28,15 @@ except ImportError:
     HARDWARE_AVAILABLE = False
     print("Hardware libraries not available - running in development mode")
 
+# LED imports
+try:
+    from services.led_controller import LEDController, LEDMode, LEDConfig
+    from services.led_mode_manager import LEDModeManager
+    LED_AVAILABLE = True
+except ImportError as e:
+    LED_AVAILABLE = False
+    print(f"LED modules not available: {e}")
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -279,6 +288,17 @@ class WebSocketServer:
         self.clients: Set[str] = set()
         self.scanning = True
 
+        # Initialize LED controller if available
+        self.led_controller = None
+        self.led_manager = None
+        if LED_AVAILABLE and not os.getenv('LED_MOCK_MODE', 'false').lower() == 'true':
+            try:
+                self.led_controller = LEDController()
+                self.led_manager = LEDModeManager(self.led_controller)
+                logger.info("LED controller initialized")
+            except Exception as e:
+                logger.warning(f"Could not initialize LED controller: {e}")
+
         # Socket.IO setup
         self.sio = socketio.AsyncServer(
             async_mode='aiohttp',
@@ -373,6 +393,53 @@ class WebSocketServer:
             logger.info("Registration cancelled")
             await self.sio.emit('registration_cancelled', {}, to=sid)
 
+        @self.sio.event
+        async def led_update(sid, data):
+            """Handle LED update requests"""
+            if not self.led_manager:
+                logger.debug("LED update received but LED manager not available")
+                return
+
+            try:
+                mode = data.get('mode')
+                entries = data.get('entries', [])
+
+                logger.info(f"LED update - mode: {mode}, entries: {len(entries)}")
+
+                # Handle mode changes
+                if mode:
+                    if mode == 'off':
+                        await self.led_manager.set_mode(LEDMode.OFF)
+                    elif mode == 'interactive':
+                        await self.led_manager.set_mode(LEDMode.INTERACTIVE)
+                        # Update with entries if provided
+                        if entries:
+                            await self.led_manager.handle_interactive_update(entries)
+                    elif mode == 'visualization':
+                        await self.led_manager.set_mode(LEDMode.VISUALIZATION)
+                        if entries:
+                            await self.led_manager.update_entries_data(entries)
+
+                # Send status back
+                status = self.led_manager.get_status()
+                await self.sio.emit('led_status', status, to=sid)
+
+            except Exception as e:
+                logger.error(f"LED update error: {e}")
+
+        @self.sio.event
+        async def led_brightness(sid, data):
+            """Handle LED brightness adjustment"""
+            if not self.led_controller:
+                return
+
+            try:
+                brightness = data.get('brightness', 0.5)
+                await self.led_controller.set_brightness(brightness)
+                logger.info(f"LED brightness set to {brightness}")
+            except Exception as e:
+                logger.error(f"LED brightness error: {e}")
+
     async def nfc_scan_loop(self):
         """Background task to scan for NFC tags"""
         logger.info("Starting NFC scan loop")
@@ -416,6 +483,14 @@ class WebSocketServer:
         self.scanning = False
         if hasattr(self, 'scan_task'):
             self.scan_task.cancel()
+
+        # Turn off LEDs on shutdown
+        if self.led_manager:
+            try:
+                await self.led_manager.set_mode(LEDMode.OFF)
+                logger.info("LEDs turned off")
+            except Exception as e:
+                logger.error(f"Error turning off LEDs: {e}")
 
     def run(self):
         """Run the server"""
