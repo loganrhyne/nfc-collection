@@ -43,6 +43,10 @@ cd python-services
 source venv/bin/activate
 pip install -q -r requirements.txt
 
+# Update systemd service file (in case it changed)
+cd ~/nfc-collection
+cat deployment/systemd/nfc-server.service | sed "s/%USER%/\$USER/g" | sudo tee /etc/systemd/system/nfc-server.service > /dev/null
+
 # Restart service
 sudo systemctl daemon-reload
 sudo systemctl restart nfc-server
