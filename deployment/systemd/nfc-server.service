@@ -5,8 +5,6 @@ After=network.target
 [Service]
 Type=simple
 User=%USER%
-Group=gpio
-SupplementaryGroups=spi,i2c
 
 WorkingDirectory=/home/%USER%/nfc-collection/python-services
 Environment="PATH=/home/%USER%/nfc-collection/python-services/venv/bin:/usr/bin:/bin"

@@ -3,6 +3,9 @@
 
 echo "Installing nfc-server service..."
 
+# Check user groups
+echo "User groups: $(groups $USER)"
+
 # Create service file with current user
 cat ~/nfc-collection/deployment/systemd/nfc-server.service | sed "s/%USER%/$USER/g" | sudo tee /etc/systemd/system/nfc-server.service > /dev/null
 
