@@ -9,7 +9,7 @@ set -e  # Exit on error
 # Configuration
 PI_HOST="${PI_HOST:-loganrhyne@192.168.1.114}"
 PI_APP_DIR="/home/loganrhyne/nfc-collection"
-BRANCH="${1:-main}"
+BRANCH="${1:-fix/nfc-scan-events}"  # Default to fix branch where new files exist
 
 # Colors
 GREEN='\033[0;32m'
@@ -58,8 +58,8 @@ cd ~/nfc-collection
 # Update code from git
 echo "Pulling latest code..."
 git fetch origin
-git checkout main
-git pull origin main
+git checkout $BRANCH
+git pull origin $BRANCH
 
 # Install Python dependencies if needed
 cd python-services
