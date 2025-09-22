@@ -28,11 +28,22 @@ sudo systemctl enable nfc-server
 sudo systemctl start nfc-server
 
 # Check status
-sleep 2
 echo ""
+echo "Waiting for service to start..."
+sleep 5
+
 echo "Service status:"
-sudo systemctl is-active nfc-server && echo "✓ nfc-server running" || echo "✗ nfc-server not running"
-sudo systemctl is-active nginx && echo "✓ nginx running" || echo "✗ nginx not running"
+NFC_STATUS=$(sudo systemctl is-active nfc-server)
+if [ "$NFC_STATUS" = "active" ]; then
+    echo "✓ nfc-server running"
+else
+    echo "✗ nfc-server status: $NFC_STATUS"
+    echo ""
+    echo "Recent logs:"
+    sudo journalctl -u nfc-server -n 20 --no-pager
+fi
+
+sudo systemctl is-active nginx > /dev/null && echo "✓ nginx running" || echo "✗ nginx not running"
 
 echo ""
 echo "Done! Check http://$(hostname -I | awk '{print $1}')/"
