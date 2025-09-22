@@ -30,7 +30,7 @@ except ImportError:
 
 # LED imports
 try:
-    from services.led_controller import LEDController, LEDMode, LEDConfig
+    from services.led_controller import get_led_controller, LEDMode
     from services.led_mode_manager import LEDModeManager
     LED_AVAILABLE = True
 except ImportError as e:
@@ -291,10 +291,12 @@ class WebSocketServer:
         # Initialize LED controller if available
         self.led_controller = None
         self.led_manager = None
-        if LED_AVAILABLE and not os.getenv('LED_MOCK_MODE', 'false').lower() == 'true':
+        if LED_AVAILABLE:
             try:
-                self.led_controller = LEDController()
+                self.led_controller = get_led_controller()
                 self.led_manager = LEDModeManager(self.led_controller)
+                # Set up status callback for visualization updates
+                self.led_manager.set_status_callback(self.send_visualization_status)
                 logger.info("LED controller initialized")
             except Exception as e:
                 logger.warning(f"Could not initialize LED controller: {e}")
@@ -401,31 +403,68 @@ class WebSocketServer:
                 return
 
             try:
-                mode = data.get('mode')
-                entries = data.get('entries', [])
+                logger.info(f"LED update from {sid}: {data}")
 
-                logger.info(f"LED update - mode: {mode}, entries: {len(entries)}")
+                # Extract LED command type
+                command = data.get('command', 'set_selected')
+                status = None
 
-                # Handle mode changes
-                if mode:
-                    if mode == 'off':
-                        await self.led_manager.set_mode(LEDMode.OFF)
-                    elif mode == 'interactive':
-                        await self.led_manager.set_mode(LEDMode.INTERACTIVE)
-                        # Update with entries if provided
-                        if entries:
-                            await self.led_manager.handle_interactive_update(entries)
-                    elif mode == 'visualization':
-                        await self.led_manager.set_mode(LEDMode.VISUALIZATION)
-                        if entries:
-                            await self.led_manager.update_entries_data(entries)
+                if command == 'update_interactive':
+                    # Update LEDs for interactive mode
+                    entries = data.get('entries', [])
+                    await self.led_manager.handle_interactive_update(entries)
+                    logger.info(f"LED: Updated interactive mode with {len(entries)} entries")
 
-                # Send status back
-                status = self.led_manager.get_status()
-                await self.sio.emit('led_status', status, to=sid)
+                elif command == 'clear_all':
+                    # Clear all LEDs
+                    await self.led_manager.clear_all()
+                    logger.info("LED: Cleared all LEDs")
+
+                elif command == 'set_mode':
+                    # Switch LED mode
+                    mode_str = data.get('mode', 'interactive')
+
+                    # Properly handle all three modes
+                    if mode_str == 'off':
+                        mode = LEDMode.OFF
+                    elif mode_str == 'visualization':
+                        mode = LEDMode.VISUALIZATION
+                    else:
+                        mode = LEDMode.INTERACTIVE
+
+                    # Update entries if provided (for visualization mode)
+                    if 'allEntries' in data:
+                        await self.led_manager.update_entries(data['allEntries'])
+
+                    # Set the mode
+                    status = await self.led_manager.set_mode(mode)
+                    logger.info(f"LED: Mode set to {mode.value}")
+
+                    # If switching to interactive mode and LED data is included, update immediately
+                    if mode == LEDMode.INTERACTIVE and 'interactiveLedData' in data:
+                        led_data = data['interactiveLedData']
+                        await self.led_manager.handle_interactive_update(led_data)
+
+                    # If switching to visualization mode, also send visualization status separately
+                    elif mode == LEDMode.VISUALIZATION and status and status.get('visualization'):
+                        await self.sio.emit('visualization_status', status['visualization'], to=sid)
+
+                # Get current status if not already set
+                if status is None:
+                    status = self.led_manager.get_status()
+
+                # Send acknowledgment with current status
+                await self.sio.emit('led_status', {
+                    'success': True,
+                    'status': status
+                }, to=sid)
 
             except Exception as e:
-                logger.error(f"LED update error: {e}")
+                logger.error(f"LED update error: {e}", exc_info=True)
+                await self.sio.emit('led_status', {
+                    'success': False,
+                    'error': str(e)
+                }, to=sid)
 
         @self.sio.event
         async def led_brightness(sid, data):
@@ -436,9 +475,54 @@ class WebSocketServer:
             try:
                 brightness = data.get('brightness', 0.5)
                 await self.led_controller.set_brightness(brightness)
-                logger.info(f"LED brightness set to {brightness}")
+                logger.info(f"LED brightness set to {brightness:.0%}")
+
+                # Send confirmation
+                await self.sio.emit('led_brightness_updated', {
+                    'brightness': brightness
+                }, to=sid)
             except Exception as e:
                 logger.error(f"LED brightness error: {e}")
+
+        @self.sio.event
+        async def visualization_control(sid, data):
+            """Handle visualization control commands"""
+            if not self.led_manager:
+                return
+
+            try:
+                command = data.get('command')
+                logger.info(f"Visualization control from {sid}: {command}")
+
+                if command == 'select':
+                    # Select specific visualization
+                    viz_type = data.get('visualization_type')
+                    if viz_type:
+                        await self.led_manager.select_visualization(viz_type)
+                        logger.info(f"Selected visualization: {viz_type}")
+
+                elif command == 'pause':
+                    # Pause/resume visualization
+                    await self.led_manager.pause_visualization()
+                    logger.info("Toggled visualization pause state")
+
+                elif command == 'next':
+                    # Next visualization
+                    await self.led_manager.next_visualization()
+                    logger.info("Switched to next visualization")
+
+                elif command == 'previous':
+                    # Previous visualization
+                    await self.led_manager.previous_visualization()
+                    logger.info("Switched to previous visualization")
+
+                # Send updated status
+                status = self.led_manager.get_status()
+                if status.get('visualization'):
+                    await self.sio.emit('visualization_status', status['visualization'], to=sid)
+
+            except Exception as e:
+                logger.error(f"Visualization control error: {e}")
 
     async def nfc_scan_loop(self):
         """Background task to scan for NFC tags"""
@@ -476,6 +560,10 @@ class WebSocketServer:
         """Startup tasks"""
         logger.info("Starting NFC scan loop")
         self.scan_task = asyncio.create_task(self.nfc_scan_loop())
+
+    async def send_visualization_status(self, status: Dict):
+        """Send visualization status to all connected clients"""
+        await self.sio.emit('visualization_status', status)
 
     async def cleanup(self, app):
         """Cleanup tasks"""
