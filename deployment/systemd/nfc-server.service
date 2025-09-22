@@ -1,6 +1,6 @@
 [Unit]
-Description=NFC Hardware Service
-After=multi-user.target
+Description=NFC Collection Server
+After=network.target
 
 [Service]
 Type=simple
@@ -10,21 +10,16 @@ SupplementaryGroups=spi,i2c
 
 WorkingDirectory=/home/loganrhyne/nfc-collection/python-services
 Environment="PATH=/home/loganrhyne/nfc-collection/python-services/venv/bin:/usr/bin:/bin"
-Environment="PYTHONPATH=/home/loganrhyne/nfc-collection/python-services"
+Environment="PORT=8000"
 
-ExecStart=/home/loganrhyne/nfc-collection/python-services/venv/bin/python hardware_service.py
+ExecStart=/home/loganrhyne/nfc-collection/python-services/venv/bin/python server_clean.py
 
-# Restart policy
 Restart=always
 RestartSec=10
 
 # Logging
 StandardOutput=journal
 StandardError=journal
-
-# Hardware access permissions
-PrivateDevices=false
-NoNewPrivileges=false
 
 [Install]
 WantedBy=multi-user.target
