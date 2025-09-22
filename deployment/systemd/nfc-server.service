@@ -10,7 +10,7 @@ WorkingDirectory=/home/%USER%/nfc-collection/python-services
 Environment="PATH=/home/%USER%/nfc-collection/python-services/venv/bin:/usr/bin:/bin"
 Environment="PORT=8000"
 
-ExecStart=/home/%USER%/nfc-collection/python-services/venv/bin/python server_clean.py
+ExecStart=/home/%USER%/nfc-collection/python-services/venv/bin/python server.py
 
 Restart=always
 RestartSec=10

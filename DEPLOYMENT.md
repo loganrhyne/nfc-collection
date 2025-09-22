@@ -18,17 +18,17 @@ This guide covers deploying the NFC Collection app to a Raspberry Pi, including:
 
 2. **Run the setup script:**
    ```bash
-   sudo deployment/setup-pi.sh
+   ./setup-pi.sh
    ```
    This will:
    - Install system dependencies
-   - Enable I2C for NFC reader
+   - Enable SPI and I2C for NFC reader
    - Install Python packages
-   - Setup systemd services
-   - Configure nginx (optional)
-   - Create helper scripts
+   - Setup systemd service
+   - Configure nginx
+   - Create media directories
 
-3. **Reboot to enable I2C:**
+3. **Reboot to enable SPI/I2C:**
    ```bash
    sudo reboot
    ```
@@ -55,8 +55,7 @@ The deployment script will:
 2. Sync build files to the Pi
 3. Update code on the Pi (git pull)
 4. Update Python dependencies
-5. Configure LED controller for hardware mode
-6. Restart services
+5. Restart the unified server
 
 ### Manual Deployment
 
@@ -80,8 +79,8 @@ If you prefer manual steps:
    cd python-services
    pip3 install -r requirements.txt --upgrade
    
-   # Restart services
-   sudo systemctl restart nfc-websocket nfc-dashboard
+   # Restart unified server
+   sudo systemctl restart nfc-server
    ```
 
 ## Service Management
@@ -89,22 +88,20 @@ If you prefer manual steps:
 ### Using systemd (Recommended)
 
 ```bash
-# Start services
-sudo systemctl start nfc-websocket nfc-dashboard
+# Start service
+sudo systemctl start nfc-server
 
-# Stop services
-sudo systemctl stop nfc-websocket nfc-dashboard
+# Stop service
+sudo systemctl stop nfc-server
 
 # Check status
-sudo systemctl status nfc-websocket
-sudo systemctl status nfc-dashboard
+sudo systemctl status nfc-server
 
 # View logs
-sudo journalctl -u nfc-websocket -f
-sudo journalctl -u nfc-dashboard -f
+sudo journalctl -u nfc-server -f
 
 # Enable auto-start on boot
-sudo systemctl enable nfc-websocket nfc-dashboard
+sudo systemctl enable nfc-server
 ```
 
 ### Using helper scripts
@@ -114,36 +111,31 @@ The setup creates helper scripts in the project directory:
 ```bash
 cd ~/nfc-collection
 
-# Start all services
-./start.sh
+# Start service
+sudo systemctl start nfc-server
 
-# Stop all services
-./stop.sh
+# Stop service
+sudo systemctl stop nfc-server
 
 # Check status
-./status.sh
+sudo systemctl status nfc-server
 
 # View logs
-./logs.sh websocket  # WebSocket server logs
-./logs.sh dashboard  # Dashboard server logs
+sudo journalctl -u nfc-server -f
 ```
 
 ### Manual startup (for debugging)
 
 ```bash
-# Terminal 1 - WebSocket server
+# Terminal 1 - Unified server (includes WebSocket, NFC, and LED)
 cd ~/nfc-collection/python-services
 source venv/bin/activate
 python server.py
 
-# Or use the helper script:
-cd ~/nfc-collection
-./run-manual.sh
-
-# Terminal 2 - Web server
+# Terminal 2 - Web server (if not using nginx)
 cd ~/nfc-collection/dashboard-ui
 python3 -m http.server 80 --directory build
-# Or use any port: python3 -m http.server 8000 --directory build
+# Or use any port: python3 -m http.server 3000 --directory build
 ```
 
 ## Configuration
@@ -165,34 +157,25 @@ source venv/bin/activate
 
 ### Environment Variables
 
-Production configuration is in `python-services/.env.production`:
-- Copy to `.env` for production use
-- Adjust `SERVER_CORS_ORIGINS` for your network
-- Set `SERVER_AUTH_TOKEN` if enabling authentication
-- Adjust `LED_BRIGHTNESS` as needed
+Production configuration is in `python-services/.env`:
+- Set `PORT=8000` for the unified server
+- Set `NFC_MOCK_MODE=false` for hardware mode
+- Adjust `LED_BRIGHTNESS` as needed (0.0-1.0)
 
-### LED Hardware Mode
+### Hardware Mode Configuration
 
-The deployment script automatically sets `FORCE_MOCK = False` in the LED controller.
-To manually toggle:
+The server automatically detects hardware availability. To force mock mode for testing:
 
 ```bash
-# Enable hardware mode (for Pi)
-sed -i 's/FORCE_MOCK = True/FORCE_MOCK = False/' python-services/services/led_controller.py
-
-# Enable mock mode (for development)
-sed -i 's/FORCE_MOCK = False/FORCE_MOCK = True/' python-services/services/led_controller.py
+# Enable mock mode in .env
+echo "NFC_MOCK_MODE=true" >> python-services/.env
 ```
 
 ## Nginx Configuration (Optional)
 
 For better performance, use nginx instead of Python's http.server:
 
-1. **Disable Python web server:**
-   ```bash
-   sudo systemctl disable nfc-dashboard
-   sudo systemctl stop nfc-dashboard
-   ```
+1. **The unified server runs on port 8000, nginx serves static files and proxies WebSocket**
 
 2. **Enable nginx:**
    ```bash
@@ -212,8 +195,7 @@ Benefits:
 
 Check logs for errors:
 ```bash
-sudo journalctl -u nfc-websocket -n 50
-sudo journalctl -u nfc-dashboard -n 50
+sudo journalctl -u nfc-server -n 50
 ```
 
 ### Permission issues
@@ -225,48 +207,61 @@ sudo chown -R loganrhyne:loganrhyne /home/loganrhyne/nfc-collection
 
 ### LED not working
 
-1. Check I2C is enabled:
-   ```bash
-   sudo raspi-config
-   # Interface Options > I2C > Enable
-   ```
-
-2. Verify LED wiring:
+1. Verify LED wiring:
    - Data pin: GPIO 18 (default)
    - Power: 5V
    - Ground: GND
 
-3. Check mock mode is disabled:
+2. Check hardware libraries are installed:
    ```bash
-   grep FORCE_MOCK python-services/services/led_controller.py
-   # Should show: FORCE_MOCK = False
+   cd ~/nfc-collection/python-services
+   source venv/bin/activate
+   pip install adafruit-circuitpython-neopixel
+   ```
+
+3. Test with manual command:
+   ```bash
+   cd ~/nfc-collection/tests/manual
+   python test_led_websocket.py
    ```
 
 ### NFC reader not detected
 
-1. Check I2C devices:
+1. Check SPI is enabled:
    ```bash
-   sudo i2cdetect -y 1
-   # Should show device at address 0x24
+   sudo raspi-config
+   # Interface Options > SPI > Enable
    ```
 
-2. Verify wiring and PN532 mode (I2C mode)
+2. Verify wiring:
+   - CS pin: GPIO 25
+   - SCK, MISO, MOSI: Standard SPI pins
+
+3. The server will automatically fall back to I2C if SPI fails:
+   ```bash
+   sudo i2cdetect -y 1
+   # Should show device at address 0x24 for I2C mode
+   ```
 
 ### WebSocket connection fails
 
-1. Check CORS origins in `.env`
-2. Verify firewall allows port 8765
-3. Check WebSocket server is running:
+1. Verify server is running:
    ```bash
-   sudo systemctl status nfc-websocket
+   sudo systemctl status nfc-server
+   ```
+2. Check firewall allows port 8000
+3. Verify nginx is proxying correctly:
+   ```bash
+   sudo nginx -t
+   sudo systemctl status nginx
    ```
 
 ## Network Access
 
 After deployment, access the app at:
 - From Pi itself: http://localhost/
-- From network: http://192.168.1.114/ 
-- WebSocket API: http://192.168.1.114:8765/
+- From network: http://192.168.1.114/
+- WebSocket API: http://192.168.1.114:8000/
 
 Find Pi's IP address:
 ```bash

@@ -14,14 +14,14 @@ This project consists of:
 
 ```
 ┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
-│   React App     │ <-----> │ WebSocket Server │ <-----> │   NFC Reader    │
-│  (Dashboard UI) │         │    (Python)      │         │   (PN532 I2C)   │
+│   React App     │ <-----> │  Unified Server  │ <-----> │   NFC Reader    │
+│  (Dashboard UI) │         │  (Python/Socket.IO)│        │  (PN532 SPI)   │
 └─────────────────┘         └──────────────────┘         └─────────────────┘
                                      │
                                      v
                             ┌─────────────────┐
                             │   LED Grid      │
-                            │ (10x15 WS2812B) │
+                            │ (20x5 WS2812B)  │
                             └─────────────────┘
 ```
 
@@ -29,10 +29,10 @@ This project consists of:
 
 ### Development
 
-1. **Start the Python WebSocket server:**
+1. **Start the unified server:**
    ```bash
    cd python-services
-   source venv/bin/activate  # If using virtual environment
+   source venv/bin/activate
    python server.py
    ```
 
@@ -45,7 +45,7 @@ This project consists of:
 
 3. **Access the application:**
    - Dashboard: http://localhost:3000
-   - WebSocket API: http://localhost:8765
+   - WebSocket API: http://localhost:8000
 
 ### Production Deployment
 
@@ -96,13 +96,16 @@ nfc-collection/
 ├── python-services/       # Python backend services
 │   ├── services/         # Core service modules
 │   │   ├── nfc_service.py      # NFC hardware interface
-│   │   └── led_controller.py   # LED grid control
-│   ├── server.py         # WebSocket server
+│   │   ├── led_controller.py   # LED grid control
+│   │   ├── led_mode_manager.py # LED mode management
+│   │   └── led_visualizations.py # LED patterns
+│   ├── server.py         # Unified WebSocket + NFC server
+│   ├── config.py        # Service configuration
 │   └── venv/            # Python virtual environment
 │
 ├── deployment/           # Deployment configuration
 │   ├── systemd/         # Service definitions
-│   └── *.sh             # Setup and helper scripts
+│   └── nginx/           # Nginx configuration
 │
 ├── tests/               # Test files
 │   └── manual/         # Manual testing tools
@@ -128,8 +131,8 @@ nfc-collection/
 
 ### Hardware
 - Raspberry Pi 5
-- PN532 NFC reader/writer
-- WS2812B LED strip (150 pixels in 10x15 grid)
+- PN532 NFC reader/writer (SPI connection, CS on GPIO 25)
+- WS2812B LED strip (100 pixels in 20x5 grid)
 - Various NFC tags (NTAG21x series)
 
 ## Configuration
@@ -140,21 +143,20 @@ Create `.env` files for configuration:
 
 **dashboard-ui/.env.production:**
 ```
-REACT_APP_WS_URL=http://192.168.1.114:8765
+REACT_APP_WS_URL=http://192.168.1.114:8000
 ```
 
 **python-services/.env:**
 ```
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8765
-SERVER_CORS_ORIGINS=http://192.168.1.114
+PORT=8000
+NFC_MOCK_MODE=false
 LED_BRIGHTNESS=0.3
 ```
 
 ### LED Configuration
 
-The LED strip uses GRB byte order. Configuration in `led_controller.py`:
-- Grid: 10x15 (150 pixels)
+The LED strip configuration in `led_controller.py`:
+- Grid: 20x5 (100 pixels)
 - Wiring: Serpentine (zig-zag)
 - Data Pin: GPIO 18
 - Byte Order: GRB
@@ -187,9 +189,9 @@ Manual test tools are available in `tests/manual/`:
 ### Common Issues
 
 **WebSocket won't connect:**
-- Check CORS settings in `.env`
-- Ensure services are running
-- Verify firewall allows port 8765
+- Check if the service is running: `sudo systemctl status nfc-server`
+- Ensure nginx is running: `sudo systemctl status nginx`
+- Check logs: `sudo journalctl -u nfc-server -f`
 
 **LED colors wrong:**
 - Check byte order setting (should be "GRB")
@@ -197,13 +199,13 @@ Manual test tools are available in `tests/manual/`:
 - Test with `test_led_colors.py`
 
 **NFC not detected:**
-- Enable I2C: `sudo raspi-config` > Interface Options
-- Check wiring (SDA to GPIO 2, SCL to GPIO 3)
-- Run `sudo i2cdetect -y 1` (should show device at 0x24)
+- Enable SPI: `sudo raspi-config` > Interface Options
+- Check wiring (CS to GPIO 25)
+- The server will automatically fall back to I2C if SPI fails
 
 ## Future Enhancements
 
-- [ ] LED visualization modes (timeline, heatmaps)
+- [x] LED visualization modes (interactive, visualization patterns)
 - [ ] Multi-tag scanning support
 - [ ] Collection statistics dashboard
 - [ ] Mobile-responsive design improvements
