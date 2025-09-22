@@ -9,7 +9,7 @@ set -e  # Exit on error
 # Configuration
 PI_HOST="${PI_HOST:-loganrhyne@192.168.1.114}"
 PI_APP_DIR="/home/loganrhyne/nfc-collection"
-BRANCH="${1:-fix/nfc-scan-events}"  # Default to fix branch where new files exist
+BRANCH="${1:-main}"  # Default to main, but accept any branch as first argument
 
 # Colors
 GREEN='\033[0;32m'
@@ -21,6 +21,18 @@ echo -e "${GREEN}=== NFC Collection Deployment ===${NC}"
 echo "Host: $PI_HOST"
 echo "Branch: $BRANCH"
 echo ""
+
+# Show usage if needed
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+    echo "Usage: $0 [branch-name]"
+    echo "  branch-name: Git branch to deploy (default: main)"
+    echo ""
+    echo "Examples:"
+    echo "  $0                     # Deploy main branch"
+    echo "  $0 fix/nfc-scan-events # Deploy fix/nfc-scan-events branch"
+    echo "  $0 development         # Deploy development branch"
+    exit 0
+fi
 
 # Step 1: Build React app locally
 echo -e "${YELLOW}Building React app...${NC}"
@@ -50,13 +62,13 @@ echo -e "${GREEN}✓ Files deployed${NC}"
 # Step 3: Update code and install services on Pi
 echo -e "${YELLOW}Updating services on Pi...${NC}"
 
-ssh $PI_HOST << 'REMOTE_SCRIPT'
+ssh $PI_HOST << REMOTE_SCRIPT
 set -e
 
 cd ~/nfc-collection
 
 # Update code from git
-echo "Pulling latest code..."
+echo "Pulling latest code from branch: $BRANCH"
 git fetch origin
 git checkout $BRANCH
 git pull origin $BRANCH
