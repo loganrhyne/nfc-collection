@@ -15,7 +15,7 @@ echo ""
 # Build React app
 echo "Building React app..."
 cd dashboard-ui
-REACT_APP_WS_URL=http://192.168.1.114 npm run build
+REACT_APP_WS_URL=http://192.168.1.114:8000 npm run build
 cd ..
 
 # Deploy to Pi
