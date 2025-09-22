@@ -44,14 +44,21 @@ source venv/bin/activate
 pip install -q -r requirements.txt
 
 # Restart service
+sudo systemctl daemon-reload
 sudo systemctl restart nfc-server
 sudo systemctl restart nginx
 
 # Check status
-sleep 2
+sleep 5
 echo ""
 echo "Service status:"
-sudo systemctl is-active nfc-server && echo "✓ Server running" || echo "✗ Server not running"
+if sudo systemctl is-active --quiet nfc-server; then
+    echo "✓ Server running"
+else
+    echo "✗ Server not running"
+    echo "Recent logs:"
+    sudo journalctl -u nfc-server -n 20 --no-pager
+fi
 sudo systemctl is-active nginx && echo "✓ Nginx running" || echo "✗ Nginx not running"
 EOF
 

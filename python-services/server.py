@@ -12,9 +12,14 @@ import sys
 from datetime import datetime
 from typing import Optional, Dict, Any, Set
 
-import socketio
-from aiohttp import web
-from aiohttp_cors import setup as cors_setup, ResourceOptions
+try:
+    import socketio
+    from aiohttp import web
+    from aiohttp_cors import setup as cors_setup, ResourceOptions
+except ImportError as e:
+    print(f"Failed to import required packages: {e}", file=sys.stderr)
+    print("Please ensure all packages are installed: pip install -r requirements.txt", file=sys.stderr)
+    sys.exit(1)
 
 # Hardware imports - optional for development
 try:
@@ -598,7 +603,12 @@ class WebSocketServer:
 
 def main():
     """Main entry point"""
+    print(f"Starting NFC Collection Server...", file=sys.stderr)
+    print(f"Python: {sys.executable}", file=sys.stderr)
+    print(f"Working dir: {os.getcwd()}", file=sys.stderr)
+
     port = int(os.getenv('PORT', '8000'))
+    print(f"Port: {port}", file=sys.stderr)
 
     # Handle signals gracefully
     def signal_handler(sig, frame):
@@ -608,8 +618,14 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    server = WebSocketServer(port=port)
-    server.run()
+    try:
+        server = WebSocketServer(port=port)
+        server.run()
+    except Exception as e:
+        print(f"Failed to start server: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == '__main__':
