@@ -7,6 +7,7 @@ import asyncio
 import logging
 from typing import Optional, List, Dict
 from enum import Enum
+from datetime import datetime, timedelta
 from services.led_controller import LEDController, LEDMode
 from services.led_visualizations import VisualizationType
 
@@ -25,6 +26,12 @@ class LEDModeManager:
         self._visualization_task = None
         self._entries_data = []
         self._status_callback = None  # For sending status updates to frontend
+        self._auto_off_task = None  # Task for auto-off timer
+        self._visualization_start_time = None  # Track when visualization started
+
+        # Auto-off duration from environment variable or default to 15 minutes
+        import os
+        self._auto_off_duration = int(os.getenv('LED_AUTO_OFF_MINUTES', '15')) * 60
         
     async def set_mode(self, mode: LEDMode, auto_start_viz: bool = True) -> Dict:
         """
@@ -40,6 +47,7 @@ class LEDModeManager:
         # Clean up current mode
         if self._current_mode == LEDMode.VISUALIZATION:
             await self._stop_visualization()
+            await self._cancel_auto_off()
 
         # Set new mode - this is now simplified
         self._current_mode = mode
@@ -51,6 +59,7 @@ class LEDModeManager:
         # Initialize visualization if needed
         if mode == LEDMode.VISUALIZATION and auto_start_viz:
             await self._start_visualization()
+            await self._start_auto_off_timer()  # Start the auto-off timer
 
             # Send visualization status immediately after starting
             if self._status_callback:
@@ -60,6 +69,7 @@ class LEDModeManager:
         elif mode == LEDMode.OFF:
             # When switching to OFF mode, ensure all LEDs are turned off
             await self.led_controller.clear_all()
+            await self._cancel_auto_off()
 
         return self.get_status()
     
@@ -104,6 +114,10 @@ class LEDModeManager:
             viz_engine = self.led_controller.get_visualization_engine()
             await viz_engine.start_specific_visualization(viz_type)
             logger.info(f"Manually selected {viz_type_str} visualization")
+
+            # Restart auto-off timer on user interaction
+            if self._current_mode == LEDMode.VISUALIZATION:
+                await self._start_auto_off_timer()
         except ValueError:
             logger.error(f"Unknown visualization type: {viz_type_str}")
 
@@ -135,6 +149,14 @@ class LEDModeManager:
             viz_status = viz_engine.get_status()
             status['visualization'] = viz_status
 
+            # Add auto-off timer info
+            remaining_time = self.get_remaining_time()
+            if remaining_time is not None:
+                status['auto_off_remaining'] = remaining_time
+                status['auto_off_enabled'] = True
+            else:
+                status['auto_off_enabled'] = False
+
         return status
     
     async def handle_interactive_update(self, entries: List[Dict]):
@@ -152,3 +174,45 @@ class LEDModeManager:
     async def clear_all(self):
         """Clear all LEDs"""
         await self.led_controller.clear_all()
+
+    async def _start_auto_off_timer(self):
+        """Start the auto-off timer for visualization mode"""
+        await self._cancel_auto_off()  # Cancel any existing timer
+
+        self._visualization_start_time = datetime.now()
+        self._auto_off_task = asyncio.create_task(self._auto_off_countdown())
+        logger.info(f"Started auto-off timer: LEDs will turn off in {self._auto_off_duration} seconds")
+
+    async def _cancel_auto_off(self):
+        """Cancel the auto-off timer"""
+        if self._auto_off_task and not self._auto_off_task.done():
+            self._auto_off_task.cancel()
+            self._auto_off_task = None
+            self._visualization_start_time = None
+            logger.info("Cancelled auto-off timer")
+
+    async def _auto_off_countdown(self):
+        """Countdown task that turns off LEDs after the duration"""
+        try:
+            await asyncio.sleep(self._auto_off_duration)
+            logger.info("Auto-off timer expired, turning off LEDs")
+            await self.set_mode(LEDMode.OFF)
+
+            # Send status update to frontend if callback is set
+            if self._status_callback:
+                status = self.get_status()
+                await self._status_callback({
+                    'auto_off_triggered': True,
+                    'message': 'LEDs automatically turned off after 15 minutes',
+                    **status
+                })
+        except asyncio.CancelledError:
+            logger.debug("Auto-off timer was cancelled")
+
+    def get_remaining_time(self) -> Optional[int]:
+        """Get remaining time in seconds before auto-off, or None if not active"""
+        if self._visualization_start_time and self._current_mode == LEDMode.VISUALIZATION:
+            elapsed = (datetime.now() - self._visualization_start_time).total_seconds()
+            remaining = max(0, self._auto_off_duration - elapsed)
+            return int(remaining)
+        return None

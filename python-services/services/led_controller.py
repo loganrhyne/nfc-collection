@@ -48,7 +48,7 @@ class LEDController:
         self._selected_index: Optional[int] = None
         self._mode = LEDMode.OFF  # Start with LEDs off for safety
         self._visualization_engine = None
-        self._global_brightness = 0.5  # Default 50% brightness
+        self._global_brightness = 0.1  # Default 10% brightness
         
         # Initialize hardware if available
         if not self.config.mock_mode:

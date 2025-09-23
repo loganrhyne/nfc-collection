@@ -71,13 +71,15 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 - **WebSocket API**: Real-time communication between hardware and UI
 
 ### LED Visualization
-- **Grid Mapping**: 10x15 LED grid (150 pixels) representing the collection
+- **Grid Mapping**: 20x5 LED grid (100 pixels) representing the collection
 - **Real-time Updates**: LEDs mirror the current dashboard state
 - **Color Coding**: Each sample type has a unique color
 - **Interactive Modes**:
   - Selection highlighting
-  - Filtered entries display (planned)
-  - Data visualization patterns (planned)
+  - Visualization patterns with auto-rotation
+  - Auto-off timer (15 minutes default)
+- **Default Brightness**: 10% for comfortable viewing
+- **User Safety**: Automatic shutdown after 15 minutes in visualization mode
 
 ## Project Structure
 
@@ -150,7 +152,8 @@ REACT_APP_WS_URL=http://192.168.1.114:8000
 ```
 PORT=8000
 NFC_MOCK_MODE=false
-LED_BRIGHTNESS=0.3
+LED_BRIGHTNESS=0.1
+LED_AUTO_OFF_MINUTES=15
 ```
 
 ### LED Configuration
