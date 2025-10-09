@@ -17,10 +17,16 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}NFC Collection - Media Sync${NC}"
 echo "==============================="
 
-# Find the most recent Day One export directory (date-based directories)
+# Find the most recent Day One export directory by modification time
 echo -e "\n${YELLOW}Finding most recent export...${NC}"
-# Look for directories with date pattern (MM-DD-YYYY) or just get the most recent directory
-LATEST_EXPORT=$(find "$SOURCE_BASE_DIR" -maxdepth 1 -type d ! -path "$SOURCE_BASE_DIR" | sort -r | head -n 1)
+# Get the most recently modified directory (using stat to get modification time)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS version (uses different stat syntax)
+    LATEST_EXPORT=$(find "$SOURCE_BASE_DIR" -maxdepth 1 -type d ! -path "$SOURCE_BASE_DIR" -exec stat -f "%m %N" {} \; | sort -rn | head -n 1 | cut -d' ' -f2-)
+else
+    # Linux version
+    LATEST_EXPORT=$(find "$SOURCE_BASE_DIR" -maxdepth 1 -type d ! -path "$SOURCE_BASE_DIR" -exec stat -c "%Y %n" {} \; | sort -rn | head -n 1 | cut -d' ' -f2-)
+fi
 
 if [ -z "$LATEST_EXPORT" ]; then
     echo -e "${RED}Error: No Day One export directories found in $SOURCE_BASE_DIR${NC}"
@@ -29,6 +35,11 @@ fi
 
 echo "Found: $(basename "$LATEST_EXPORT")"
 echo "Path: $LATEST_EXPORT"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "Modified: $(stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S" "$LATEST_EXPORT")"
+else
+    echo "Modified: $(stat -c "%y" "$LATEST_EXPORT" | cut -d' ' -f1,2)"
+fi
 
 # Count files to sync
 PHOTO_COUNT=$(find "$LATEST_EXPORT/photos" -type f 2>/dev/null | wc -l)
