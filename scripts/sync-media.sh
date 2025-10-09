@@ -72,6 +72,8 @@ fi
 if [ -f "$LATEST_EXPORT/journal.json" ]; then
     echo -e "\n${YELLOW}Syncing journal.json...${NC}"
     rsync -avz --progress \
+        --itemize-changes \
+        --checksum \
         "$LATEST_EXPORT/journal.json" \
         "${PI_USER}@${PI_HOST}:${PI_MEDIA_DIR}/"
 fi
