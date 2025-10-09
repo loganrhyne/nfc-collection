@@ -68,14 +68,37 @@ if [ -d "$LATEST_EXPORT/videos" ]; then
         "${PI_USER}@${PI_HOST}:${PI_MEDIA_DIR}/videos/"
 fi
 
-# Sync journal.json
-if [ -f "$LATEST_EXPORT/journal.json" ]; then
-    echo -e "\n${YELLOW}Syncing journal.json...${NC}"
+# Sync journal.json - Day One exports as "Sand Collection.json"
+echo -e "\n${YELLOW}Checking for journal JSON file...${NC}"
+if [ -f "$LATEST_EXPORT/Sand Collection.json" ]; then
+    echo "Found: Sand Collection.json"
+    echo -e "${YELLOW}Syncing as journal.json...${NC}"
+    rsync -avz --progress \
+        --itemize-changes \
+        --checksum \
+        "$LATEST_EXPORT/Sand Collection.json" \
+        "${PI_USER}@${PI_HOST}:${PI_MEDIA_DIR}/journal.json"
+elif [ -f "$LATEST_EXPORT/Journal.json" ]; then
+    echo "Found: Journal.json"
+    echo -e "${YELLOW}Syncing as journal.json...${NC}"
+    rsync -avz --progress \
+        --itemize-changes \
+        --checksum \
+        "$LATEST_EXPORT/Journal.json" \
+        "${PI_USER}@${PI_HOST}:${PI_MEDIA_DIR}/journal.json"
+elif [ -f "$LATEST_EXPORT/journal.json" ]; then
+    echo "Found: journal.json"
+    echo -e "${YELLOW}Syncing journal.json...${NC}"
     rsync -avz --progress \
         --itemize-changes \
         --checksum \
         "$LATEST_EXPORT/journal.json" \
-        "${PI_USER}@${PI_HOST}:${PI_MEDIA_DIR}/"
+        "${PI_USER}@${PI_HOST}:${PI_MEDIA_DIR}/journal.json"
+else
+    echo -e "${RED}Warning: No journal JSON file found in export!${NC}"
+    echo "Looking for JSON files in export directory:"
+    ls -la "$LATEST_EXPORT"/*.json 2>/dev/null || echo "No .json files found"
+    echo -e "${YELLOW}Expected one of: 'Sand Collection.json', 'Journal.json', or 'journal.json'${NC}"
 fi
 
 # Set proper permissions
