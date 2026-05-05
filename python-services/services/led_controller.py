@@ -19,14 +19,19 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LEDConfig:
     """LED configuration"""
-    num_pixels: int = 100  # 20x5 grid = 100 LEDs
-    grid_rows: int = 5     # 5 rows
-    grid_cols: int = 20    # 20 columns
+    num_pixels: int = 300  # 20x15 grid = 300 LEDs
+    grid_rows: int = 15
+    grid_cols: int = 20
     gpio_pin: str = "D18"
     pixel_order: str = "GRB"
     brightness_filtered: float = 0.05  # 5% for background
     brightness_selected: float = 0.8   # 80% for selected
     mock_mode: bool = False
+    # If True, physical pixel 0 is at the logical (rows-1, cols-1) end of
+    # the chain; the serpentine map is reversed end-to-end. Set this when
+    # the data line enters the strip from the corner opposite where you
+    # want logical (0,0) to live.
+    reverse_chain: bool = False
 
 
 
@@ -82,15 +87,20 @@ class LEDController:
         """Convert logical grid position to physical pixel index (serpentine)"""
         if not 0 <= logical_index < self.config.num_pixels:
             return logical_index
-            
+
         row = logical_index // self.config.grid_cols
         col = logical_index % self.config.grid_cols
-        
+
         # Even rows go left-to-right, odd rows go right-to-left
         if row % 2 == 0:
-            return row * self.config.grid_cols + col
+            physical = row * self.config.grid_cols + col
         else:
-            return row * self.config.grid_cols + (self.config.grid_cols - 1 - col)
+            physical = row * self.config.grid_cols + (self.config.grid_cols - 1 - col)
+
+        if self.config.reverse_chain:
+            physical = self.config.num_pixels - 1 - physical
+
+        return physical
     
     async def update_interactive_mode(self, entries: List[Dict]):
         """
@@ -99,7 +109,7 @@ class LEDController:
         
         Args:
             entries: List of dicts with keys:
-                - index: Grid position (0-149)
+                - index: Grid position (0 to num_pixels-1)
                 - color: Hex color string
                 - isSelected: Boolean
         """
