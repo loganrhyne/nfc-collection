@@ -31,6 +31,11 @@ class LEDConfig:
     # the chain; the serpentine map is reversed end-to-end. Set this when
     # the data line enters the strip from the corner opposite where you
     # want logical (0,0) to live.
+    #
+    # Note this is a 180-degree rotation only because grid_rows is odd. With
+    # an even row count the reversal lands on the opposite row parity and the
+    # result is a vertical flip instead. Re-check the mapping if the grid
+    # geometry ever changes.
     reverse_chain: bool = False
 
 
@@ -251,9 +256,38 @@ def get_led_controller() -> LEDController:
     """Get the singleton LED controller instance"""
     global _controller
     if _controller is None:
-        # Check for mock mode from environment
-        import os
-        mock = os.getenv('LED_MOCK_MODE', 'false').lower() == 'true'
-        config = LEDConfig(mock_mode=mock)
-        _controller = LEDController(config)
+        _controller = LEDController(led_config_from_env())
     return _controller
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    """Read a boolean environment variable"""
+    import os
+    return os.getenv(name, str(default)).strip().lower() in ('true', '1', 'yes', 'on')
+
+
+def led_config_from_env() -> LEDConfig:
+    """Build LEDConfig from environment, falling back to the dataclass defaults"""
+    import os
+
+    defaults = LEDConfig()
+    config = LEDConfig(
+        num_pixels=int(os.getenv('LED_NUM_PIXELS', defaults.num_pixels)),
+        grid_rows=int(os.getenv('LED_GRID_ROWS', defaults.grid_rows)),
+        grid_cols=int(os.getenv('LED_GRID_COLS', defaults.grid_cols)),
+        mock_mode=_env_flag('LED_MOCK_MODE'),
+        reverse_chain=_env_flag('LED_REVERSE_CHAIN'),
+    )
+
+    if config.grid_rows * config.grid_cols != config.num_pixels:
+        raise ValueError(
+            f"LED grid geometry mismatch: grid_rows({config.grid_rows}) * "
+            f"grid_cols({config.grid_cols}) != num_pixels({config.num_pixels})"
+        )
+
+    logger.info(
+        "LED config: %d pixels (%dx%d), reverse_chain=%s, mock_mode=%s",
+        config.num_pixels, config.grid_rows, config.grid_cols,
+        config.reverse_chain, config.mock_mode,
+    )
+    return config

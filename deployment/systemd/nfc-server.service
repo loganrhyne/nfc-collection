@@ -10,6 +10,12 @@ WorkingDirectory=/home/%USER%/nfc-collection/python-services
 Environment="PATH=/home/%USER%/nfc-collection/python-services/venv/bin:/usr/bin:/bin"
 Environment="PORT=8000"
 
+# Optional local overrides (LED_REVERSE_CHAIN, LED_AUTO_OFF_MINUTES, mock
+# flags...). The leading dash means a missing file is not an error; .env is
+# gitignored and excluded from the deploy rsync, so it lives only on the Pi.
+# Listed after the Environment= lines so it can override them.
+EnvironmentFile=-/home/%USER%/nfc-collection/python-services/.env
+
 ExecStart=/home/%USER%/nfc-collection/python-services/venv/bin/python server.py
 
 Restart=always
