@@ -1,15 +1,20 @@
 # Core dependencies for NFC Collection
 
 # WebSocket server
-aiohttp==3.8.5
-python-socketio==5.9.0
+#
+# aiohttp is held at >=3.10 because 3.8.5 has no wheels for Python 3.12+ and
+# its C extension fails to compile there, so the pinned set could not be
+# installed on a current developer machine at all. 3.10.x supports Python
+# 3.8-3.12, which covers both the Pi (Bookworm ships 3.11) and modern macOS.
+aiohttp>=3.10,<4
+python-socketio>=5.9,<6
 aiohttp-cors==0.7.0
 
 # Configuration
-python-dotenv==1.0.0
+python-dotenv>=1.0,<2
 
-# Hardware libraries (install on Pi only)
-# These are installed by setup-pi.sh:
+# Hardware libraries (install on Pi only, by setup-pi.sh)
+# Not importable off-Pi; server.py degrades to mock mode when they are absent.
 # adafruit-blinka
 # adafruit-circuitpython-pn532
 # adafruit-circuitpython-neopixel
