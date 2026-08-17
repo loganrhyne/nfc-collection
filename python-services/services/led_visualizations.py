@@ -11,6 +11,7 @@ from typing import List, Dict, Tuple, Optional, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
 import colorsys
+import hashlib
 
 import logging
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ class TypeDistributionVisualization:
         types: Sorted list of unique sand types found in entries
     """
 
-    def __init__(self, entries: List[Dict], total_pixels: int = 100):
+    def __init__(self, entries: List[Dict], total_pixels: int):
         """
         Initialize the type distribution visualization.
 
@@ -190,7 +191,7 @@ class ChronologyVisualization:
         baseline_brightness: Dim brightness level for non-highlighted years
     """
 
-    def __init__(self, entries: List[Dict], total_pixels: int = 100):
+    def __init__(self, entries: List[Dict], total_pixels: int):
         """
         Initialize the chronology visualization.
 
@@ -296,7 +297,7 @@ class RegionVisualization:
         regions: Sorted list of regions or types (if using fallback)
     """
 
-    def __init__(self, entries: List[Dict], total_pixels: int = 100):
+    def __init__(self, entries: List[Dict], total_pixels: int):
         """
         Initialize the region visualization.
 
@@ -371,9 +372,10 @@ class RegionVisualization:
         if region in ColorManager.SAND_TYPE_COLORS:
             return ColorManager.SAND_TYPE_COLORS[region]
 
-        # Use a hash-based approach for consistent colors per region
-        hash_val = hash(region)
-        hue = (hash_val % 360) / 360.0
+        # Use a stable hash so colors are consistent across server restarts.
+        # Python's built-in hash() is randomized per process.
+        digest = hashlib.md5(region.encode("utf-8")).digest()
+        hue = (int.from_bytes(digest[:4], "big") % 360) / 360.0
         r, g, b = colorsys.hsv_to_rgb(hue, 0.8, 0.9)
         return (int(r * 255), int(g * 255), int(b * 255))
 
@@ -698,14 +700,15 @@ class VisualizationEngine:
                 return
 
             # Create appropriate visualization instance
+            num_pixels = self.led_controller.config.num_pixels
             if viz_type == VisualizationType.TYPE_DISTRIBUTION:
-                viz = TypeDistributionVisualization(self.entries_data)
+                viz = TypeDistributionVisualization(self.entries_data, total_pixels=num_pixels)
                 cycle_duration = 15.0  # 15 seconds to cycle through all types
             elif viz_type == VisualizationType.CHRONOLOGY:
-                viz = ChronologyVisualization(self.entries_data)
+                viz = ChronologyVisualization(self.entries_data, total_pixels=num_pixels)
                 cycle_duration = 30.0  # 30 seconds for full timeline
             elif viz_type == VisualizationType.REGION_MAP:
-                viz = RegionVisualization(self.entries_data)
+                viz = RegionVisualization(self.entries_data, total_pixels=num_pixels)
                 cycle_duration = 20.0  # 20 seconds to cycle through regions
             else:
                 logger.error(f"Unknown visualization type: {viz_type}")

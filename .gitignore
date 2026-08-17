@@ -219,3 +219,6 @@ dashboard-ui/data/photos/
 dashboard-ui/data/videos/
 dashboard-ui/data/pdfs/
 nfc-collection/
+
+# macOS
+.DS_Store

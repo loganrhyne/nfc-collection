@@ -19,14 +19,24 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LEDConfig:
     """LED configuration"""
-    num_pixels: int = 100  # 20x5 grid = 100 LEDs
-    grid_rows: int = 5     # 5 rows
-    grid_cols: int = 20    # 20 columns
+    num_pixels: int = 300  # 20x15 grid = 300 LEDs
+    grid_rows: int = 15
+    grid_cols: int = 20
     gpio_pin: str = "D18"
     pixel_order: str = "GRB"
     brightness_filtered: float = 0.05  # 5% for background
     brightness_selected: float = 0.8   # 80% for selected
     mock_mode: bool = False
+    # If True, physical pixel 0 is at the logical (rows-1, cols-1) end of
+    # the chain; the serpentine map is reversed end-to-end. Set this when
+    # the data line enters the strip from the corner opposite where you
+    # want logical (0,0) to live.
+    #
+    # Note this is a 180-degree rotation only because grid_rows is odd. With
+    # an even row count the reversal lands on the opposite row parity and the
+    # result is a vertical flip instead. Re-check the mapping if the grid
+    # geometry ever changes.
+    reverse_chain: bool = False
 
 
 
@@ -82,15 +92,20 @@ class LEDController:
         """Convert logical grid position to physical pixel index (serpentine)"""
         if not 0 <= logical_index < self.config.num_pixels:
             return logical_index
-            
+
         row = logical_index // self.config.grid_cols
         col = logical_index % self.config.grid_cols
-        
+
         # Even rows go left-to-right, odd rows go right-to-left
         if row % 2 == 0:
-            return row * self.config.grid_cols + col
+            physical = row * self.config.grid_cols + col
         else:
-            return row * self.config.grid_cols + (self.config.grid_cols - 1 - col)
+            physical = row * self.config.grid_cols + (self.config.grid_cols - 1 - col)
+
+        if self.config.reverse_chain:
+            physical = self.config.num_pixels - 1 - physical
+
+        return physical
     
     async def update_interactive_mode(self, entries: List[Dict]):
         """
@@ -99,7 +114,7 @@ class LEDController:
         
         Args:
             entries: List of dicts with keys:
-                - index: Grid position (0-149)
+                - index: Grid position (0 to num_pixels-1)
                 - color: Hex color string
                 - isSelected: Boolean
         """
@@ -241,9 +256,38 @@ def get_led_controller() -> LEDController:
     """Get the singleton LED controller instance"""
     global _controller
     if _controller is None:
-        # Check for mock mode from environment
-        import os
-        mock = os.getenv('LED_MOCK_MODE', 'false').lower() == 'true'
-        config = LEDConfig(mock_mode=mock)
-        _controller = LEDController(config)
+        _controller = LEDController(led_config_from_env())
     return _controller
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    """Read a boolean environment variable"""
+    import os
+    return os.getenv(name, str(default)).strip().lower() in ('true', '1', 'yes', 'on')
+
+
+def led_config_from_env() -> LEDConfig:
+    """Build LEDConfig from environment, falling back to the dataclass defaults"""
+    import os
+
+    defaults = LEDConfig()
+    config = LEDConfig(
+        num_pixels=int(os.getenv('LED_NUM_PIXELS', defaults.num_pixels)),
+        grid_rows=int(os.getenv('LED_GRID_ROWS', defaults.grid_rows)),
+        grid_cols=int(os.getenv('LED_GRID_COLS', defaults.grid_cols)),
+        mock_mode=_env_flag('LED_MOCK_MODE'),
+        reverse_chain=_env_flag('LED_REVERSE_CHAIN'),
+    )
+
+    if config.grid_rows * config.grid_cols != config.num_pixels:
+        raise ValueError(
+            f"LED grid geometry mismatch: grid_rows({config.grid_rows}) * "
+            f"grid_cols({config.grid_cols}) != num_pixels({config.num_pixels})"
+        )
+
+    logger.info(
+        "LED config: %d pixels (%dx%d), reverse_chain=%s, mock_mode=%s",
+        config.num_pixels, config.grid_rows, config.grid_cols,
+        config.reverse_chain, config.mock_mode,
+    )
+    return config

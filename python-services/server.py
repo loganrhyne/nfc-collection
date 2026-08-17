@@ -7,8 +7,8 @@ import asyncio
 import json
 import logging
 import os
-import signal
 import sys
+import time
 from datetime import datetime
 from typing import Optional, Dict, Any, Set
 
@@ -95,8 +95,11 @@ class NFCHandler:
             except Exception as e:
                 logger.warning(f"Hardware init attempt {attempt + 1} failed: {e}")
                 if attempt < max_attempts - 1:
-                    # Release GPIO and retry
-                    asyncio.sleep(1)
+                    # Release GPIO and retry. _initialize_hardware is a sync
+                    # method called from __init__, so use time.sleep — the
+                    # original asyncio.sleep returned an unawaited coroutine
+                    # and the retry loop was effectively tight.
+                    time.sleep(1)
 
         logger.error("Failed to initialize NFC hardware - running in mock mode")
         self.mock_mode = True
@@ -610,13 +613,10 @@ def main():
     port = int(os.getenv('PORT', '8000'))
     print(f"Port: {port}", file=sys.stderr)
 
-    # Handle signals gracefully
-    def signal_handler(sig, frame):
-        logger.info("Shutting down...")
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    # aiohttp's web.run_app installs its own SIGINT/SIGTERM handlers that
+    # trigger graceful shutdown via on_cleanup. Don't register our own —
+    # sys.exit() inside the handler bypasses cleanup and leaves NFC/LED
+    # state stranded, then systemd SIGKILLs us after TimeoutStopSec.
 
     try:
         server = WebSocketServer(port=port)

@@ -3,10 +3,10 @@ import io from 'socket.io-client';
 
 // Configuration
 const CONFIG = {
-  WEBSOCKET_URL: process.env.REACT_APP_WS_URL || 
-    (process.env.NODE_ENV === 'production' 
-      ? `http://${window.location.hostname}:8765`
-      : 'http://localhost:8765'),
+  WEBSOCKET_URL: process.env.REACT_APP_WS_URL ||
+    (process.env.NODE_ENV === 'production'
+      ? `http://${window.location.hostname}:8000`
+      : 'http://localhost:8000'),
   RECONNECTION_DELAY: 1000,
   RECONNECTION_DELAY_MAX: 10000,
   CONNECTION_TIMEOUT: 20000,
