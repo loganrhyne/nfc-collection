@@ -9,7 +9,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Set
 
 try:
@@ -21,17 +21,9 @@ except ImportError as e:
     print("Please ensure all packages are installed: pip install -r requirements.txt", file=sys.stderr)
     sys.exit(1)
 
-# Hardware imports - optional for development
-try:
-    import board
-    import busio
-    from digitalio import DigitalInOut
-    from adafruit_pn532.spi import PN532_SPI
-    from adafruit_pn532.i2c import PN532_I2C
-    HARDWARE_AVAILABLE = True
-except ImportError:
-    HARDWARE_AVAILABLE = False
-    print("Hardware libraries not available - running in development mode")
+# NFC service (executor-offloaded I/O, hardware lock, presence-based scan state,
+# write verification, reinit-after-N-errors). Replaces the old inline NFCHandler.
+from services.nfc_service import NFCService, NFCHardwareError, NFCTimeoutError
 
 # LED imports
 try:
@@ -50,251 +42,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class NFCHandler:
-    """Handles NFC hardware operations"""
-
-    def __init__(self):
-        self.pn532 = None
-        self.last_tag_id = None
-        self.last_scan_time = 0
-        self.mock_mode = not HARDWARE_AVAILABLE or os.getenv('NFC_MOCK_MODE', 'false').lower() == 'true'
-
-        if not self.mock_mode:
-            self._initialize_hardware()
-
-    def _initialize_hardware(self):
-        """Initialize NFC hardware with retries"""
-        max_attempts = 3
-
-        for attempt in range(max_attempts):
-            try:
-                logger.info(f"Initializing NFC hardware (attempt {attempt + 1}/{max_attempts})")
-
-                # Try SPI first (most common on Pi)
-                try:
-                    spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
-                    cs_pin = DigitalInOut(board.D25)  # GPIO 25
-                    self.pn532 = PN532_SPI(spi, cs_pin, debug=False)
-                    logger.info("Connected via SPI")
-                except Exception as e:
-                    logger.debug(f"SPI failed: {e}, trying I2C...")
-
-                    # Fallback to I2C
-                    i2c = busio.I2C(board.SCL, board.SDA)
-                    self.pn532 = PN532_I2C(i2c, debug=False)
-                    logger.info("Connected via I2C")
-
-                # Verify connection
-                ic, ver, rev, support = self.pn532.firmware_version
-                logger.info(f"Found PN532 - Firmware {ver}.{rev}")
-
-                # Configure for passive reading
-                self.pn532.SAM_configuration()
-                return
-
-            except Exception as e:
-                logger.warning(f"Hardware init attempt {attempt + 1} failed: {e}")
-                if attempt < max_attempts - 1:
-                    # Release GPIO and retry. _initialize_hardware is a sync
-                    # method called from __init__, so use time.sleep — the
-                    # original asyncio.sleep returned an unawaited coroutine
-                    # and the retry loop was effectively tight.
-                    time.sleep(1)
-
-        logger.error("Failed to initialize NFC hardware - running in mock mode")
-        self.mock_mode = True
-
-    async def scan_for_tag(self) -> Optional[Dict[str, str]]:
-        """Scan for NFC tag and read its data"""
-        if self.mock_mode:
-            return None
-
-        try:
-            uid = self.pn532.read_passive_target(timeout=0.2)
-            if uid:
-                tag_id = uid.hex()
-                current_time = asyncio.get_event_loop().time()
-
-                # Simple debounce - 3 seconds
-                if tag_id != self.last_tag_id or (current_time - self.last_scan_time) > 3:
-                    self.last_tag_id = tag_id
-                    self.last_scan_time = current_time
-
-                    # Try to read NDEF data from the tag
-                    entry_id = self._read_ndef_entry_id()
-
-                    return {
-                        'tag_id': tag_id,
-                        'entry_id': entry_id
-                    }
-        except Exception as e:
-            logger.error(f"NFC scan error: {e}")
-
-        return None
-
-    def _read_ndef_entry_id(self) -> Optional[str]:
-        """Read entry ID from NDEF JSON data on tag"""
-        try:
-            # Read data from tag (NTAG uses ntag2xx_read_block)
-            data = bytearray()
-            for page in range(4, 40):  # Read up to page 40
-                try:
-                    block = self.pn532.ntag2xx_read_block(page)
-                    if block:
-                        data.extend(block)
-                    else:
-                        break
-                except:
-                    break
-
-            # Parse NDEF TLV structure
-            if len(data) > 2 and data[0] == 0x03:  # NDEF message TLV
-                # Get NDEF message length
-                if data[1] == 0xFF:  # Long format
-                    if len(data) > 4:
-                        ndef_len = (data[2] << 8) | data[3]
-                        ndef_start = 4
-                else:  # Short format
-                    ndef_len = data[1]
-                    ndef_start = 2
-
-                if len(data) >= ndef_start + ndef_len:
-                    ndef_message = data[ndef_start:ndef_start + ndef_len]
-
-                    # Check for Text record (TNF=0x01, Type='T')
-                    if len(ndef_message) > 5 and ndef_message[3] == 0x54:  # 'T'
-                        payload_len = ndef_message[2]
-                        status_byte = ndef_message[4]
-                        lang_len = status_byte & 0x3F
-
-                        # Extract text data
-                        text_start = 5 + lang_len
-                        text_end = 4 + payload_len
-
-                        if len(ndef_message) >= text_end:
-                            text_data = ndef_message[text_start:text_end]
-                            text_str = text_data.decode('utf-8', errors='ignore')
-
-                            # Parse JSON to get entry ID
-                            if text_str.startswith('{'):
-                                try:
-                                    json_data = json.loads(text_str)
-                                    entry_id = json_data.get('id')
-                                    if entry_id:
-                                        logger.info(f"Found entry ID in tag JSON: {entry_id}")
-                                        return entry_id
-                                except json.JSONDecodeError:
-                                    logger.debug("Failed to parse JSON from tag")
-
-        except Exception as e:
-            logger.debug(f"Could not read NDEF data: {e}")
-
-        return None
-
-    def _create_text_ndef(self, text: str) -> bytes:
-        """Create NDEF text record"""
-        text_bytes = text.encode('utf-8')
-
-        # NDEF record header
-        ndef_flags = 0xD1  # MB=1, ME=1, SR=1, TNF=0x01 (Well-known)
-        type_length = 0x01
-        payload_length = len(text_bytes) + 3  # +3 for status byte and "en"
-        type_field = ord('T')  # Text record type
-
-        # Text record payload
-        status_byte = 0x02  # UTF-8, "en" is 2 chars
-        language = b'en'
-
-        # Build NDEF message
-        ndef_message = bytes([
-            ndef_flags,
-            type_length,
-            payload_length,
-            type_field,
-            status_byte
-        ]) + language + text_bytes
-
-        # Add TLV wrapper for NTAG
-        if len(ndef_message) < 255:
-            ndef_data = bytes([0x03, len(ndef_message)]) + ndef_message + bytes([0xFE])
-        else:
-            ndef_data = bytes([0x03, 0xFF,
-                             (len(ndef_message) >> 8) & 0xFF,
-                             len(ndef_message) & 0xFF]) + ndef_message + bytes([0xFE])
-
-        return ndef_data
-
-    async def write_entry_to_tag(self, entry_id: str, entry_data: Dict[str, Any] = None) -> bool:
-        """Write entry data to NFC tag in the same format as existing tags"""
-        if self.mock_mode:
-            await asyncio.sleep(1)
-            return True
-
-        try:
-            # Wait for tag
-            uid = self.pn532.read_passive_target(timeout=5)
-            if not uid:
-                logger.error("No tag detected for writing")
-                return False
-
-            # Create JSON data matching the existing format
-            tag_data = {
-                'v': 1,  # Version
-                'id': entry_id,  # The entry UUID
-                'geo': entry_data.get('coordinates', [0, 0]) if entry_data else [0, 0],
-                'ts': int(datetime.now().timestamp()) if not entry_data else
-                      int(datetime.fromisoformat(entry_data.get('timestamp', datetime.now().isoformat())).timestamp())
-            }
-
-            # Convert to JSON and create NDEF message
-            json_str = json.dumps(tag_data, separators=(',', ':'))
-            ndef_data = self._create_text_ndef(json_str)
-
-            logger.info(f"Writing {len(ndef_data)} bytes of NDEF data to tag")
-
-            # Clear existing data first
-            for page in range(4, 8):
-                self.pn532.ntag2xx_write_block(page, [0x00, 0x00, 0x00, 0x00])
-
-            # Write new NDEF data
-            start_page = 4
-            pages_needed = (len(ndef_data) + 3) // 4
-
-            for page_num in range(pages_needed):
-                actual_page = start_page + page_num
-
-                if actual_page > 39:  # NTAG213 limit
-                    break
-
-                start_idx = page_num * 4
-                end_idx = min(start_idx + 4, len(ndef_data))
-                page_data = list(ndef_data[start_idx:end_idx])
-
-                # Pad to 4 bytes
-                while len(page_data) < 4:
-                    page_data.append(0x00)
-
-                success = self.pn532.ntag2xx_write_block(actual_page, page_data)
-                if not success:
-                    logger.error(f"Failed to write page {actual_page}")
-                    return False
-
-            logger.info(f"Successfully wrote entry {entry_id} to tag")
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to write to tag: {e}")
-            return False
-
-
 class WebSocketServer:
     """Main server handling WebSocket connections and NFC scanning"""
 
     def __init__(self, port: int = 8000):
         self.port = port
-        self.nfc = NFCHandler()
+        self.nfc = NFCService()
         self.clients: Set[str] = set()
         self.scanning = True
+        self.scan_task = None
 
         # Initialize LED controller if available
         self.led_controller = None
@@ -340,11 +96,41 @@ class WebSocketServer:
             return web.json_response({
                 'status': 'healthy',
                 'hardware_available': not self.nfc.mock_mode,
+                # 'degraded' means the reader failed and we fell back to mock --
+                # NOT the same as running in mock mode deliberately.
+                'nfc_degraded': self.nfc.degraded,
+                'led_available': self.led_manager is not None,
+                'scanning': self.scanning,
                 'clients': len(self.clients),
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(timezone.utc).isoformat()
             })
 
+        async def debug_scan(request):
+            """Inject a synthetic tag scan. Mock mode only.
+
+            Makes the tag_scanned path exercisable without a PN532, which was
+            previously impossible -- the mock reader emitted nothing at all.
+
+                curl -X POST localhost:8000/debug/scan -d '{"entry_id": "ABC123"}'
+
+            Omit entry_id to simulate an unregistered tag.
+            """
+            if not self.nfc.mock_mode:
+                return web.json_response(
+                    {'error': 'debug/scan is only available in mock mode'}, status=403)
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
+            ok = self.nfc.inject_mock_scan(
+                entry_id=body.get('entry_id'),
+                uid=body.get('uid', 'MOCK:01:23:45:67'),
+                geo=body.get('geo'),
+            )
+            return web.json_response({'injected': ok, 'entry_id': body.get('entry_id')})
+
         self.app.router.add_get('/health', health)
+        self.app.router.add_post('/debug/scan', debug_scan)
 
     def setup_socketio_handlers(self):
         """Socket.IO event handlers"""
@@ -356,13 +142,18 @@ class WebSocketServer:
 
             await self.sio.emit('connected', {
                 'message': 'Connected to NFC server',
-                'hardware_available': not self.nfc.mock_mode
+                'hardware_available': not self.nfc.mock_mode,
+                # Distinguishes "running in mock mode on purpose" from "the reader
+                # failed and we fell back", which previously looked identical.
+                'nfc_degraded': self.nfc.degraded,
+                'led_available': self.led_manager is not None
             }, to=sid)
 
             # Send initial scanner status
             await self.sio.emit('scanner_status', {
                 'connected': not self.nfc.mock_mode,
-                'scanning': self.scanning
+                'scanning': self.scanning,
+                'degraded': self.nfc.degraded
             }, to=sid)
 
         @self.sio.event
@@ -371,9 +162,15 @@ class WebSocketServer:
             logger.info(f"Client disconnected: {sid}")
 
         @self.sio.event
-        async def ping(sid):
+        async def ping(sid, data=None):
+            # The client sends {timestamp: Date.now()} -- epoch milliseconds.
+            # Echo it back unchanged so the round-trip maths actually works; the
+            # old handler took no data param (TypeError on every beat) and replied
+            # with an ISO string, which the client subtracted from Date.now().
+            client_ts = (data or {}).get('timestamp') if isinstance(data, dict) else None
             await self.sio.emit('pong', {
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': client_ts,
+                'server_time': datetime.now(timezone.utc).isoformat()
             }, to=sid)
 
         @self.sio.event
@@ -383,19 +180,53 @@ class WebSocketServer:
             entry_data = data.get('entry_data', {})
             logger.info(f"Registration requested for entry {entry_id}")
 
+            if not entry_id:
+                await self.sio.emit('registration_error', {
+                    'message': 'No entry selected for registration.'
+                }, to=sid)
+                return
+
             await self.sio.emit('awaiting_tag', {}, to=sid)
 
-            # Write entry data to the tag
-            success = await self.nfc.write_entry_to_tag(entry_id, entry_data)
+            # Build the compact tag payload {v, id, geo, ts}
+            location = entry_data.get('location') or {}
+            geo = entry_data.get('geo')
+            if not geo and location:
+                geo = [location.get('latitude'), location.get('longitude')]
+            payload = {
+                'v': 1,
+                'id': entry_id,
+                'geo': geo or [0, 0],
+                'ts': int(time.time()),
+            }
 
-            if success:
+            try:
+                # Blocking reader I/O happens in an executor inside NFCService,
+                # so the event loop (and the LED frame loop) keeps running.
+                tag_info = await self.nfc.wait_for_tag(timeout=30)
+                result = await self.nfc.write_json_to_tag(tag_info, payload)
+            except NFCTimeoutError:
+                await self.sio.emit('registration_error', {
+                    'message': 'No tag detected. Hold the sample on the reader and try again.'
+                }, to=sid)
+                return
+            except NFCHardwareError as e:
+                logger.error(f"Registration hardware error: {e}")
+                await self.sio.emit('registration_error', {
+                    'message': 'The NFC reader is not responding.'
+                }, to=sid)
+                return
+
+            if result.success:
+                logger.info(f"Registered entry {entry_id} to tag {result.tag_uid}")
                 await self.sio.emit('tag_registered', {
                     'entry_id': entry_id,
+                    'tag_uid': result.tag_uid,
                     'success': True
                 }, to=sid)
             else:
-                await self.sio.emit('error', {
-                    'message': 'Failed to write to tag. Please try again.'
+                await self.sio.emit('registration_error', {
+                    'message': result.error or 'Failed to write to tag. Please try again.'
                 }, to=sid)
 
         @self.sio.event
@@ -532,42 +363,35 @@ class WebSocketServer:
             except Exception as e:
                 logger.error(f"Visualization control error: {e}")
 
-    async def nfc_scan_loop(self):
-        """Background task to scan for NFC tags"""
-        logger.info("Starting NFC scan loop")
+    async def on_tag_scanned(self, event: Dict[str, Any]):
+        """Handle one scan event, delivered on the event loop by NFCService.
 
-        while self.scanning:
-            try:
-                tag_data = await self.nfc.scan_for_tag()
+        NFCService emits once on tag arrival (presence-based, with a grace period)
+        rather than re-firing every few seconds while a box sits on the cradle, and
+        suppresses events entirely while a registration write is in progress.
+        """
+        uid = event.get('uid')
+        data = event.get('data') or {}
+        entry_id = data.get('id')
 
-                if tag_data:
-                    tag_id = tag_data['tag_id']
-                    entry_id = tag_data.get('entry_id')
+        if entry_id:
+            logger.info(f"Tag {uid} -> entry {entry_id}")
+        else:
+            logger.warning(f"Tag {uid} carries no entry ID - needs registration")
 
-                    logger.info(f"Tag detected: {tag_id}")
-
-                    if entry_id:
-                        logger.info(f"Tag contains entry ID: {entry_id}")
-                    else:
-                        logger.warning(f"No entry ID found on tag {tag_id} - tag may need to be registered")
-
-                    # Emit to all clients
-                    await self.sio.emit('tag_scanned', {
-                        'entry_id': entry_id,
-                        'tag_data': {'tag_id': tag_id},
-                        'timestamp': datetime.utcnow().isoformat()
-                    })
-
-                await asyncio.sleep(0.5)
-
-            except Exception as e:
-                logger.error(f"Scan loop error: {e}")
-                await asyncio.sleep(1)
+        await self.sio.emit('tag_scanned', {
+            'entry_id': entry_id,
+            'tag_data': {'tag_id': uid},
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        })
 
     async def startup(self, app):
         """Startup tasks"""
-        logger.info("Starting NFC scan loop")
-        self.scan_task = asyncio.create_task(self.nfc_scan_loop())
+        logger.info("Starting NFC scanning")
+        # Reader I/O runs on a dedicated thread; events arrive here via a queue,
+        # so a wedged or slow PN532 can no longer stall the event loop.
+        self.nfc.start_continuous_scanning(self.on_tag_scanned)
+        self.scan_task = asyncio.create_task(self.nfc.process_scan_queue())
 
     async def send_visualization_status(self, status: Dict):
         """Send visualization status to all connected clients"""
@@ -575,9 +399,14 @@ class WebSocketServer:
 
     async def cleanup(self, app):
         """Cleanup tasks"""
-        logger.info("Stopping NFC scan loop")
+        logger.info("Stopping NFC scanning")
         self.scanning = False
-        if hasattr(self, 'scan_task'):
+        # Stop the reader thread first so it stops enqueuing, then the consumer.
+        try:
+            self.nfc.stop_scanning()
+        except Exception as e:
+            logger.error(f"Error stopping NFC scanning: {e}")
+        if getattr(self, 'scan_task', None):
             self.scan_task.cancel()
 
         # Turn off LEDs on shutdown
