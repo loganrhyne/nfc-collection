@@ -145,6 +145,7 @@ class NFCService:
         self.config = nfc_config or config.nfc
         self._lock = Lock()
         self._pn532 = None
+        self._cs_pin = None
         self._is_scanning = False
         self._scan_thread = None
         self._last_written_uid = None
@@ -193,14 +194,22 @@ class NFCService:
 
         max_attempts = 3
         for attempt in range(max_attempts):
+            cs_pin = None
             try:
                 logger.info(f"Initializing NFC hardware (attempt {attempt + 1}/{max_attempts})")
 
+                # Release anything held by a previous attempt. Without this, each
+                # failed attempt leaks its CS handle and the next one dies with
+                # "GPIO busy" -- which would make the reinit-on-error recovery
+                # path break itself after a few failures.
+                self._release_hardware()
+
                 # Try SPI first (original working configuration)
                 try:
-                    logger.info("Attempting SPI connection (CS pin D25)...")
+                    logger.info(f"Attempting SPI connection (CS pin {self.config.cs_pin})...")
                     spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
                     cs_pin = DigitalInOut(getattr(board, self.config.cs_pin))
+                    self._cs_pin = cs_pin
                     self._pn532 = PN532_SPI(spi, cs_pin, debug=False)
 
                     # Verify connection
@@ -235,8 +244,25 @@ class NFCService:
                     logger.info("Retrying in 1 second...")
                     time.sleep(1)
                 else:
+                    self._release_hardware()
                     raise NFCHardwareError(f"Failed to initialize hardware after {max_attempts} attempts: {e}")
     
+    def _release_hardware(self) -> None:
+        """Release CS pin and reader handle so a retry can re-acquire them.
+
+        CircuitPython pins are exclusive: re-creating DigitalInOut for a pin that
+        is still held raises "GPIO busy". Failed attempts must clean up or
+        recovery becomes impossible after the first few.
+        """
+        pin = getattr(self, '_cs_pin', None)
+        if pin is not None:
+            try:
+                pin.deinit()
+            except Exception as e:
+                logger.debug(f"CS pin deinit failed (continuing): {e}")
+            self._cs_pin = None
+        self._pn532 = None
+
     @contextmanager
     def _hardware_lock(self):
         """Context manager for thread-safe hardware access"""
