@@ -57,7 +57,15 @@ const ProgressFill = styled.div`
   height: 100%;
   background-color: #4a90e2;
   transition: width 0.3s ease;
-  width: ${props => props.progress}%;
+  width: ${props => (props.indeterminate ? '40%' : `${props.progress || 0}%`)};
+  ${props => props.indeterminate && `
+    animation: nfcSlide 1.2s ease-in-out infinite;
+    @keyframes nfcSlide {
+      0%   { margin-left: 0%; }
+      50%  { margin-left: 60%; }
+      100% { margin-left: 0%; }
+    }
+  `}
 `;
 
 const Button = styled.button`
@@ -103,10 +111,20 @@ const ErrorMessage = styled.div`
   font-size: 0.9rem;
 `;
 
+const PlacementCell = styled.div`
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0.75rem 0;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+`;
+
 const NFCRegistrationModal = ({ entry, onClose, onSuccess }) => {
   const { connected, sendMessage, registerHandler } = useWebSocket();
   const [status, setStatus] = useState('idle'); // idle, waiting, writing, success, error
-  const [progress, setProgress] = useState(0);
+  const [placement, setPlacement] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -116,39 +134,37 @@ const NFCRegistrationModal = ({ entry, onClose, onSuccess }) => {
       return;
     }
 
-    // Register message handlers
+    // useWebSocket wraps every payload as { type, data }, so handlers must
+    // read message.data -- reading message.message is why every failure used
+    // to surface as the generic 'An error occurred'.
     const unsubscribers = [
-      registerHandler('awaiting_tag', (message) => {
+      registerHandler('awaiting_tag', () => {
         setStatus('waiting');
-        setProgress(10);
       }),
-      
-      registerHandler('tag_write_progress', (message) => {
-        setStatus('writing');
-        setProgress(message.progress || 50);
-      }),
-      
+
       registerHandler('tag_registered', (message) => {
+        const data = message.data || {};
         setStatus('success');
-        setProgress(100);
-        // Close modal after showing success
+        setPlacement(data.placement || null);
+        // Hold longer when there is a cell to go find, so the number is
+        // readable before the modal closes.
+        const dwell = data.placement ? 6000 : 2000;
         setTimeout(() => {
           onClose();
-          onSuccess(message);
-        }, 2000);
+          onSuccess(data);
+        }, dwell);
       }),
-      
-      registerHandler('error', (message) => {
+
+      registerHandler('registration_error', (message) => {
         setStatus('error');
-        setErrorMessage(message.message || 'An error occurred');
+        setErrorMessage((message.data && message.data.message) ||
+                        'Registration failed. Please try again.');
       })
     ];
 
-    // Start registration process
+    // The server reads coordinates from the journal rather than trusting the
+    // client, so only the entry id is required here.
     const entryData = {
-      coordinates: entry.location ? 
-        [entry.location.latitude, entry.location.longitude] : 
-        [0, 0],
       timestamp: entry.creationDate
     };
 
@@ -189,21 +205,7 @@ const NFCRegistrationModal = ({ entry, onClose, onSuccess }) => {
               Please place the NFC tag on the reader to register this sample.
             </ModalMessage>
             <ProgressBar>
-              <ProgressFill progress={progress} />
-            </ProgressBar>
-          </>
-        );
-        
-      case 'writing':
-        return (
-          <>
-            <StatusIcon>✍️</StatusIcon>
-            <ModalTitle>Writing Data</ModalTitle>
-            <ModalMessage>
-              Please keep the tag in place while data is being written...
-            </ModalMessage>
-            <ProgressBar>
-              <ProgressFill progress={progress} />
+              <ProgressFill indeterminate />
             </ProgressBar>
           </>
         );
@@ -213,12 +215,25 @@ const NFCRegistrationModal = ({ entry, onClose, onSuccess }) => {
           <>
             <StatusIcon>✅</StatusIcon>
             <ModalTitle>Success!</ModalTitle>
-            <ModalMessage>
-              The NFC tag has been successfully registered to this journal entry.
-            </ModalMessage>
-            <ProgressBar>
-              <ProgressFill progress={progress} />
-            </ProgressBar>
+            {placement ? (
+              <>
+                <ModalMessage>
+                  Registered. Place this sample in the lit cell:
+                </ModalMessage>
+                <PlacementCell>
+                  Row {placement.row + 1}, Column {placement.col + 1}
+                </PlacementCell>
+                <ModalMessage style={{ fontSize: '0.85rem', opacity: 0.75 }}>
+                  {placement.beacon
+                    ? 'That cell is lit on the grid.'
+                    : 'LED grid unavailable - use the row and column above.'}
+                </ModalMessage>
+              </>
+            ) : (
+              <ModalMessage>
+                The NFC tag has been registered to this journal entry.
+              </ModalMessage>
+            )}
           </>
         );
         
