@@ -548,7 +548,13 @@ class NFCService:
                     # NOTE: the Adafruit API takes SECONDS. Passing 500 here blocks
                     # the reader for 500 seconds while holding the hardware lock.
                     uid = self._pn532.read_passive_target(timeout=0.5)
-                
+
+                # The read itself succeeded, so any earlier errors were not
+                # consecutive. Resetting only on a successful *tag scan* (as the
+                # original did) means transient errors accumulate across days of
+                # idle time and eventually trigger a reinit for no reason.
+                error_count = 0
+
                 if uid:
                     uid_str = ':'.join([f"{b:02X}" for b in uid])
                     
@@ -569,7 +575,6 @@ class NFCService:
                                     f"Tag {uid_str} carries no entry data - needs registration"
                                 )
                             self._scan_queue.put({'uid': uid_str, 'data': json_data})
-                            error_count = 0  # Reset error count on success
                         except Exception as e:
                             logger.error(f"Error reading tag data: {e}")
                     else:
@@ -586,10 +591,15 @@ class NFCService:
                 logger.error(f"Error in scanning loop (count: {error_count}): {e}")
                 
                 if error_count >= max_consecutive_errors:
-                    logger.error("Too many consecutive errors, reinitializing hardware...")
+                    logger.warning(
+                        f"{error_count} consecutive reader errors - reinitializing PN532. "
+                        "This is the recovery path; if it repeats, the bus or wiring "
+                        "is suspect."
+                    )
                     try:
                         self._initialize_hardware()
                         error_count = 0
+                        logger.info("PN532 reinitialized successfully after errors")
                     except Exception as init_error:
                         logger.error(f"Failed to reinitialize hardware: {init_error}")
                         time.sleep(5)  # Wait before retrying
