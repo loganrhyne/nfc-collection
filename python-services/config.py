@@ -9,7 +9,7 @@ class NFCConfig:
     """NFC service configuration"""
     mock_mode: bool = False
     cs_pin: str = 'D25'
-    max_tag_data_size: int = 512
+    max_tag_data_size: int = 144  # NTAG213 user memory (36 pages x 4 bytes)
     scan_timeout: float = 30.0
     write_retry_attempts: int = 3
     write_retry_delay: float = 0.5

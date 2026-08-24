@@ -141,10 +141,11 @@ class ScanState:
 class NFCService:
     """Enterprise-grade NFC service with robust error handling"""
     
-    def __init__(self, nfc_config=None):
+    def __init__(self, nfc_config=None, fall_back_to_mock: bool = True):
         self.config = nfc_config or config.nfc
         self._lock = Lock()
         self._pn532 = None
+        self._cs_pin = None
         self._is_scanning = False
         self._scan_thread = None
         self._last_written_uid = None
@@ -152,11 +153,39 @@ class NFCService:
         self._write_cooldown_cache = {}  # uid -> timestamp
         self._scan_state = ScanState(grace_period=1.5)
         self._scan_queue = queue.Queue()  # Thread-safe queue for scan events
-        
+        self._scan_callback = None
+        self._degraded = False
+
         # Initialize hardware if not in mock mode
         if not self.config.mock_mode:
-            self._initialize_hardware()
+            try:
+                self._initialize_hardware()
+            except NFCHardwareError:
+                if not fall_back_to_mock:
+                    raise
+                # Mock mode was NOT requested -- this is a failure, so say so at
+                # ERROR rather than letting a broken reader look like dev mode.
+                logger.error(
+                    "NFC hardware initialization failed - falling back to mock mode. "
+                    "The reader will NOT work until this is resolved."
+                )
+                self.config.mock_mode = True
+                self._degraded = True
     
+    @property
+    def mock_mode(self) -> bool:
+        """True when no real reader is driving this service."""
+        return self.config.mock_mode
+
+    @property
+    def degraded(self) -> bool:
+        """True when mock mode was forced by a hardware failure, not requested.
+
+        Lets callers distinguish "developing off-Pi" from "the reader is broken",
+        which the old code could not do -- both looked like mock mode.
+        """
+        return self._degraded
+
     def _initialize_hardware(self) -> None:
         """Initialize NFC hardware with retry logic"""
         if not HARDWARE_AVAILABLE:
@@ -165,14 +194,22 @@ class NFCService:
 
         max_attempts = 3
         for attempt in range(max_attempts):
+            cs_pin = None
             try:
                 logger.info(f"Initializing NFC hardware (attempt {attempt + 1}/{max_attempts})")
 
+                # Release anything held by a previous attempt. Without this, each
+                # failed attempt leaks its CS handle and the next one dies with
+                # "GPIO busy" -- which would make the reinit-on-error recovery
+                # path break itself after a few failures.
+                self._release_hardware()
+
                 # Try SPI first (original working configuration)
                 try:
-                    logger.info("Attempting SPI connection (CS pin D25)...")
+                    logger.info(f"Attempting SPI connection (CS pin {self.config.cs_pin})...")
                     spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
                     cs_pin = DigitalInOut(getattr(board, self.config.cs_pin))
+                    self._cs_pin = cs_pin
                     self._pn532 = PN532_SPI(spi, cs_pin, debug=False)
 
                     # Verify connection
@@ -207,8 +244,25 @@ class NFCService:
                     logger.info("Retrying in 1 second...")
                     time.sleep(1)
                 else:
+                    self._release_hardware()
                     raise NFCHardwareError(f"Failed to initialize hardware after {max_attempts} attempts: {e}")
     
+    def _release_hardware(self) -> None:
+        """Release CS pin and reader handle so a retry can re-acquire them.
+
+        CircuitPython pins are exclusive: re-creating DigitalInOut for a pin that
+        is still held raises "GPIO busy". Failed attempts must clean up or
+        recovery becomes impossible after the first few.
+        """
+        pin = getattr(self, '_cs_pin', None)
+        if pin is not None:
+            try:
+                pin.deinit()
+            except Exception as e:
+                logger.debug(f"CS pin deinit failed (continuing): {e}")
+            self._cs_pin = None
+        self._pn532 = None
+
     @contextmanager
     def _hardware_lock(self):
         """Context manager for thread-safe hardware access"""
@@ -218,6 +272,11 @@ class NFCService:
         finally:
             self._lock.release()
     
+    def _read_passive_target_locked(self, timeout_seconds: float = 0.5):
+        """Single locked read. Timeout is in SECONDS (Adafruit's unit)."""
+        with self._hardware_lock():
+            return self._pn532.read_passive_target(timeout=timeout_seconds)
+
     def detect_tag_type(self, uid: bytes) -> TagType:
         """Detect NFC tag type based on UID and other characteristics"""
         # Simplified detection - in production, would check SAK/ATQA values
@@ -265,36 +324,38 @@ class NFCService:
                 locked=False
             )
         
-        with self._hardware_lock():
-            start_time = time.time()
-            
-            while time.time() - start_time < timeout:
-                try:
-                    uid = await asyncio.get_event_loop().run_in_executor(
-                        None, 
-                        lambda: self._pn532.read_passive_target(timeout=500)  # 500ms timeout
+        start_time = time.time()
+
+        # The lock is taken per-read (see _read_passive_target_locked) rather than
+        # around the whole wait: holding it for the full timeout would starve the
+        # scanning thread for up to scan_timeout seconds.
+        while time.time() - start_time < timeout:
+            try:
+                uid = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: self._read_passive_target_locked(0.5)
+                )
+
+                if uid:
+                    uid_str = ':'.join([f"{b:02X}" for b in uid])
+                    tag_type = self.detect_tag_type(uid)
+
+                    logger.info(f"Tag detected: {uid_str} (type: {tag_type.value})")
+
+                    return TagInfo(
+                        uid=uid_str,
+                        type=tag_type,
+                        capacity=tag_type.capacity,
+                        locked=False  # Would check lock status in production
                     )
-                    
-                    if uid:
-                        uid_str = ':'.join([f"{b:02X}" for b in uid])
-                        tag_type = self.detect_tag_type(uid)
-                        
-                        logger.info(f"Tag detected: {uid_str} (type: {tag_type.value})")
-                        
-                        return TagInfo(
-                            uid=uid_str,
-                            type=tag_type,
-                            capacity=tag_type.capacity,
-                            locked=False  # Would check lock status in production
-                        )
-                    
-                    await asyncio.sleep(0.1)
-                    
-                except Exception as e:
-                    logger.error(f"Error during tag detection: {e}")
-                    raise NFCHardwareError(f"Tag detection failed: {e}")
-            
-            raise NFCTimeoutError(f"No tag detected within {timeout} seconds")
+
+                await asyncio.sleep(0.1)
+
+            except Exception as e:
+                logger.error(f"Error during tag detection: {e}")
+                raise NFCHardwareError(f"Tag detection failed: {e}")
+
+        raise NFCTimeoutError(f"No tag detected within {timeout} seconds")
     
     async def write_json_to_tag(self, tag_info: TagInfo, data: Dict[str, Any]) -> WriteResult:
         """Write JSON data to tag with validation and retry logic"""
@@ -432,6 +493,30 @@ class NFCService:
         self._scan_thread.start()
         logger.info("Continuous scanning started")
     
+    def inject_mock_scan(self, entry_id: Optional[str] = None,
+                         uid: str = "MOCK:01:23:45:67",
+                         geo: Optional[list] = None) -> bool:
+        """Inject a synthetic scan event (mock mode only).
+
+        Lets the full tag_scanned path be exercised off-Pi. Pass entry_id=None to
+        simulate an unregistered tag.
+        """
+        if not self.config.mock_mode:
+            logger.warning("inject_mock_scan ignored - not in mock mode")
+            return False
+
+        data = None
+        if entry_id:
+            data = {
+                'v': 1,
+                'id': entry_id,
+                'geo': geo or [-33.890542, 151.274856],
+                'ts': int(time.time()),
+            }
+        self._scan_queue.put({'uid': uid, 'data': data})
+        logger.info(f"Injected mock scan: uid={uid} entry_id={entry_id}")
+        return True
+
     def stop_scanning(self) -> None:
         """Stop continuous scanning gracefully"""
         if not self._is_scanning:
@@ -479,20 +564,23 @@ class NFCService:
                 current_time = time.time()
                 
                 if self.config.mock_mode:
-                    # Mock mode simulation
-                    time.sleep(2)
-                    if self._is_scanning and self._scan_state.should_emit_event('MOCK:01:23:45:67', current_time):
-                        self._scan_queue.put({
-                            'v': 1,
-                            'id': '1A88256FB33855EEB831ED2569B135CF',
-                            'geo': [-33.890542, 151.274856],
-                            'ts': int(time.time())
-                        })
+                    # Mock mode is driven by inject_mock_scan() rather than firing
+                    # on a timer, so the scan flow can be exercised deliberately
+                    # off-Pi instead of emitting one hardcoded entry at startup.
+                    time.sleep(0.1)
                     continue
                 
                 with self._hardware_lock():
-                    uid = self._pn532.read_passive_target(timeout=500)  # 500ms timeout
-                
+                    # NOTE: the Adafruit API takes SECONDS. Passing 500 here blocks
+                    # the reader for 500 seconds while holding the hardware lock.
+                    uid = self._pn532.read_passive_target(timeout=0.5)
+
+                # The read itself succeeded, so any earlier errors were not
+                # consecutive. Resetting only on a successful *tag scan* (as the
+                # original did) means transient errors accumulate across days of
+                # idle time and eventually trigger a reinit for no reason.
+                error_count = 0
+
                 if uid:
                     uid_str = ':'.join([f"{b:02X}" for b in uid])
                     
@@ -502,11 +590,17 @@ class NFCService:
                             # Read tag data
                             with self._hardware_lock():
                                 json_data = self._read_json_from_tag_sync()
-                            
+
+                            # Queue the event whether or not the tag carries data.
+                            # An unregistered tag must still surface, otherwise the
+                            # UI can never tell "no tag" from "tag needs registering".
                             if json_data:
                                 logger.info(f"Tag scanned: {uid_str} - queuing event")
-                                self._scan_queue.put(json_data)
-                                error_count = 0  # Reset error count on success
+                            else:
+                                logger.warning(
+                                    f"Tag {uid_str} carries no entry data - needs registration"
+                                )
+                            self._scan_queue.put({'uid': uid_str, 'data': json_data})
                         except Exception as e:
                             logger.error(f"Error reading tag data: {e}")
                     else:
@@ -523,10 +617,15 @@ class NFCService:
                 logger.error(f"Error in scanning loop (count: {error_count}): {e}")
                 
                 if error_count >= max_consecutive_errors:
-                    logger.error("Too many consecutive errors, reinitializing hardware...")
+                    logger.warning(
+                        f"{error_count} consecutive reader errors - reinitializing PN532. "
+                        "This is the recovery path; if it repeats, the bus or wiring "
+                        "is suspect."
+                    )
                     try:
                         self._initialize_hardware()
                         error_count = 0
+                        logger.info("PN532 reinitialized successfully after errors")
                     except Exception as init_error:
                         logger.error(f"Failed to reinitialize hardware: {init_error}")
                         time.sleep(5)  # Wait before retrying
@@ -621,14 +720,19 @@ class NFCService:
             
             # Parse NDEF TLV structure (unchanged logic)
             if len(data) > 2 and data[0] == 0x03:
+                ndef_len = None
+                ndef_start = None
                 if data[1] == 0xFF:
                     if len(data) > 4:
                         ndef_len = (data[2] << 8) | data[3]
                         ndef_start = 4
+                    else:
+                        logger.warning("Truncated long-format NDEF TLV header on tag")
+                        return None
                 else:
                     ndef_len = data[1]
                     ndef_start = 2
-                
+
                 if len(data) >= ndef_start + ndef_len:
                     ndef_message = data[ndef_start:ndef_start + ndef_len]
                     
