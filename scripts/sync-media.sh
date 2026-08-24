@@ -75,7 +75,9 @@ fi
 
 # Compare against what is actually deployed, so a partial export cannot
 # silently replace a complete one.
-BASELINE_COUNT=$(ssh "${PI_USER}@${PI_HOST}" \
+# -n is essential: without it ssh reads stdin and swallows the y/N answer
+# below, silently cancelling the sync.
+BASELINE_COUNT=$(ssh -n "${PI_USER}@${PI_HOST}" \
     "python3 -c \"import json;print(len(json.load(open('${PI_MEDIA_DIR}/journal.json')).get('entries',[])))\" 2>/dev/null" \
     || echo "")
 
