@@ -24,6 +24,7 @@ except ImportError as e:
 # NFC service (executor-offloaded I/O, hardware lock, presence-based scan state,
 # write verification, reinit-after-N-errors). Replaces the old inline NFCHandler.
 from services.nfc_service import NFCService, NFCHardwareError, NFCTimeoutError
+from services.tag_registry import get_tag_registry
 
 # LED imports
 try:
@@ -48,6 +49,7 @@ class WebSocketServer:
     def __init__(self, port: int = 8000):
         self.port = port
         self.nfc = NFCService()
+        self.registry = get_tag_registry()
         self.clients: Set[str] = set()
         self.scanning = True
         self.scan_task = None
@@ -101,6 +103,7 @@ class WebSocketServer:
                 'nfc_degraded': self.nfc.degraded,
                 'led_available': self.led_manager is not None,
                 'scanning': self.scanning,
+                'registry': self.registry.status(),
                 'clients': len(self.clients),
                 'timestamp': datetime.now(timezone.utc).isoformat()
             })
@@ -146,7 +149,8 @@ class WebSocketServer:
                 # Distinguishes "running in mock mode on purpose" from "the reader
                 # failed and we fell back", which previously looked identical.
                 'nfc_degraded': self.nfc.degraded,
-                'led_available': self.led_manager is not None
+                'led_available': self.led_manager is not None,
+                'registry': self.registry.status()
             }, to=sid)
 
             # Send initial scanner status
@@ -188,15 +192,34 @@ class WebSocketServer:
 
             await self.sio.emit('awaiting_tag', {}, to=sid)
 
-            # Build the compact tag payload {v, id, geo, ts}
-            location = entry_data.get('location') or {}
-            geo = entry_data.get('geo')
-            if not geo and location:
-                geo = [location.get('latitude'), location.get('longitude')]
+            # Build the compact tag payload {v, id, geo, ts}.
+            # Coordinates come from the journal, not from the client: this gets
+            # written permanently onto a sticker, so it should come from the
+            # same source of truth the display reads. (The client historically
+            # sent entry_data.coordinates, which nothing on this side read.)
+            geo = self.registry.coords_of(entry_id)
+            if geo is None:
+                client_geo = (entry_data.get('geo')
+                              or entry_data.get('coordinates'))
+                loc = entry_data.get('location') or {}
+                if not client_geo and loc.get('latitude') is not None:
+                    client_geo = [loc.get('latitude'), loc.get('longitude')]
+                geo = client_geo
+
+            if not geo or geo[0] is None or geo[1] is None:
+                # Refuse rather than bake [0, 0] into hardware. Writing a wrong
+                # coordinate means finding that physical box again to rewrite it.
+                logger.error(f"Refusing to register {entry_id}: no coordinates")
+                await self.sio.emit('registration_error', {
+                    'message': ('This entry has no location. Add one in Day One, '
+                                're-export and sync, then register it.')
+                }, to=sid)
+                return
+
             payload = {
                 'v': 1,
                 'id': entry_id,
-                'geo': geo or [0, 0],
+                'geo': geo,
                 'ts': int(time.time()),
             }
 
@@ -218,11 +241,43 @@ class WebSocketServer:
                 return
 
             if result.success:
-                logger.info(f"Registered entry {entry_id} to tag {result.tag_uid}")
+                # Record it before lighting anything: the registry is the record
+                # of truth and must not depend on the LEDs being present.
+                record = self.registry.register(entry_id, result.tag_uid)
+                grid_index = record.get('grid_index')
+                logger.info(f"Registered entry {entry_id} to tag {result.tag_uid} "
+                            f"-> cell {grid_index}")
+
+                placement = None
+                if grid_index is not None:
+                    cols = 20
+                    if self.led_manager and self.led_manager.led_controller:
+                        cols = self.led_manager.led_controller.config.grid_cols
+                    placement = {
+                        'grid_index': grid_index,
+                        'row': grid_index // cols,
+                        'col': grid_index % cols,
+                    }
+                    # Show where the box goes. This deliberately lights a cell
+                    # while the grid's global mode is off -- the user asked
+                    # where this sample belongs, so it is intentional.
+                    if self.led_manager and self.led_manager.led_controller:
+                        try:
+                            lit = await self.led_manager.led_controller.show_placement_beacon(grid_index)
+                            placement['beacon'] = lit
+                        except Exception as e:
+                            logger.error(f"Placement beacon failed: {e}")
+                            placement['beacon'] = False
+                else:
+                    logger.warning(f"Entry {entry_id} is not in the journal - "
+                                   f"no grid cell could be assigned")
+
                 await self.sio.emit('tag_registered', {
                     'entry_id': entry_id,
                     'tag_uid': result.tag_uid,
-                    'success': True
+                    'success': True,
+                    'placement': placement,
+                    'registry': self.registry.status(),
                 }, to=sid)
             else:
                 await self.sio.emit('registration_error', {

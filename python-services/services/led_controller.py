@@ -59,6 +59,7 @@ class LEDController:
         self._mode = LEDMode.OFF  # Start with LEDs off for safety
         self._visualization_engine = None
         self._global_brightness = 0.1  # Default 10% brightness
+        self._beacon_index: Optional[int] = None
         
         # Initialize hardware if available
         if not self.config.mock_mode:
@@ -201,6 +202,49 @@ class LEDController:
             # Re-apply brightness to currently lit LEDs by triggering a refresh
             # This will be handled by the next update
             pass
+
+    async def show_placement_beacon(self, logical_index: int,
+                                    color: Tuple[int, int, int] = (255, 255, 255),
+                                    brightness: float = 0.6) -> bool:
+        """Light a single cell to show where a box should be placed.
+
+        Deliberately ignores the current LED mode. The grid defaults to off on
+        purpose (it is bright, and self-activating is disruptive), but during
+        registration the user has explicitly asked where this sample goes, so
+        one cell lighting up is the intent. Only that cell is touched, and the
+        mode is left unchanged so nothing resumes when the beacon clears.
+        """
+        if self._pixels is None:
+            logger.warning("Placement beacon requested but no LED hardware")
+            return False
+        if not 0 <= logical_index < self.config.num_pixels:
+            logger.error(f"Beacon index {logical_index} out of range "
+                         f"(0-{self.config.num_pixels - 1})")
+            return False
+
+        await self.clear_placement_beacon()
+
+        rgb = tuple(int(c * max(0.0, min(1.0, brightness))) for c in color)
+        physical = self._get_pixel_index(logical_index)
+        self._pixels[physical] = rgb
+        self._pixels.show()
+        self._beacon_index = logical_index
+        logger.info(f"Placement beacon: cell {logical_index} "
+                    f"(row {logical_index // self.config.grid_cols}, "
+                    f"col {logical_index % self.config.grid_cols}) -> LED {physical}")
+        return True
+
+    async def clear_placement_beacon(self) -> None:
+        """Turn off the beacon cell, leaving everything else as it was."""
+        idx = getattr(self, '_beacon_index', None)
+        if idx is None or self._pixels is None:
+            self._beacon_index = None
+            return
+        # Only darken it if nothing else is meant to be lit there.
+        if idx not in self._current_indices:
+            self._pixels[self._get_pixel_index(idx)] = (0, 0, 0)
+            self._pixels.show()
+        self._beacon_index = None
 
     async def set_mode(self, mode: LEDMode):
         """Switch between interactive, visualization, and off modes"""
