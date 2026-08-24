@@ -2,6 +2,11 @@
 # Media sync script for NFC Collection
 # Run this from your non-dev machine to sync Day One exports to the Pi
 
+# Fail loudly: this script replaces the journal the display reads and the
+# registration flow writes onto physical tags, so partial success is worse
+# than no success.
+set -euo pipefail
+
 # Configuration
 SOURCE_BASE_DIR="$HOME/Public/Drop Box/Day One Exports"
 PI_HOST="192.168.1.114"  # Or use nfc-pi.local if DNS works
@@ -48,6 +53,43 @@ echo -e "\nFiles found:"
 echo "  Photos: $PHOTO_COUNT"
 echo "  Videos: $VIDEO_COUNT"
 echo "  Journal: journal.json"
+
+# Validate the export before anything is copied. The journal is served
+# directly to the dashboard and its coordinates are written onto NFC tags, so
+# a partial or malformed export is expensive to undo.
+echo -e "\n${YELLOW}Validating export...${NC}"
+
+JOURNAL_SRC=""
+for candidate in "Sand Collection.json" "Journal.json" "journal.json"; do
+    if [ -f "$LATEST_EXPORT/$candidate" ]; then
+        JOURNAL_SRC="$LATEST_EXPORT/$candidate"
+        break
+    fi
+done
+
+if [ -z "$JOURNAL_SRC" ]; then
+    echo -e "${RED}Error: no journal JSON found in the export${NC}"
+    echo "Expected one of: 'Sand Collection.json', 'Journal.json', 'journal.json'"
+    exit 1
+fi
+
+# Compare against what is actually deployed, so a partial export cannot
+# silently replace a complete one.
+BASELINE_COUNT=$(ssh "${PI_USER}@${PI_HOST}" \
+    "python3 -c \"import json;print(len(json.load(open('${PI_MEDIA_DIR}/journal.json')).get('entries',[])))\" 2>/dev/null" \
+    || echo "")
+
+VALIDATE_ARGS=("$JOURNAL_SRC" "--media-dir" "$LATEST_EXPORT")
+if [ -n "$BASELINE_COUNT" ]; then
+    VALIDATE_ARGS+=("--baseline-count" "$BASELINE_COUNT")
+else
+    echo -e "${YELLOW}(could not read deployed entry count - skipping shrink check)${NC}"
+fi
+
+if ! python3 "$(dirname "$0")/validate-journal.py" "${VALIDATE_ARGS[@]}"; then
+    echo -e "\n${RED}Export failed validation. Nothing was copied.${NC}"
+    exit 1
+fi
 
 # Confirm before syncing
 read -p "Sync these files to $PI_HOST? (y/N) " -n 1 -r
@@ -114,7 +156,7 @@ fi
 
 # Set proper permissions
 echo -e "\n${YELLOW}Setting permissions...${NC}"
-ssh "${PI_USER}@${PI_HOST}" "chmod -R 755 ${PI_MEDIA_DIR}"
+ssh "${PI_USER}@${PI_HOST}" "find ${PI_MEDIA_DIR} -type d -exec chmod 755 {} + && find ${PI_MEDIA_DIR} -type f -exec chmod 644 {} +"
 
 # Show disk usage
 echo -e "\n${YELLOW}Remote disk usage:${NC}"
