@@ -226,8 +226,13 @@ class WebSocketServer:
             try:
                 # Blocking reader I/O happens in an executor inside NFCService,
                 # so the event loop (and the LED frame loop) keeps running.
-                tag_info = await self.nfc.wait_for_tag(timeout=30)
-                result = await self.nfc.write_json_to_tag(tag_info, payload)
+                # The scanning thread is paused for the whole operation: it
+                # otherwise polls every 0.1s and races the registration for the
+                # reader, which both steals the tag detection and corrupts the
+                # write by re-selecting the tag mid-sequence.
+                with self.nfc.exclusive_reader():
+                    tag_info = await self.nfc.wait_for_tag(timeout=30)
+                    result = await self.nfc.write_json_to_tag(tag_info, payload)
             except NFCTimeoutError:
                 await self.sio.emit('registration_error', {
                     'message': 'No tag detected. Hold the sample on the reader and try again.'

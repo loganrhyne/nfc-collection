@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import styled from 'styled-components';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -125,6 +125,10 @@ const NFCRegistrationModal = ({ entry, onClose, onSuccess }) => {
   const { connected, sendMessage, registerHandler } = useWebSocket();
   const [status, setStatus] = useState('idle'); // idle, waiting, writing, success, error
   const [placement, setPlacement] = useState(null);
+  // Guards against the effect re-running and firing a second registration when
+  // the parent re-renders (notably when the just-written tag is scanned and the
+  // app navigates, which changes the `entry` object identity).
+  const startedRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -164,19 +168,20 @@ const NFCRegistrationModal = ({ entry, onClose, onSuccess }) => {
 
     // The server reads coordinates from the journal rather than trusting the
     // client, so only the entry id is required here.
-    const entryData = {
-      timestamp: entry.creationDate
-    };
-
-    sendMessage('register_tag_start', {
-      entry_id: entry.uuid,
-      entry_data: entryData
-    });
+    if (!startedRef.current) {
+      startedRef.current = true;
+      sendMessage('register_tag_start', {
+        entry_id: entry.uuid,
+        entry_data: { timestamp: entry.creationDate }
+      });
+    }
 
     // Cleanup
     return () => {
       unsubscribers.forEach(unsub => unsub());
-      sendMessage('register_tag_cancel', {});
+      if (startedRef.current) {
+        sendMessage('register_tag_cancel', {});
+      }
     };
   }, [connected, entry, sendMessage, registerHandler, onSuccess]);
 
