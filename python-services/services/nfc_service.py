@@ -127,15 +127,22 @@ class ScanState:
             logger.debug(f"Tag {self.current_tag_id} removed after {self.grace_period}s grace period")
             self.current_tag_id = None
             
-    def set_write_mode(self, enabled: bool):
-        """Toggle write mode to prevent scan events during writing"""
+    def set_write_mode(self, enabled: bool, settled_tag_id: Optional[str] = None):
+        """Toggle write suppression around a registration.
+
+        On release, pass the tag that was just written: it is still sitting on
+        the reader, and treating it as newly-arrived makes it re-emit
+        immediately, which navigates the UI away and restarts the modal. Marking
+        it as already-present means the next event comes only after the box is
+        lifted and something is presented again.
+        """
         self._write_in_progress = enabled
         if enabled:
             logger.debug("Write mode enabled - scan events suppressed")
         else:
             logger.debug("Write mode disabled - scan events resumed")
-            # Clear current tag to force re-scan after write
-            self.current_tag_id = None
+            self.current_tag_id = settled_tag_id
+            self.last_seen_time = time.time() if settled_tag_id else 0
 
 
 class NFCService:
@@ -152,6 +159,10 @@ class NFCService:
         self._last_write_time = 0
         self._write_cooldown_cache = {}  # uid -> timestamp
         self._scan_state = ScanState(grace_period=1.5)
+        # Set while a registration owns the reader. The scanning thread checks
+        # this before every hardware access: interleaved read_passive_target
+        # calls re-run RF select and corrupt an in-progress NDEF write.
+        self._reader_paused = threading.Event()
         self._scan_queue = queue.Queue()  # Thread-safe queue for scan events
         self._scan_callback = None
         self._degraded = False
@@ -417,7 +428,7 @@ class NFCService:
             
         finally:
             # Always disable write mode when done
-            self._scan_state.set_write_mode(False)
+            self._scan_state.set_write_mode(False, settled_tag_id=tag_info.uid)
     
     async def _write_with_verification(self, tag_info: TagInfo, data: Dict[str, Any]) -> WriteResult:
         """Write data and verify it was written correctly"""
@@ -493,6 +504,25 @@ class NFCService:
         self._scan_thread.start()
         logger.info("Continuous scanning started")
     
+    @contextmanager
+    def exclusive_reader(self):
+        """Give the caller sole use of the PN532 for the duration.
+
+        The scanning thread polls every 0.1s and takes the hardware lock for up
+        to 0.5s at a time. During a registration that means two callers racing
+        for the same reader: whichever wins consumes the tag detection, and any
+        poll landing mid-write re-selects the tag and breaks the write sequence.
+        """
+        self._reader_paused.set()
+        # Let an in-flight poll finish and release the lock before we proceed.
+        time.sleep(0.25)
+        logger.debug("Reader handed to registration")
+        try:
+            yield
+        finally:
+            self._reader_paused.clear()
+            logger.debug("Reader returned to scanning")
+
     def inject_mock_scan(self, entry_id: Optional[str] = None,
                          uid: str = "MOCK:01:23:45:67",
                          geo: Optional[list] = None) -> bool:
@@ -562,7 +592,12 @@ class NFCService:
         while self._is_scanning:
             try:
                 current_time = time.time()
-                
+
+                if self._reader_paused.is_set():
+                    # A registration owns the reader. Do not touch hardware.
+                    time.sleep(0.05)
+                    continue
+
                 if self.config.mock_mode:
                     # Mock mode is driven by inject_mock_scan() rather than firing
                     # on a timer, so the scan flow can be exercised deliberately
