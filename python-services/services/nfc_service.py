@@ -163,6 +163,12 @@ class NFCService:
         # this before every hardware access: interleaved read_passive_target
         # calls re-run RF select and corrupt an in-progress NDEF write.
         self._reader_paused = threading.Event()
+        # Refcount so overlapping registrations do not release each other's
+        # pause, and a deadline so a pause that is never released cannot kill
+        # scanning permanently.
+        self._pause_depth = 0
+        self._pause_lock = Lock()
+        self._pause_deadline = 0.0
         self._scan_queue = queue.Queue()  # Thread-safe queue for scan events
         self._scan_callback = None
         self._degraded = False
@@ -505,23 +511,40 @@ class NFCService:
         logger.info("Continuous scanning started")
     
     @contextmanager
-    def exclusive_reader(self):
+    def exclusive_reader(self, max_seconds: float = 45.0):
         """Give the caller sole use of the PN532 for the duration.
 
         The scanning thread polls every 0.1s and takes the hardware lock for up
         to 0.5s at a time. During a registration that means two callers racing
         for the same reader: whichever wins consumes the tag detection, and any
         poll landing mid-write re-selects the tag and breaks the write sequence.
+
+        Refcounted, so overlapping registrations do not release each other's
+        pause. Bounded by max_seconds, because the failure mode of a pause that
+        is never released is *silent*: scanning simply stops, with no error, for
+        as long as the process lives. That is strictly worse than the contention
+        this exists to prevent, so the scanning loop force-releases a pause that
+        outlives its deadline.
         """
-        self._reader_paused.set()
+        with self._pause_lock:
+            self._pause_depth += 1
+            self._pause_deadline = max(self._pause_deadline,
+                                       time.time() + max_seconds)
+            self._reader_paused.set()
         # Let an in-flight poll finish and release the lock before we proceed.
         time.sleep(0.25)
-        logger.debug("Reader handed to registration")
+        logger.info("Reader handed to registration (depth=%d)", self._pause_depth)
         try:
             yield
         finally:
-            self._reader_paused.clear()
-            logger.debug("Reader returned to scanning")
+            with self._pause_lock:
+                self._pause_depth = max(0, self._pause_depth - 1)
+                if self._pause_depth == 0:
+                    self._reader_paused.clear()
+                    self._pause_deadline = 0.0
+                    logger.info("Reader returned to scanning")
+                else:
+                    logger.info("Reader still held (depth=%d)", self._pause_depth)
 
     def inject_mock_scan(self, entry_id: Optional[str] = None,
                          uid: str = "MOCK:01:23:45:67",
@@ -594,9 +617,25 @@ class NFCService:
                 current_time = time.time()
 
                 if self._reader_paused.is_set():
-                    # A registration owns the reader. Do not touch hardware.
-                    time.sleep(0.05)
-                    continue
+                    # A registration owns the reader. Do not touch hardware --
+                    # unless the pause has outlived its deadline, which means a
+                    # caller failed to release it. Scanning must never die
+                    # silently, so reclaim the reader and say so loudly.
+                    with self._pause_lock:
+                        expired = (self._pause_deadline
+                                   and time.time() > self._pause_deadline)
+                        if expired:
+                            logger.error(
+                                "Reader pause exceeded its deadline (depth=%d) - "
+                                "force-releasing so scanning resumes. A "
+                                "registration did not clean up.",
+                                self._pause_depth)
+                            self._pause_depth = 0
+                            self._pause_deadline = 0.0
+                            self._reader_paused.clear()
+                    if not expired:
+                        time.sleep(0.05)
+                        continue
 
                 if self.config.mock_mode:
                     # Mock mode is driven by inject_mock_scan() rather than firing

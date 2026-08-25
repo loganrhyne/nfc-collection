@@ -50,6 +50,10 @@ class WebSocketServer:
         self.port = port
         self.nfc = NFCService()
         self.registry = get_tag_registry()
+        # Only one registration may own the reader at a time. Without this,
+        # repeated clicks stack 30-second wait_for_tag calls that all compete
+        # for the same reader and confuse each other's pause handling.
+        self._registration_lock = asyncio.Lock()
         self.clients: Set[str] = set()
         self.scanning = True
         self.scan_task = None
@@ -223,6 +227,14 @@ class WebSocketServer:
                 'ts': int(time.time()),
             }
 
+            if self._registration_lock.locked():
+                logger.info("Registration already in progress - rejecting")
+                await self.sio.emit('registration_error', {
+                    'message': 'A registration is already in progress. '
+                               'Wait for it to finish or time out.'
+                }, to=sid)
+                return
+
             try:
                 # Blocking reader I/O happens in an executor inside NFCService,
                 # so the event loop (and the LED frame loop) keeps running.
@@ -230,10 +242,12 @@ class WebSocketServer:
                 # otherwise polls every 0.1s and races the registration for the
                 # reader, which both steals the tag detection and corrupts the
                 # write by re-selecting the tag mid-sequence.
-                with self.nfc.exclusive_reader():
-                    tag_info = await self.nfc.wait_for_tag(timeout=30)
-                    result = await self.nfc.write_json_to_tag(tag_info, payload)
+                async with self._registration_lock:
+                    with self.nfc.exclusive_reader():
+                        tag_info = await self.nfc.wait_for_tag(timeout=20)
+                        result = await self.nfc.write_json_to_tag(tag_info, payload)
             except NFCTimeoutError:
+                logger.info(f"Registration for {entry_id}: no tag presented in time")
                 await self.sio.emit('registration_error', {
                     'message': 'No tag detected. Hold the sample on the reader and try again.'
                 }, to=sid)
