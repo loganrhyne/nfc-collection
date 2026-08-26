@@ -344,7 +344,15 @@ class NFCService:
 
         deadline = time.time() + timeout
         while time.time() < deadline:
-            uid = self._pn532.read_passive_target(timeout=0.5)
+            uid = self._pn532.read_passive_target(timeout=0.3)
+            if not uid:
+                # The RF field must cycle between polls. Reading back-to-back
+                # keeps it energised and the tag is never re-selected, so a tag
+                # sitting on the reader is simply never seen. The idle scan loop
+                # gets this gap for free from its command-queue wait, which is
+                # why it detected tags while registration did not.
+                time.sleep(0.1)
+                continue
             if uid:
                 uid_str = ':'.join(f"{b:02X}" for b in uid)
                 tag_type = self.detect_tag_type(uid)
