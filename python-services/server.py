@@ -103,6 +103,8 @@ class WebSocketServer:
                 'nfc_degraded': self.nfc.degraded,
                 'led_available': self.led_manager is not None,
                 'scanning': self.scanning,
+                'scanning_healthy': self.nfc.scanning_healthy,
+                'reader': self.nfc.get_status(),
                 'registry': self.registry.status(),
                 'clients': len(self.clients),
                 'timestamp': datetime.now(timezone.utc).isoformat()
@@ -223,17 +225,21 @@ class WebSocketServer:
                 'ts': int(time.time()),
             }
 
+            if self.nfc.busy:
+                logger.info("Reader busy - rejecting concurrent registration")
+                await self.sio.emit('registration_error', {
+                    'message': 'A registration is already in progress. '
+                               'Wait for it to finish or time out.'
+                }, to=sid)
+                return
+
             try:
-                # Blocking reader I/O happens in an executor inside NFCService,
-                # so the event loop (and the LED frame loop) keeps running.
-                # The scanning thread is paused for the whole operation: it
-                # otherwise polls every 0.1s and races the registration for the
-                # reader, which both steals the tag detection and corrupts the
-                # write by re-selecting the tag mid-sequence.
-                with self.nfc.exclusive_reader():
-                    tag_info = await self.nfc.wait_for_tag(timeout=30)
-                    result = await self.nfc.write_json_to_tag(tag_info, payload)
+                # One queued command: the reader thread waits for a tag and
+                # writes it without anything else touching the device in
+                # between, so the tag that was detected is the tag written.
+                result = await self.nfc.register_tag(payload, timeout=20)
             except NFCTimeoutError:
+                logger.info(f"Registration for {entry_id}: no tag presented in time")
                 await self.sio.emit('registration_error', {
                     'message': 'No tag detected. Hold the sample on the reader and try again.'
                 }, to=sid)
@@ -450,7 +456,7 @@ class WebSocketServer:
         logger.info("Starting NFC scanning")
         # Reader I/O runs on a dedicated thread; events arrive here via a queue,
         # so a wedged or slow PN532 can no longer stall the event loop.
-        self.nfc.start_continuous_scanning(self.on_tag_scanned)
+        self.nfc.start(self.on_tag_scanned)
         self.scan_task = asyncio.create_task(self.nfc.process_scan_queue())
 
     async def send_visualization_status(self, status: Dict):
@@ -463,7 +469,7 @@ class WebSocketServer:
         self.scanning = False
         # Stop the reader thread first so it stops enqueuing, then the consumer.
         try:
-            self.nfc.stop_scanning()
+            self.nfc.stop()
         except Exception as e:
             logger.error(f"Error stopping NFC scanning: {e}")
         if getattr(self, 'scan_task', None):
