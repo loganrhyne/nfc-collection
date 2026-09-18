@@ -17,18 +17,13 @@ Ctrl-C to stop; prints a summary.
 import sys
 import time
 
-import board
-import busio
-from digitalio import DigitalInOut
-from adafruit_pn532.spi import PN532_SPI
+import os
+import nfc
 
 
 def main():
-    spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
-    pn = PN532_SPI(spi, DigitalInOut(board.D25), debug=False)
-    ic, ver, rev, sup = pn.firmware_version
-    print(f"PN532 firmware {ver}.{rev} - SPI comms OK")
-    pn.SAM_configuration()
+    pn = nfc.ContactlessFrontend(os.getenv('NFC_DEVICE', 'tty:AMA0:pn532'))
+    print('PN532 UART connection established')
     print("Polling. Present a tag and manipulate the board.\n")
     print("  each line = 1 second;  # = read,  . = no read\n")
 
@@ -45,7 +40,8 @@ def main():
             hits = polls = 0
             uid_seen = None
             while time.time() - second_start < 1.0:
-                uid = pn.read_passive_target(timeout=0.2)
+                target = pn.sense(nfc.clf.RemoteTarget("106A"), iterations=1)
+                uid = target.sdd_res if target is not None else None
                 polls += 1
                 if uid:
                     hits += 1
@@ -74,6 +70,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        pn.close()
         elapsed = time.time() - started
         pct = (100.0 * reads / total) if total else 0
         print(f"\n{reads}/{total} reads ({pct:.0f}%) over {elapsed:.0f}s across "

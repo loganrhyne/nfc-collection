@@ -11,12 +11,15 @@ sudo apt-get update
 sudo apt-get install -y python3-pip python3-venv nginx git i2c-tools
 
 # Enable hardware interfaces
-echo "Enabling SPI and I2C..."
+echo "Enabling interfaces and PN532 header UART..."
 sudo raspi-config nonint do_spi 0
 sudo raspi-config nonint do_i2c 0
 
 # Add user to groups
-sudo usermod -a -G gpio,spi,i2c,www-data $USER
+sudo usermod -a -G gpio,spi,i2c,dialout,www-data "$USER"
+if ! grep -q "^dtoverlay=uart0-pi5$" /boot/firmware/config.txt; then
+    printf "\n[all]\ndtoverlay=uart0-pi5\n" | sudo tee -a /boot/firmware/config.txt
+fi
 
 # Setup Python environment
 echo "Setting up Python environment..."
@@ -26,7 +29,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Hardware-specific packages
-pip install adafruit-blinka adafruit-circuitpython-pn532
+pip install adafruit-blinka
 
 deactivate
 

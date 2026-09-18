@@ -16,6 +16,7 @@ python-dotenv>=1.0,<2
 # Hardware libraries (install on Pi only, by setup-pi.sh)
 # Not importable off-Pi; server.py degrades to mock mode when they are absent.
 # adafruit-blinka
-# adafruit-circuitpython-pn532
+nfcpy==1.0.4
+ndeflib==0.3.3
 # adafruit-circuitpython-neopixel
 # rpi-lgpio

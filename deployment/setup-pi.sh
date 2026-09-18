@@ -29,15 +29,11 @@ apt-get install -y \
     i2c-tools \
     python3-smbus
 
-# Enable I2C for NFC reader
-echo -e "${YELLOW}Step 2: Enabling I2C interface...${NC}"
-if ! grep -q "dtparam=i2c_arm=on" /boot/config.txt; then
-    echo "dtparam=i2c_arm=on" >> /boot/config.txt
-    echo "I2C enabled in /boot/config.txt"
+# PN532 HSU on the Pi 5 header UART
+if ! grep -q "^dtoverlay=uart0-pi5$" /boot/firmware/config.txt; then
+    printf '\n[all]\ndtoverlay=uart0-pi5\n' >> /boot/firmware/config.txt
 fi
-
-# Add loganrhyne user to i2c group
-usermod -a -G i2c loganrhyne
+usermod -a -G dialout loganrhyne
 
 # Step 3: Install Python packages for hardware
 echo -e "${YELLOW}Step 3: Installing hardware-specific Python packages...${NC}"
@@ -51,6 +47,7 @@ fi
 sudo -u loganrhyne bash -c "
     source /home/loganrhyne/nfc-collection/python-services/venv/bin/activate
     pip install --upgrade pip
+    pip install -r /home/loganrhyne/nfc-collection/python-services/requirements.txt
     pip install \
         adafruit-circuitpython-neopixel \
         adafruit-circuitpython-pixelbuf \
