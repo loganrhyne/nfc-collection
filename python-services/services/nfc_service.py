@@ -46,6 +46,11 @@ class NFCDataError(NFCError):
     pass
 
 
+class NFCWriteError(NFCError):
+    """A tag write failed at a known operation and page."""
+    pass
+
+
 class NFCTimeoutError(NFCError):
     """Operation timeout errors"""
     pass
@@ -375,9 +380,7 @@ class NFCService:
         last_error = None
         for attempt in range(self.config.write_retry_attempts):
             try:
-                if not self._write_ndef_data_sync(ndef):
-                    last_error = "write reported failure"
-                    continue
+                self._write_ndef_data_sync(ndef)
                 # Read back and compare. A write that reports success but does
                 # not persist is the worst outcome here: the registry records a
                 # binding that the physical tag does not carry.
@@ -385,16 +388,18 @@ class NFCService:
                 if readback and readback.get('id') == data.get('id'):
                     return WriteResult(success=True, tag_uid=tag_info.uid,
                                        bytes_written=len(ndef), retry_count=attempt)
-                last_error = "verification failed - tag did not read back what was written"
-                logger.warning(f"{last_error} (attempt {attempt + 1})")
+                last_error = "Tag write verification failed: read-back did not match this entry"
             except Exception as e:
-                last_error = str(e)
-                logger.error(f"Write attempt {attempt + 1} failed: {e}")
+                last_error = str(e) or type(e).__name__
+            logger.warning("NFC write attempt %d/%d failed for tag %s: %s",
+                           attempt + 1, self.config.write_retry_attempts,
+                           tag_info.uid, last_error)
             time.sleep(self.config.write_retry_delay)
 
         return WriteResult(success=False, tag_uid=tag_info.uid, bytes_written=0,
                            retry_count=self.config.write_retry_attempts,
-                           error=last_error or "write failed")
+                           error=(f"{last_error} (after {self.config.write_retry_attempts} attempts)"
+                                  if last_error else "Tag write failed"))
 
     def _do_register(self, data: Dict[str, Any], timeout: float) -> WriteResult:
         """Wait for a tag then write it, as one indivisible operation.
@@ -642,47 +647,37 @@ class NFCService:
         
         return ndef_data
     
-    def _write_ndef_data_sync(self, ndef_data: bytes) -> bool:
-        """Synchronous NDEF write (unchanged from original)"""
-        try:
-            logger.debug(f"Writing {len(ndef_data)} bytes of NDEF data")
-            
-            # Clear existing data
-            for page in range(4, 8):
-                success = self._pn532.ntag2xx_write_block(page, [0x00, 0x00, 0x00, 0x00])
-                if not success:
-                    return False
-                time.sleep(0.05)
-            
-            # Write new data
-            start_page = 4
-            pages_needed = (len(ndef_data) + 3) // 4
-            
-            for page_num in range(pages_needed):
-                actual_page = start_page + page_num
-                
-                if actual_page > 39:  # NTAG213 limit
-                    break
-                
-                start_idx = page_num * 4
-                end_idx = min(start_idx + 4, len(ndef_data))
-                page_data = list(ndef_data[start_idx:end_idx])
-                
-                while len(page_data) < 4:
-                    page_data.append(0x00)
-                
-                success = self._pn532.ntag2xx_write_block(actual_page, page_data)
-                if not success:
-                    return False
-                
-                time.sleep(0.05)
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error writing NDEF data: {e}")
-            return False
-    
+    def _write_ndef_data_sync(self, ndef_data: bytes) -> None:
+        """Write NDEF pages, retaining the failing phase and page for the UI."""
+        logger.debug("Writing %d bytes of NDEF data", len(ndef_data))
+
+        def write_page(page: int, data: list, phase: str) -> None:
+            try:
+                accepted = self._pn532.ntag2xx_write_block(page, data)
+            except Exception as exc:
+                raise NFCWriteError(
+                    f"Tag write error while {phase} page {page}: "
+                    f"{type(exc).__name__}: {exc}") from exc
+            if not accepted:
+                raise NFCWriteError(
+                    f"Reader reported failure while {phase} page {page}")
+
+        # Clear existing data before writing the new NDEF record.
+        for page in range(4, 8):
+            write_page(page, [0x00, 0x00, 0x00, 0x00], "clearing")
+            time.sleep(0.05)
+
+        pages_needed = (len(ndef_data) + 3) // 4
+        for page_num in range(pages_needed):
+            actual_page = 4 + page_num
+            if actual_page > 39:  # NTAG213 user-memory limit
+                raise NFCWriteError(
+                    f"NDEF data needs page {actual_page}, beyond NTAG213 page 39")
+            page_data = list(ndef_data[page_num * 4:(page_num + 1) * 4])
+            page_data.extend([0x00] * (4 - len(page_data)))
+            write_page(actual_page, page_data, "writing")
+            time.sleep(0.05)
+
     def _read_json_from_tag_sync(self) -> Optional[Dict[str, Any]]:
         """Synchronous JSON read with improved error handling"""
         try:
