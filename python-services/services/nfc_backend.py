@@ -45,6 +45,8 @@ class NfcpyBackend:
         data.octets = payload
 
     def reselect(self):
-        self.clf.mute()
+        # sense() with no targets clears the selected target and disables RF.
+        # mute() belongs to the device driver, not ContactlessFrontend.
+        self.clf.sense()
         time.sleep(0.1)
         return self.poll()
