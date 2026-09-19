@@ -21,9 +21,8 @@ except ImportError as e:
     print("Please ensure all packages are installed: pip install -r requirements.txt", file=sys.stderr)
     sys.exit(1)
 
-# NFC service (executor-offloaded I/O, hardware lock, presence-based scan state,
-# write verification, reinit-after-N-errors). Replaces the old inline NFCHandler.
-from services.nfc_service import NFCService, NFCHardwareError, NFCTimeoutError
+# NFC service owns UART access on one worker and verifies complete NDEF records.
+from services.nfc_service import NFCService, NFCCancelledError, NFCHardwareError, NFCTimeoutError
 from services.tag_registry import get_tag_registry
 
 # LED imports
@@ -49,6 +48,7 @@ class WebSocketServer:
     def __init__(self, port: int = 8000):
         self.port = port
         self.nfc = NFCService()
+        self._registration_sid = None
         self.registry = get_tag_registry()
         self.clients: Set[str] = set()
         self.scanning = True
@@ -96,10 +96,9 @@ class WebSocketServer:
 
         async def health(request):
             return web.json_response({
-                'status': 'healthy',
-                'hardware_available': not self.nfc.mock_mode,
-                # 'degraded' means the reader failed and we fell back to mock --
-                # NOT the same as running in mock mode deliberately.
+                'status': 'healthy' if self.nfc.scanning_healthy else 'degraded',
+                'hardware_available': self.nfc.get_status()['hardware_available'],
+                # Hardware failure is distinct from explicit development simulation.
                 'nfc_degraded': self.nfc.degraded,
                 'led_available': self.led_manager is not None,
                 'scanning': self.scanning,
@@ -147,9 +146,8 @@ class WebSocketServer:
 
             await self.sio.emit('connected', {
                 'message': 'Connected to NFC server',
-                'hardware_available': not self.nfc.mock_mode,
-                # Distinguishes "running in mock mode on purpose" from "the reader
-                # failed and we fell back", which previously looked identical.
+                'hardware_available': self.nfc.get_status()['hardware_available'],
+                # Hardware failure is distinct from explicit development simulation.
                 'nfc_degraded': self.nfc.degraded,
                 'led_available': self.led_manager is not None,
                 'registry': self.registry.status()
@@ -157,7 +155,7 @@ class WebSocketServer:
 
             # Send initial scanner status
             await self.sio.emit('scanner_status', {
-                'connected': not self.nfc.mock_mode,
+                'connected': self.nfc.get_status()['hardware_available'],
                 'scanning': self.scanning,
                 'degraded': self.nfc.degraded
             }, to=sid)
@@ -200,14 +198,6 @@ class WebSocketServer:
             # same source of truth the display reads. (The client historically
             # sent entry_data.coordinates, which nothing on this side read.)
             geo = self.registry.coords_of(entry_id)
-            if geo is None:
-                client_geo = (entry_data.get('geo')
-                              or entry_data.get('coordinates'))
-                loc = entry_data.get('location') or {}
-                if not client_geo and loc.get('latitude') is not None:
-                    client_geo = [loc.get('latitude'), loc.get('longitude')]
-                geo = client_geo
-
             if not geo or geo[0] is None or geo[1] is None:
                 # Refuse rather than bake [0, 0] into hardware. Writing a wrong
                 # coordinate means finding that physical box again to rewrite it.
@@ -225,7 +215,7 @@ class WebSocketServer:
                 'ts': int(time.time()),
             }
 
-            if self.nfc.busy:
+            if self.nfc.busy or self._registration_sid is not None:
                 logger.info("Reader busy - rejecting concurrent registration")
                 await self.sio.emit('registration_error', {
                     'message': 'A registration is already in progress. '
@@ -237,7 +227,9 @@ class WebSocketServer:
                 # One queued command: the reader thread waits for a tag and
                 # writes it without anything else touching the device in
                 # between, so the tag that was detected is the tag written.
-                result = await self.nfc.register_tag(payload, timeout=20)
+                self._registration_sid = sid
+                result = await self.nfc.register_tag(payload, timeout=20,
+                                                     bindings=self.registry.bindings())
             except NFCTimeoutError:
                 logger.info(f"Registration for {entry_id}: no tag presented in time")
                 await self.sio.emit('registration_error', {
@@ -251,10 +243,27 @@ class WebSocketServer:
                 }, to=sid)
                 return
 
+            except NFCCancelledError as e:
+                await self.sio.emit('registration_cancelled', {'message': str(e)}, to=sid)
+                return
+            except Exception as e:
+                await self.sio.emit('registration_error', {'message': str(e)}, to=sid)
+                return
+            finally:
+                self._registration_sid = None
+
             if result.success:
                 # Record it before lighting anything: the registry is the record
                 # of truth and must not depend on the LEDs being present.
-                record = self.registry.register(entry_id, result.tag_uid)
+                try:
+                    record = self.registry.register(entry_id, result.tag_uid)
+                except Exception as e:
+                    logger.exception('Tag verified but registry save failed')
+                    await self.sio.emit('registration_error', {
+                        'message': f'Tag written and verified, but registration could not be saved: {e}. Keep this sample identified and retry registration.',
+                        'tag_written': True, 'tag_uid': result.tag_uid, 'entry_id': entry_id,
+                    }, to=sid)
+                    return
                 grid_index = record.get('grid_index')
                 logger.info(f"Registered entry {entry_id} to tag {result.tag_uid} "
                             f"-> cell {grid_index}")
@@ -297,8 +306,12 @@ class WebSocketServer:
 
         @self.sio.event
         async def register_tag_cancel(sid, data=None):
-            logger.info("Registration cancelled")
-            await self.sio.emit('registration_cancelled', {}, to=sid)
+            if self._registration_sid == sid:
+                self.nfc.cancel_registration()
+                # The active handler emits the final result. A write already in
+                # flight is verified and recorded before reporting success.
+            elif self._registration_sid is None:
+                await self.sio.emit('registration_cancelled', {}, to=sid)
 
         @self.sio.event
         async def led_update(sid, data):

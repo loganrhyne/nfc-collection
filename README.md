@@ -15,7 +15,7 @@ This project consists of:
 ```
 ┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
 │   React App     │ <-----> │  Unified Server  │ <-----> │   NFC Reader    │
-│  (Dashboard UI) │         │  (Python/Socket.IO)│        │  (PN532 SPI)   │
+│  (Dashboard UI) │         │  (Python/Socket.IO)│        │  (PN532 UART)   │
 └─────────────────┘         └──────────────────┘         └─────────────────┘
                                      │
                                      v
@@ -133,7 +133,7 @@ nfc-collection/
 
 ### Hardware
 - Raspberry Pi 5
-- PN532 NFC reader/writer (SPI connection, CS on GPIO 25)
+- PN532 NFC reader/writer (HSU/UART; see [UART setup](docs/development/NFC_UART.md))
 - WS2812B LED strip (100 pixels in 20x5 grid)
 - Various NFC tags (NTAG21x series)
 
@@ -202,9 +202,9 @@ Manual test tools are available in `tests/manual/`:
 - Test with `test_led_colors.py`
 
 **NFC not detected:**
-- Enable SPI: `sudo raspi-config` > Interface Options
+- Enable Pi 5 header UART: `dtoverlay=uart0-pi5` in `/boot/firmware/config.txt`
 - Check wiring (CS to GPIO 25)
-- The server will automatically fall back to I2C if SPI fails
+- Use `NFC_DEVICE=tty:AMA0:pn532`; reader switches both OFF. Power-cycle after changing mode.
 
 ## Future Enhancements
 

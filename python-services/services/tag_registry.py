@@ -39,6 +39,7 @@ class TagRegistry:
             'TAG_REGISTRY_PATH', DEFAULT_REGISTRY_PATH)
         self.journal_path = journal_path or os.getenv(
             'JOURNAL_PATH', DEFAULT_JOURNAL_PATH)
+        self._load_error = None
         self._entries: Dict[str, Dict[str, Any]] = {}   # uuid -> registration
         self._chronological: List[str] = []             # uuid, oldest first
         self._titles: Dict[str, str] = {}
@@ -62,9 +63,12 @@ class TagRegistry:
             # Never destroy a registry we failed to parse.
             logger.error(f"Could not read registry {self.registry_path}: {e}")
             self._entries = {}
+            self._load_error = str(e)
 
     def save(self) -> None:
         """Write atomically -- a partial registry is worse than a stale one."""
+        if self._load_error:
+            raise RuntimeError('Registry could not be loaded: '+self._load_error)
         payload = {
             'schema_version': SCHEMA_VERSION,
             'updated_at': datetime.now(timezone.utc).isoformat(),
@@ -132,8 +136,14 @@ class TagRegistry:
     def register(self, entry_uuid: str, tag_uid: str,
                  grid_index: Optional[int] = None) -> Dict[str, Any]:
         """Record a registration, overwriting any previous one for this entry."""
+        if self._load_error:
+            raise RuntimeError('Registry could not be loaded: '+self._load_error)
+        owner = self.by_tag_uid(tag_uid)
+        if owner and owner != entry_uuid:
+            raise ValueError(f'Tag {tag_uid} is already bound to {owner}')
         if grid_index is None:
-            grid_index = self.chronological_index(entry_uuid)
+            previous_cell = self._entries.get(entry_uuid, {}).get('grid_index')
+            grid_index = previous_cell if previous_cell is not None else self.chronological_index(entry_uuid)
 
         previous = self._entries.get(entry_uuid)
         record = {
@@ -147,8 +157,20 @@ class TagRegistry:
                         f"tag {previous.get('tag_uid')} -> {tag_uid}")
             record['previous_tag_uid'] = previous.get('tag_uid')
         self._entries[entry_uuid] = record
-        self.save()
+        try:
+            self.save()
+        except Exception:
+            if previous is None:
+                self._entries.pop(entry_uuid, None)
+            else:
+                self._entries[entry_uuid] = previous
+            raise
         return record
+
+    def bindings(self):
+        if self._load_error:
+            raise RuntimeError('Registry could not be loaded: '+self._load_error)
+        return {record['tag_uid']: uuid for uuid, record in self._entries.items()}
 
     def by_tag_uid(self, tag_uid: str) -> Optional[str]:
         """Which entry is bound to this tag, if any."""
