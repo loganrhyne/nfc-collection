@@ -45,4 +45,12 @@ npm run build
 
 Tests cover cross-filtering, archive retry, direct and NFC navigation outside filters, registration lifecycle/StrictMode, shared socket subscriptions, offline-write suppression, LED reconnect and empty-result behavior, brightness/visualization commands, zero coordinates, two-corner selection, pointer dragging/cancellation and viewport filtering.
 
-Browser checks cover real archive photographs, search, field notes, keyboard filters, map selection and layers, and the compact landscape layout. Physical multi-touch, NFC tag writes and LED appearance still require testing on the Pi before deployment. The existing media pipeline remains subject to the browser's video-codec support; no transcoding changes are included. Existing warnings in legacy debug/media utilities and the CRA toolchain are separate from the rewritten components.
+Browser checks cover real archive photographs, search, field notes, keyboard filters, map selection and layers, and the compact landscape layout. Physical multi-touch, NFC tag writes and LED appearance still require a hands-on acceptance check. The existing media pipeline remains subject to the browser's video-codec support; no transcoding changes are included. Existing warnings in legacy debug/media utilities and the CRA toolchain are separate from the rewritten components.
+
+## Pi frontend deployment — 2026-09-21
+
+The frontend is served at `http://192.168.1.114/` from `/home/loganrhyne/nfc-collection/dashboard-ui/build`. Deployment preserves the Pi's local backend changes and `/home/loganrhyne/nfc-media` archive. The production socket connects through nginx on port 80. Build details include the frontend source commit; the backend checkout can have a different revision.
+
+The previous frontend is backed up at `/home/loganrhyne/nfc-collection/dashboard-ui/build-pre-strata-c68fb84`. Assets are copied before atomically replacing `index.html`; old hashed assets are retained for already-open clients. To restore the previous UI, copy that backup's `index.html` to `build/index.html.rollback`, then rename it to `build/index.html`. No backend or nginx restart is needed.
+
+Live checks confirmed 168 journal entries, successful search and field-note navigation, the display socket connection, and healthy NFC/LED services. Map tile bounds explicitly constrain requests to the Web Mercator world; `noWrap` alone still allowed invalid tile columns at the overview zoom.

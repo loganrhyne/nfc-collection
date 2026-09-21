@@ -267,6 +267,10 @@ export default function MapView() {
           key={layer}
           {...LAYERS[layer]}
           noWrap={true}
+          bounds={[
+            [-85.05112878, -180],
+            [85.05112878, 180],
+          ]}
           eventHandlers={{
             tileerror: () => setTileError(true),
             tileload: () => setTileError(false),
