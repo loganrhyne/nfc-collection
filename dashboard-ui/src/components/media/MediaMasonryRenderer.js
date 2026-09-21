@@ -1,13 +1,13 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import styled from 'styled-components';
-import '../../styles/mediaMasonry.css';
-import mediaService from '../../services/mediaService';
+import React from "react";
+import PropTypes from "prop-types";
+import styled from "styled-components";
+import "../../styles/mediaMasonry.css";
+import mediaService from "../../services/mediaService";
 
 // Import our modular components
-import MediaImage from './MediaImage';
-import MediaVideo from './MediaVideo';
-import MediaDocument from './MediaDocument';
+import MediaImage from "./MediaImage";
+import MediaVideo from "./MediaVideo";
+import MediaDocument from "./MediaDocument";
 
 /**
  * Masonry container for displaying media without vertical gaps
@@ -21,43 +21,45 @@ const MasonryContainer = styled.div`
  */
 const MediaItem = ({ media, onClick }) => {
   if (!media) return null;
-  
+
   const { type } = media;
-  
+
   // Get the appropriate media path
   const mediaPath = mediaService.getMediaPath(media);
-  
+
   // Get media category for appropriate component selection
   const mediaCategory = mediaService.getMediaCategory(type);
-  
+
   // Render the appropriate component based on media category
   const renderMediaContent = () => {
     switch (mediaCategory) {
-      case 'image':
+      case "image":
         return <MediaImage src={mediaPath} mediaItem={media} />;
-        
-      case 'video':
+
+      case "video":
         return <MediaVideo mediaPath={mediaPath} mediaItem={media} />;
-        
-      case 'document':
+
+      case "document":
         return <MediaDocument mediaPath={mediaPath} mediaItem={media} />;
-        
+
       default:
         // Fallback for unknown media type
         return (
           <div className="media-item document">
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              height: '100%',
-              minHeight: '200px',
-              padding: '16px',
-              textAlign: 'center',
-              backgroundColor: '#f5f5f5'
-            }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100%",
+                minHeight: "200px",
+                padding: "16px",
+                textAlign: "center",
+                backgroundColor: "#f5f5f5",
+              }}
+            >
               <div>
-                <div style={{ fontSize: '24px', marginBottom: '8px' }}>📁</div>
+                <div style={{ fontSize: "24px", marginBottom: "8px" }}>📁</div>
                 <div>Unknown media format</div>
               </div>
             </div>
@@ -65,7 +67,7 @@ const MediaItem = ({ media, onClick }) => {
         );
     }
   };
-  
+
   return renderMediaContent();
 };
 
@@ -76,37 +78,53 @@ const MediaItem = ({ media, onClick }) => {
 const MediaMasonryRenderer = ({ mediaItems, onMediaClick }) => {
   // Don't render anything if no media items
   if (!mediaItems || mediaItems.length === 0) return null;
-  
+
   // For very large collections, limit the class name to avoid CSS specificity issues
-  const mediaCountClass = mediaItems.length <= 20 
-    ? `media-count-${mediaItems.length}` 
-    : 'media-count-many';
-  
+  const mediaCountClass =
+    mediaItems.length <= 20
+      ? `media-count-${mediaItems.length}`
+      : "media-count-many";
+
   return (
     <MasonryContainer className={`media-masonry ${mediaCountClass}`}>
       {mediaItems.map((item, index) => {
         if (!item) return null;
-        
+
         // Determine media type for styling
         const mediaCategory = mediaService.getMediaCategory(item.type);
-        const itemClass = mediaCategory === 'document' ? 'document' : '';
-        
+        const itemClass = mediaCategory === "document" ? "document" : "";
+
         return (
-          <div 
-            key={item.identifier || item.md5 || index} 
+          <div
+            key={item.identifier || item.md5 || index}
             className="media-masonry-item"
           >
-            <div 
+            <div
               className={`media-item ${itemClass}`}
               onClick={onMediaClick ? () => onMediaClick(item) : undefined}
-              style={{ cursor: onMediaClick ? 'pointer' : 'default' }}
-              role={onMediaClick ? 'button' : undefined}
+              aria-label={
+                onMediaClick
+                  ? `Open ${mediaCategory || "media"} ${index + 1}`
+                  : undefined
+              }
+              onKeyDown={
+                onMediaClick
+                  ? (event) => {
+                      if (
+                        event.target === event.currentTarget &&
+                        (event.key === "Enter" || event.key === " ")
+                      ) {
+                        event.preventDefault();
+                        onMediaClick(item);
+                      }
+                    }
+                  : undefined
+              }
+              style={{ cursor: onMediaClick ? "pointer" : "default" }}
+              role={onMediaClick ? "button" : undefined}
               tabIndex={onMediaClick ? 0 : undefined}
             >
-              <MediaItem 
-                media={item} 
-                onClick={onMediaClick} 
-              />
+              <MediaItem media={item} onClick={onMediaClick} />
             </div>
           </div>
         );
@@ -117,16 +135,18 @@ const MediaMasonryRenderer = ({ mediaItems, onMediaClick }) => {
 
 MediaMasonryRenderer.propTypes = {
   /** Array of media item objects */
-  mediaItems: PropTypes.arrayOf(PropTypes.shape({
-    md5: PropTypes.string,
-    type: PropTypes.string,
-    width: PropTypes.number,
-    height: PropTypes.number,
-    identifier: PropTypes.string
-  })),
-  
+  mediaItems: PropTypes.arrayOf(
+    PropTypes.shape({
+      md5: PropTypes.string,
+      type: PropTypes.string,
+      width: PropTypes.number,
+      height: PropTypes.number,
+      identifier: PropTypes.string,
+    }),
+  ),
+
   /** Optional click handler for media items */
-  onMediaClick: PropTypes.func
+  onMediaClick: PropTypes.func,
 };
 
 MediaItem.propTypes = {
@@ -137,11 +157,11 @@ MediaItem.propTypes = {
     width: PropTypes.number,
     height: PropTypes.number,
     identifier: PropTypes.string,
-    mimeType: PropTypes.string
+    mimeType: PropTypes.string,
   }),
-  
+
   /** Optional click handler */
-  onClick: PropTypes.func
+  onClick: PropTypes.func,
 };
 
 export default MediaMasonryRenderer;
