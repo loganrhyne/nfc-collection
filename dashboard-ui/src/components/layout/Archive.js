@@ -5,6 +5,7 @@ import { getMediaPath } from "../../services/mediaService";
 import colors from "../../utils/colorSchemeEnhanced";
 import MapView from "../map/MapView";
 import ActiveFilters from "../filters/ActiveFilters";
+import Chronology from "./Chronology";
 
 export function ArchiveState() {
   const { loading, error, retry } = useData();
@@ -174,71 +175,6 @@ function Facet({ dimension, title, number }) {
             )}
           </div>
         ))}
-    </section>
-  );
-}
-function Chronology() {
-  const { allEntries, getEntriesFilteredExcept, filters, setFilter } =
-    useData();
-  const candidates = getEntriesFilteredExcept("quarter");
-  const groups = candidates.reduce((r, e) => {
-    (r[e.quarter] ||= []).push(e);
-    return r;
-  }, {});
-  // Keep a continuous archive-wide axis, including gaps and filtered-out quarters.
-  const quarters = useMemo(() => {
-    const indices = allEntries.flatMap(({ quarter }) => {
-      const match = /^Q([1-4])-(\d{4})$/.exec(quarter);
-      return match ? [Number(match[2]) * 4 + Number(match[1]) - 1] : [];
-    });
-    if (!indices.length) return [];
-    const first = Math.min(...indices);
-    const last = Math.max(...indices);
-    return Array.from({ length: last - first + 1 }, (_, offset) => {
-      const index = first + offset;
-      return `Q${(index % 4) + 1}-${Math.floor(index / 4)}`;
-    });
-  }, [allEntries]);
-  const max = Math.max(1, ...Object.values(groups).map((g) => g.length));
-  return (
-    <section className="chronology" aria-label="Collection timeline">
-      <div className="section-heading">
-        <h2>Through time</h2>
-        <span className="eyebrow">QUARTERLY · SCROLL →</span>
-      </div>
-      <div className="quarter-scroll">
-        {quarters.map((q) => (
-          <button
-            className={`quarter ${filters.quarter === q ? "is-active" : ""}`}
-            key={q}
-            aria-label={`Filter ${q}: ${groups[q]?.length || 0} specimens`}
-            aria-pressed={filters.quarter === q}
-            onClick={() => setFilter("quarter", q)}
-            title={`${q}: ${groups[q]?.length || 0} specimens`}
-          >
-            <span className="quarter-bar" aria-hidden="true">
-              {Object.entries(
-                (groups[q] || []).reduce((r, e) => {
-                  r[e.type] = (r[e.type] || 0) + 1;
-                  return r;
-                }, {}),
-              ).map(([type, n]) => (
-                <span
-                  key={type}
-                  style={{
-                    height: `${(n / max) * 100}%`,
-                    background: colors[type] || "#918678",
-                  }}
-                />
-              ))}
-            </span>
-            <span className="quarter-label">
-              <span>{q.slice(0, 2)}</span>
-              <span>{q.slice(3)}</span>
-            </span>
-          </button>
-        ))}
-      </div>
     </section>
   );
 }

@@ -149,6 +149,39 @@ test("the timeline retains empty quarters across years and while filtering", asy
     screen.getByRole("button", { name: "Filter Q2-2025: 0 specimens" }),
   ).toBeInTheDocument();
 });
+test("the timeline supports arrow navigation and a touch-sized year picker", async () => {
+  render(
+    <MemoryRouter>
+      <DataProvider>
+        <Archive />
+      </DataProvider>
+    </MemoryRouter>,
+  );
+  const first = await screen.findByRole("button", {
+    name: "Filter Q1-2025: 1 specimens",
+  });
+  fireEvent.keyDown(first, { key: "ArrowRight" });
+  expect(
+    screen.getByRole("button", { name: "Filter Q2-2025: 1 specimens" }),
+  ).toHaveFocus();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Choose a quarter in 2025" }),
+  );
+  expect(
+    screen.getByRole("dialog", { name: "Choose a quarter in 2025" }),
+  ).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Choose Q2-2025: 1 specimens" }),
+  );
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Filter Q2-2025: 1 specimens" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: /002.*Peak/ })).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /001.*Shore/ }),
+  ).not.toBeInTheDocument();
+});
 test("a direct or NFC entry route resolves outside the active filter", async () => {
   render(
     <MemoryRouter initialEntries={["/entry/peak"]}>
