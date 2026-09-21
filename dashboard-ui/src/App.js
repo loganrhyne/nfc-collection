@@ -1,158 +1,90 @@
-import React, { useCallback, useEffect } from 'react';
-import './styles/mediaGrid.css';
-import './styles/videoPlayer.css';
-import { logEnvironmentInfo } from './utils/debug';
-import { BrowserRouter as Router, Routes, Route, useParams, useNavigate } from 'react-router-dom';
-import { DataProvider } from './context/DataContext';
-import ErrorBoundary from './components/ErrorBoundary';
-import DashboardLayout from './components/layout/DashboardLayout';
-import TypeBarChart from './components/charts/TypeBarChart';
-import RegionBarChart from './components/charts/RegionBarChart';
-import TimelineChart from './components/charts/TimelineChart';
-import MapView from './components/map/MapView';
-import VerticalTimeline from './components/timeline/VerticalTimeline';
-import EntryView from './components/entry/EntryView';
-import NFCScanner from './components/nfc/NFCScanner';
-import WebSocketStatus from './components/nfc/WebSocketStatus';
-import ActiveFilters from './components/filters/ActiveFilters';
-import VersionInfo from './components/VersionInfo';
-import LEDController from './components/led/LEDController';
-import LEDModePill from './components/led/LEDModePill';
-import DebugPage from './components/debug/DebugPage';
-import LEDDebugPanel from './components/debug/LEDDebugPanel';
-import { initTouchScrollFix } from './utils/touchScrollFix';
-import './App.css';
+import React from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  NavLink,
+  useLocation,
+} from "react-router-dom";
+import { DataProvider } from "./context/DataContext";
+import { WebSocketProvider } from "./hooks/useWebSocket";
+import ErrorBoundary from "./components/ErrorBoundary";
+import Archive from "./components/layout/Archive";
+import EntryView from "./components/entry/EntryView";
+import NFCScanner from "./components/nfc/NFCScanner";
+import WebSocketStatus from "./components/nfc/WebSocketStatus";
+import LEDModePill from "./components/led/LEDModePill";
+import VersionInfo from "./components/VersionInfo";
+import DebugPage from "./components/debug/DebugPage";
+import LEDDebugPanel from "./components/debug/LEDDebugPanel";
+import "./styles/mediaGrid.css";
+import "./styles/videoPlayer.css";
+import "./App.css";
 
-/**
- * Main Dashboard component showing charts and map view
- */
-function Dashboard() {
-  const navigate = useNavigate();
-  
-  // Handle navigation to entry view (separate from selection)
-  const handleNavigateToEntryView = useCallback((entry) => {
-    if (entry && entry.uuid) {
-      navigate(`/entry/${entry.uuid}`);
-    }
-  }, [navigate]);
-  
-  // Content for the left column (filters)
-  const leftColumnContent = (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <h3 style={{ marginBottom: '8px' }}>Type</h3>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <TypeBarChart />
-        </div>
-      </div>
-      
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <h3 style={{ marginTop: '16px', marginBottom: '8px' }}>Region</h3>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <RegionBarChart />
-        </div>
-      </div>
-    </div>
-  );
-
-  // Content for the map section (center top)
-  const mapContent = (
-    <>
-      <ActiveFilters />
-      <MapView />
-    </>
-  );
-
-  // Content for the timeline chart (center bottom)
-  const timelineChartContent = (
-    <TimelineChart />
-  );
-
-  // Content for the right column (always the timeline)
-  const rightColumnContent = (
-    <VerticalTimeline onEntrySelect={handleNavigateToEntryView} />
-  );
-
-  return (
-    <DashboardLayout
-      leftColumnContent={leftColumnContent}
-      mapContent={mapContent}
-      timelineChartContent={timelineChartContent}
-      rightColumnContent={rightColumnContent}
-    />
-  );
-}
-
-/**
- * Entry detail view component with proper navigation
- */
-function EntryDetailView() {
-  const { entryId } = useParams();
-  const navigate = useNavigate();
-  
-  // Handle return to dashboard - with state to prevent loops
-  const handleReturnToDashboard = useCallback(() => {
-    // Force a complete state reset and route change
-    navigate('/', { 
-      replace: true,  // Replace history entry instead of pushing
-      state: { 
-        resetView: true  // Flag to indicate a full reset
-      }
-    });
-  }, [navigate]);
-  
-  return <EntryView entryId={entryId} onReturn={handleReturnToDashboard} />;
-}
-
-// Wrapper around DataProvider to handle shared state between routes
 function AppContent() {
+  const { pathname } = useLocation();
   return (
-    <div className="App">
+    <div className="strata-app">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      <header className="archive-header">
+        <NavLink to="/" className="brand" aria-label="STRATA archive home">
+          <span className="brand-mark" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span>
+            STRATA<small>THE SAND ARCHIVE</small>
+          </span>
+        </NavLink>
+        <nav aria-label="Main navigation">
+          <NavLink to="/" end>
+            Explore the collection
+          </NavLink>
+          {pathname.startsWith("/entry/") && (
+            <span className="current-page">/ Field note</span>
+          )}
+        </nav>
+        <div className="header-caption">
+          <span>Earth, gathered.</span>
+          <small>A PERSONAL NATURAL HISTORY</small>
+        </div>
+      </header>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/entry/:entryId" element={<EntryDetailView />} />
+        <Route path="/" element={<Archive />} />
+        <Route path="/entry/:entryId" element={<EntryView />} />
         <Route path="/debug" element={<DebugPage />} />
       </Routes>
+      <footer className="archive-footer">
+        <div className="reader-prompt">
+          <span className="reader-icon" aria-hidden="true">
+            ◎
+          </span>
+          Place a specimen on the reader to open its story.
+        </div>
+        <div className="system-controls">
+          <VersionInfo />
+          <LEDModePill />
+          <WebSocketStatus />
+        </div>
+      </footer>
       <NFCScanner />
-      <WebSocketStatus />
-      <LEDController />
-      <LEDModePill />
-      <VersionInfo />
-      {window.location.search.includes('debug=led') && <LEDDebugPanel />}
+      {window.location.search.includes("debug=led") && <LEDDebugPanel />}
     </div>
   );
 }
-
-/**
- * Main app component that sets up routes
- */
-function App() {
-  // Log environment information on startup
-  useEffect(() => {
-    logEnvironmentInfo();
-    console.log('🔍 Data files should be in:', `${window.location.origin}/data/`);
-    
-    // Initialize touch scroll fix
-    console.log('Initializing touch scroll fix...');
-    initTouchScrollFix();
-  }, []);
-  
-  const handleError = (error, errorInfo) => {
-    // In production, this would send to error tracking service
-    console.error('App Error:', error, errorInfo);
-  };
-  
+export default function App() {
   return (
-    <ErrorBoundary onError={handleError}>
-      <Router>
+    <ErrorBoundary>
+      <BrowserRouter>
         <DataProvider>
-          <ErrorBoundary>
+          <WebSocketProvider>
             <AppContent />
-          </ErrorBoundary>
+          </WebSocketProvider>
         </DataProvider>
-      </Router>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }
-
-export default App;

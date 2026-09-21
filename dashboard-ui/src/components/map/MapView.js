@@ -1,447 +1,339 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Rectangle } from 'react-leaflet';
-import MapTileSelector from './MapTileSelector';
-import L from 'leaflet';
-import { useData } from '../../context/DataContext';
-import styled from 'styled-components';
-import colorScheme from '../../utils/colorSchemeEnhanced';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Rectangle,
+  useMap,
+} from "react-leaflet";
+import { useNavigate } from "react-router-dom";
+import L from "leaflet";
+import { useData } from "../../context/DataContext";
+import colors from "../../utils/colorSchemeEnhanced";
+import { validLocation, boundsFromPoints } from "./mapGeometry";
 
-// Import Leaflet CSS - we'll need to make sure this is included in the index.html
-// or add as import in the index.js file
-import 'leaflet/dist/leaflet.css';
-
-const MapWrapper = styled.div`
-  height: 100%;
-  width: 100%;
-  position: relative;
-  
-  .leaflet-container {
-    height: 100%;
-    width: 100%;
-    border-radius: 8px;
-  }
-`;
-
-const MapControls = styled.div`
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 1000;
-  background-color: white;
-  padding: 5px;
-  border-radius: 4px;
-  box-shadow: 0 1px 5px rgba(0,0,0,0.2);
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-`;
-
-const ControlButton = styled.button`
-  padding: 6px 10px;
-  background-color: white;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  
-  &:hover {
-    background-color: #f5f5f5;
-  }
-  
-  &.active {
-    background-color: #e1f5fe;
-    border-color: #2196f3;
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
-
-// Fix for marker icons in React-Leaflet
-// Default marker icon URLs are broken in React-Leaflet
-const defaultIcon = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-
-// Create custom icon for each entry type
-const getEntryIcon = (type) => {
-  const color = colorScheme[type] || '#999';
-  
-  return L.divIcon({
-    className: 'custom-map-marker',
-    html: `<div style="
-      background-color: ${color};
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      border: 2px solid white;
-      box-shadow: 0 0 4px rgba(0,0,0,0.5);
-    "></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-    popupAnchor: [0, -10]
-  });
+const LAYERS = {
+  Atlas: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  },
+  Satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution:
+      "Tiles &copy; Esri &mdash; Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, GIS User Community",
+    maxZoom: 18,
+  },
+  Terrain: {
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution:
+      'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, <a href="http://viewfinderpanoramas.org">SRTM</a> | Style &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+    maxZoom: 17,
+  },
 };
-
-/**
- * Component to handle zoom to a specific location at max zoom level
- */
-const MarkerWithZoom = ({ entry, onViewEntry }) => {
+const pathOptions = { color: "#a45135", weight: 2, fillOpacity: 0.12 };
+export function MapInteraction({ points, onSelect, geo }) {
   const map = useMap();
-  
-  const handleZoom = () => {
-    if (map && entry.location) {
-      map.setView([entry.location.latitude, entry.location.longitude], 18, {
-        animate: true,
-        duration: 0.5
-      });
+  const [selecting, setSelecting] = useState(false);
+  const [first, setFirst] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const pointer = useRef(null);
+  const overlay = useRef(null);
+  const selectButton = useRef(null);
+  const fit = useCallback(() => {
+    if (points.length)
+      map.fitBounds(points, { padding: [36, 36], maxZoom: 12, animate: false });
+    else map.setView([22, 10], 2);
+  }, [map, points]);
+  useEffect(fit, [fit]);
+  useEffect(() => {
+    const resize = new ResizeObserver(() => map.invalidateSize());
+    resize.observe(map.getContainer());
+    return () => resize.disconnect();
+  }, [map]);
+  useEffect(() => {
+    if (!selecting) return;
+    const handlers = [
+      map.dragging,
+      map.touchZoom,
+      map.doubleClickZoom,
+      map.boxZoom,
+      map.scrollWheelZoom,
+    ];
+    const enabled = handlers.filter((handler) => handler.enabled());
+    enabled.forEach((handler) => handler.disable());
+    return () => enabled.forEach((handler) => handler.enable());
+  }, [map, selecting]);
+  const cancel = useCallback(() => {
+    setSelecting(false);
+    setFirst(null);
+    setPreview(null);
+    pointer.current = null;
+  }, []);
+  useEffect(() => {
+    if (!selecting) return;
+    const keyboard = (e) => {
+      if (e.key === "Escape") {
+        cancel();
+        selectButton.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", keyboard);
+    return () => window.removeEventListener("keydown", keyboard);
+  }, [selecting, cancel]);
+  const point = (e) =>
+    map.containerPointToLatLng([
+      e.clientX - map.getContainer().getBoundingClientRect().left,
+      e.clientY - map.getContainer().getBoundingClientRect().top,
+    ]);
+  const finish = (a, b) => {
+    const bounds = boundsFromPoints(a, b);
+    if (!bounds || bounds.north === bounds.south || bounds.west === bounds.east)
+      return;
+    onSelect(bounds);
+    cancel();
+    selectButton.current?.focus();
+  };
+  const down = (e) => {
+    e.stopPropagation();
+    if (e.button !== 0 || e.isPrimary === false) {
+      pointer.current = null;
+      setFirst(null);
+      setPreview(null);
+      return;
+    }
+    e.preventDefault();
+    pointer.current = {
+      id: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      point: point(e),
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const move = (e) => {
+    e.stopPropagation();
+    const p = pointer.current;
+    if (
+      p &&
+      p.id === e.pointerId &&
+      Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8
+    )
+      setPreview([first || p.point, point(e)]);
+  };
+  const up = (e) => {
+    e.stopPropagation();
+    const p = pointer.current;
+    pointer.current = null;
+    if (!p || p.id !== e.pointerId) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    const end = point(e);
+    if (first || Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8)
+      finish(first || p.point, end);
+    else {
+      setFirst(end);
+      setPreview([end, end]);
     }
   };
-  
-  return (
-    <Marker
-      position={[entry.location.latitude, entry.location.longitude]}
-      icon={getEntryIcon(entry.type)}
-    >
-      <Popup>
-        <div style={{ textAlign: 'left', padding: '4px 0' }}>
-          <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>{entry.title}</h3>
-          <p style={{ margin: '4px 0', fontSize: '14px' }}>
-            <strong>Type:</strong> <span style={{ color: colorScheme[entry.type] || '#333' }}>{entry.type}</span>
-          </p>
-          <p style={{ margin: '4px 0', fontSize: '14px' }}>
-            <strong>Region:</strong> {entry.region}
-          </p>
-          <p style={{ margin: '4px 0', fontSize: '14px' }}>
-            <strong>Date:</strong> {new Date(entry.creationDate).toLocaleDateString()}
-          </p>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-            <button 
-              onClick={() => onViewEntry(entry)}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: 'white',
-                color: '#333',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
-              }}
-            >
-              <span style={{ marginRight: '6px' }}>→</span> View Entry
-            </button>
-            <button 
-              onClick={handleZoom}
-              style={{
-                padding: '6px 12px',
-                backgroundColor: 'white',
-                color: '#333',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
-              }}
-            >
-              <span style={{ marginRight: '6px' }}>🔍</span> Zoom
-            </button>
-          </div>
-        </div>
-      </Popup>
-    </Marker>
-  );
-};
-
-/**
- * BoundsFitter component - updates map bounds when entries change and handles area selection
- * Uses the useMap hook to access the Leaflet map instance and update its bounds
- */
-const BoundsFitter = ({ bounds, areaSelectionMode, onSelectionComplete }) => {
-  const map = useMap();
-  const [startPoint, setStartPoint] = useState(null);
-  const [currentPoint, setCurrentPoint] = useState(null);
-  const [selectionActive, setSelectionActive] = useState(false);
-  
-  // Handle map bounds update
-  useEffect(() => {
-    if (bounds && bounds[0] && bounds[1] && !areaSelectionMode) {
-      // Convert to Leaflet bounds format
-      const leafletBounds = L.latLngBounds(bounds);
-      
-      // Only update if bounds are valid
-      if (leafletBounds.isValid()) {
-        // Use flyToBounds for a smooth animation
-        map.flyToBounds(leafletBounds, {
-          padding: [50, 50],  // Add padding in pixels
-          maxZoom: 12,        // Limit maximum zoom level
-          duration: 0.5       // Animation duration in seconds
-        });
-      }
-    }
-  }, [bounds, map, areaSelectionMode]);
-
-  // Set up map event handlers for area selection
-  useEffect(() => {
-    if (!map) return;
-    
-    // Enable or disable dragging based on selection mode
-    if (areaSelectionMode) {
-      map.dragging.disable();
-      map.getContainer().style.cursor = 'crosshair';
-    } else {
-      map.dragging.enable();
-      map.getContainer().style.cursor = '';
-      setStartPoint(null);
-      setCurrentPoint(null);
-      setSelectionActive(false);
-    }
-    
-    // Define the event handlers
-    const handleMouseDown = (e) => {
-      if (areaSelectionMode) {
-        setStartPoint(e.latlng);
-        setCurrentPoint(e.latlng);
-        setSelectionActive(true);
-      }
-    };
-    
-    const handleMouseMove = (e) => {
-      if (areaSelectionMode && selectionActive) {
-        setCurrentPoint(e.latlng);
-      }
-    };
-    
-    const handleMouseUp = (e) => {
-      if (areaSelectionMode && selectionActive && startPoint) {
-        setSelectionActive(false);
-        
-        // Create bounds from the two points
-        const bounds = L.latLngBounds(
-          L.latLng(
-            Math.min(startPoint.lat, e.latlng.lat),
-            Math.min(startPoint.lng, e.latlng.lng)
-          ),
-          L.latLng(
-            Math.max(startPoint.lat, e.latlng.lat),
-            Math.max(startPoint.lng, e.latlng.lng)
-          )
-        );
-        
-        // Call the callback with the bounds
-        if (onSelectionComplete && bounds.isValid()) {
-          onSelectionComplete(bounds);
-        }
-      }
-    };
-    
-    // Add the event listeners
-    if (areaSelectionMode) {
-      map.on('mousedown', handleMouseDown);
-      map.on('mousemove', handleMouseMove);
-      map.on('mouseup', handleMouseUp);
-    }
-    
-    // Clean up
-    return () => {
-      map.off('mousedown', handleMouseDown);
-      map.off('mousemove', handleMouseMove);
-      map.off('mouseup', handleMouseUp);
-    };
-  }, [map, areaSelectionMode, onSelectionComplete, startPoint, selectionActive]);
-
-  // Render selection rectangle if selection is active
   return (
     <>
-      {areaSelectionMode && startPoint && currentPoint && (
+      {geo && (
         <Rectangle
           bounds={[
-            [
-              Math.min(startPoint.lat, currentPoint.lat),
-              Math.min(startPoint.lng, currentPoint.lng)
-            ],
-            [
-              Math.max(startPoint.lat, currentPoint.lat),
-              Math.max(startPoint.lng, currentPoint.lng)
-            ]
+            [geo.south, geo.west],
+            [geo.north, geo.east],
           ]}
-          pathOptions={{
-            color: '#1976d2',
-            weight: 2,
-            fillOpacity: 0.2,
-            opacity: 0.7
+          pathOptions={pathOptions}
+        />
+      )}
+      {preview && <Rectangle bounds={preview} pathOptions={pathOptions} />}
+      {selecting && (
+        <div
+          ref={overlay}
+          className="map-selection-surface"
+          data-testid="map-selection-surface"
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          onPointerCancel={() => {
+            pointer.current = null;
+            setFirst(null);
+            setPreview(null);
+          }}
+          onLostPointerCapture={() => {
+            pointer.current = null;
           }}
         />
       )}
+      <div className="map-toolbar" aria-label="Map tools">
+        <button
+          ref={selectButton}
+          aria-pressed={selecting}
+          onClick={() => (selecting ? cancel() : setSelecting(true))}
+        >
+          {selecting ? "Cancel selection ×" : "Select area"}
+        </button>
+        <button
+          onClick={() => {
+            const b = map.getBounds();
+            onSelect({
+              south: b.getSouth(),
+              west: b.getWest(),
+              north: b.getNorth(),
+              east: b.getEast(),
+            });
+            cancel();
+          }}
+        >
+          Filter this view
+        </button>
+        <button
+          onClick={fit}
+          aria-label="Fit matching specimens on map"
+          title="Fit matching specimens"
+        >
+          ↗↙
+        </button>
+      </div>
+      {selecting && (
+        <div className="map-instruction" role="status">
+          {first
+            ? "Now tap the opposite corner."
+            : "Tap two opposite corners, or drag an area."}
+          <small>Escape or Cancel to return to panning.</small>
+        </div>
+      )}
     </>
   );
-};
-
-const MapView = () => {
-  const { 
-    entries, 
-    filters, 
-    setSelectedEntry, 
-    setFilter,
-    resetFilters 
-  } = useData();
-  
-  // State for area selection mode
-  const [areaSelectionMode, setAreaSelectionMode] = useState(false);
-  // Calculate map bounds based on entry locations
-  const getMapBounds = useCallback(() => {
-    if (!entries.length) return [[0, 0], [0, 0]];
-    
-    const validEntries = entries.filter(entry => 
-      entry.location && entry.location.latitude && entry.location.longitude
-    );
-    
-    if (!validEntries.length) return [[0, 0], [0, 0]];
-    
-    const latitudes = validEntries.map(entry => entry.location.latitude);
-    const longitudes = validEntries.map(entry => entry.location.longitude);
-    
-    const minLat = Math.min(...latitudes);
-    const maxLat = Math.max(...latitudes);
-    const minLng = Math.min(...longitudes);
-    const maxLng = Math.max(...longitudes);
-    
-    // Calculate padding as a percentage of the range
-    // with a minimum to ensure visibility
-    const latRange = maxLat - minLat;
-    const lngRange = maxLng - minLng;
-    const latPadding = Math.max(latRange * 0.1, 0.5);
-    const lngPadding = Math.max(lngRange * 0.1, 0.5);
-    
-    return [
-      [minLat - latPadding, minLng - lngPadding],
-      [maxLat + latPadding, maxLng + lngPadding]
-    ];
-  }, [entries]);
-  
-  // Always calculate bounds from the filtered entries - the map should always 
-  // show the current filtered set, regardless of how the filtering was done
-  const bounds = getMapBounds();
-  
-  // Handle marker click to select entry in timeline without navigation
-  // This will be called from the popup's "View Entry" button
-  const handleViewEntryClick = (entry) => {
-    setSelectedEntry(entry);
-  };
-  
-  // Handle area selection completed
-  const handleAreaSelectionComplete = useCallback((bounds) => {
-    // Set area selection mode to false after selecting
-    setAreaSelectionMode(false);
-    
-    // Set a special filter to trigger the context update
-    // We use a custom filter format here that will be handled in the context
-    setFilter('geo', {
-      south: bounds.getSouth(),
-      west: bounds.getWest(),
-      north: bounds.getNorth(),
-      east: bounds.getEast()
-    }, 'map', 'selection');
-  }, [setFilter]);
-  
-  
-  // Toggle area selection mode
-  const toggleAreaSelection = useCallback(() => {
-    setAreaSelectionMode(prev => !prev);
-    // If turning off selection mode, also clear any current rectangle being drawn
-    if (areaSelectionMode) {
-      // We don't clear the filter here, just the selection mode
-    }
-  }, [areaSelectionMode]);
-  
-  // If no entries with valid locations, show a message
-  if (!entries.some(entry => entry.location && entry.location.latitude && entry.location.longitude)) {
-    return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p>No entries with valid locations to display</p>
-      </div>
-    );
-  }
-  
-  // Get center of map based on all entries
-  const center = entries.length > 0 && entries[0].location ? 
-    [entries[0].location.latitude, entries[0].location.longitude] : 
-    [0, 0];
-  
+}
+function ZoomHere({ location }) {
+  const map = useMap();
   return (
-    <MapWrapper>
-      <MapContainer 
-        center={center}
-        zoom={2} 
-        style={{ height: '100%', width: '100%' }}
+    <button
+      onClick={() => {
+        map.closePopup();
+        map.setView(
+          [location.latitude, location.longitude],
+          Math.min(18, map.getMaxZoom()),
+        );
+      }}
+    >
+      Zoom to location
+    </button>
+  );
+}
+
+export default function MapView() {
+  const { entries, filters, setFilter, setSelectedEntry } = useData();
+  const navigate = useNavigate();
+  const [layer, setLayer] = useState("Atlas");
+  const [tileError, setTileError] = useState(false);
+  const located = useMemo(
+    () => entries.filter((e) => validLocation(e.location)),
+    [entries],
+  );
+  const points = useMemo(
+    () => located.map((e) => [e.location.latitude, e.location.longitude]),
+    [located],
+  );
+  const select = useCallback((bounds) => setFilter("geo", bounds), [setFilter]);
+  return (
+    <div className={`strata-map map-${layer.toLowerCase()}`}>
+      <MapContainer
+        center={[22, 10]}
+        zoom={2}
+        minZoom={1}
+        zoomSnap={0.25}
+        zoomDelta={0.5}
+        maxBounds={[
+          [-85, -180],
+          [85, 180],
+        ]}
+        maxBoundsViscosity={1}
+        zoomControl={true}
+        keyboard={true}
+        attributionControl={true}
       >
-        {/* BoundsFitter updates the map bounds when entries change */}
-        <BoundsFitter 
-          bounds={bounds} 
-          areaSelectionMode={areaSelectionMode} 
-          onSelectionComplete={handleAreaSelectionComplete} 
+        <TileLayer
+          key={layer}
+          {...LAYERS[layer]}
+          noWrap={true}
+          eventHandlers={{
+            tileerror: () => setTileError(true),
+            tileload: () => setTileError(false),
+          }}
         />
-        
-        {/* MapTileSelector provides tile layer selection UI and renders the active tile layer */}
-        <MapTileSelector />
-        
-        {/* Render existing geographic filter if present */}
-        {filters.geo && (
-          <Rectangle
-            bounds={[
-              [filters.geo.south, filters.geo.west],
-              [filters.geo.north, filters.geo.east]
-            ]}
-            pathOptions={{
-              color: '#1976d2',
-              weight: 2,
-              fillOpacity: 0.1,
-              opacity: 0.5
-            }}
-          />
-        )}
-        
-        {/* Render markers for entries */}
-        {entries.map((entry) => (
-          entry.location && entry.location.latitude && entry.location.longitude ? (
-            <MarkerWithZoom
-              key={entry.uuid}
-              entry={entry}
-              onViewEntry={handleViewEntryClick}
-            />
-          ) : null
+        <MapInteraction points={points} onSelect={select} geo={filters.geo} />
+        {located.map((entry) => (
+          <Marker
+            key={entry.uuid}
+            position={[entry.location.latitude, entry.location.longitude]}
+            title={entry.title}
+            alt={entry.title}
+            icon={L.divIcon({
+              className: "specimen-marker",
+              html: `<span style="--marker-color:${colors[entry.type] || "#82715d"}"></span>`,
+              iconSize: [36, 36],
+              iconAnchor: [18, 18],
+            })}
+          >
+            <Popup>
+              <div className="specimen-popup">
+                <span className="eyebrow">
+                  {entry.type} / {entry.region}
+                </span>
+                <h3>{entry.title}</h3>
+                <p>
+                  {entry.location.country} ·{" "}
+                  {new Date(entry.creationDate).getFullYear()}
+                </p>
+                <button
+                  onClick={() => {
+                    setSelectedEntry(entry);
+                    navigate(`/entry/${entry.uuid}`);
+                  }}
+                >
+                  Open field note ↗
+                </button>
+                <ZoomHere location={entry.location} />
+              </div>
+            </Popup>
+          </Marker>
         ))}
       </MapContainer>
-      
-      {/* Map controls */}
-      <MapControls>
-        <ControlButton 
-          onClick={toggleAreaSelection}
-          className={areaSelectionMode ? 'active' : ''}
-          title={areaSelectionMode ? 'Cancel selection' : 'Select area'}
+      <label className="map-layer">
+        <span className="sr-only">Map style</span>
+        <select
+          value={layer}
+          onChange={(e) => {
+            setLayer(e.target.value);
+            setTileError(false);
+          }}
         >
-          {areaSelectionMode ? 'Cancel Selection' : 'Select Area'}
-        </ControlButton>
-      </MapControls>
-    </MapWrapper>
+          {Object.keys(LAYERS).map((name) => (
+            <option key={name}>{name}</option>
+          ))}
+        </select>
+      </label>
+      <div className="map-caption">
+        {located.length
+          ? "PAN TO EXPLORE · PINCH OR + / − TO ZOOM"
+          : "NO LOCATED SPECIMENS IN THIS SELECTION"}
+      </div>
+      {tileError && (
+        <div className="map-network" role="status">
+          Some map tiles are unavailable. Try another map style.
+        </div>
+      )}
+    </div>
   );
-};
-
-export default MapView;
+}
