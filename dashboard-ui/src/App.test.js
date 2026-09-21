@@ -10,6 +10,7 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { DataProvider, useData } from "./context/DataContext";
 import EntryView from "./components/entry/EntryView";
 import NFCRegistrationModal from "./components/nfc/NFCRegistrationModal";
+import Archive from "./components/layout/Archive";
 
 jest.mock("./components/map/MapView", () => () => <div>Map</div>);
 jest.mock("./components/entry/JournalContent", () => ({ text }) => (
@@ -109,6 +110,44 @@ test("failed archive loading can be retried", async () => {
   await waitFor(() =>
     expect(screen.getByTestId("count")).toHaveTextContent("2"),
   );
+});
+test("the timeline retains empty quarters across years and while filtering", async () => {
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({
+      entries: [
+        { ...raw[0], creationDate: "2024-10-01" },
+        { ...raw[1], creationDate: "2025-04-01" },
+      ],
+    }),
+  });
+  render(
+    <MemoryRouter>
+      <DataProvider>
+        <Archive />
+      </DataProvider>
+    </MemoryRouter>,
+  );
+  await screen.findByRole("button", { name: "Filter Q4-2024: 1 specimens" });
+  const gap = screen.getByRole("button", {
+    name: "Filter Q1-2025: 0 specimens",
+  });
+  fireEvent.click(gap);
+  expect(screen.getByText("No matching specimens")).toBeInTheDocument();
+  expect(gap).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "Shore" },
+  });
+  expect(
+    screen.getByRole("button", { name: "Filter Q4-2024: 1 specimens" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Filter Q1-2025: 0 specimens" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Filter Q2-2025: 0 specimens" }),
+  ).toBeInTheDocument();
 });
 test("a direct or NFC entry route resolves outside the active filter", async () => {
   render(

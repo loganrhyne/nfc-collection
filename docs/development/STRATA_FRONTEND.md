@@ -1,11 +1,11 @@
 # STRATA frontend
 
-The light archive interface uses limestone surfaces, ink typography, and oxide accents to relate the touchscreen to the STRATA enclosure. The main layout targets landscape touchscreens and laptop browsers, including 1280 × 800 and 1024 × 600. A phone layout is deliberately outside this change.
+The light archive interface uses limestone surfaces, ink typography, and oxide accents to relate the touchscreen to the STRATA enclosure. The main layout targets landscape touchscreens and laptop browsers, including 1280 × 800 and 1024 × 600. A phone layout is deliberately outside this change. The map and specimen list use the full available height above the device controls; decorative page headers and the specimen-list caption are omitted.
 
 ## Interaction contract
 
 - Landscape, region, quarter, search, and geographic filters intersect. Tap an active category again or remove its chip to clear it. Clear all retains the loaded archive.
-- Region and quarter bars retain type-colored distributions. Large category/quarter buttons select the dimension; combine with the landscape filter for the same joint selections without tapping tiny chart segments. The chronology explicitly lists quarters containing specimens and scrolls horizontally.
+- Region and quarter bars retain type-colored distributions. Large category/quarter buttons select the dimension; combine with the landscape filter for the same joint selections without tapping tiny chart segments. The chronology includes every quarter from the first to the last specimen, leaving blank bars for quarters without matches. Its date range stays fixed while filtering, and it scrolls horizontally.
 - Map: normal one-finger/mouse dragging pans; pinch, wheel, keyboard arrows and +/− controls navigate. Select area supports two corner taps or a pointer drag. Escape/Cancel restores normal panning. Filter this view is the keyboard-friendly geographic selection path. Markers offer both field-note navigation and close-up location zoom. Atlas, Satellite and Terrain layers retain their source attribution.
 - Specimen cards open field notes. Inline media, fullscreen media navigation, registration, grid placement feedback, LED brightness/modes/visualizations, and build details remain available.
 - NFC routes resolve against the complete archive even when an active filter excludes the scanned specimen. Invalid links have an explicit not-found state.

@@ -106,7 +106,6 @@ export function SpecimenList() {
           </button>
         ))}
       </div>
-      <div className="index-note">A place. A moment. A handful of earth.</div>
     </aside>
   );
 }
@@ -179,35 +178,47 @@ function Facet({ dimension, title, number }) {
   );
 }
 function Chronology() {
-  const { getEntriesFilteredExcept, filters, setFilter } = useData();
+  const { allEntries, getEntriesFilteredExcept, filters, setFilter } =
+    useData();
   const candidates = getEntriesFilteredExcept("quarter");
   const groups = candidates.reduce((r, e) => {
     (r[e.quarter] ||= []).push(e);
     return r;
   }, {});
-  const quarters = Object.keys(groups).sort(
-    (a, b) => Number(a.slice(3)) - Number(b.slice(3)) || a.localeCompare(b),
-  );
+  // Keep a continuous archive-wide axis, including gaps and filtered-out quarters.
+  const quarters = useMemo(() => {
+    const indices = allEntries.flatMap(({ quarter }) => {
+      const match = /^Q([1-4])-(\d{4})$/.exec(quarter);
+      return match ? [Number(match[2]) * 4 + Number(match[1]) - 1] : [];
+    });
+    if (!indices.length) return [];
+    const first = Math.min(...indices);
+    const last = Math.max(...indices);
+    return Array.from({ length: last - first + 1 }, (_, offset) => {
+      const index = first + offset;
+      return `Q${(index % 4) + 1}-${Math.floor(index / 4)}`;
+    });
+  }, [allEntries]);
   const max = Math.max(1, ...Object.values(groups).map((g) => g.length));
   return (
     <section className="chronology" aria-label="Collection timeline">
       <div className="section-heading">
         <h2>Through time</h2>
-        <span className="eyebrow">QUARTERS WITH SPECIMENS · SCROLL →</span>
+        <span className="eyebrow">QUARTERLY · SCROLL →</span>
       </div>
       <div className="quarter-scroll">
         {quarters.map((q) => (
           <button
             className={`quarter ${filters.quarter === q ? "is-active" : ""}`}
             key={q}
-            aria-label={`Filter ${q}: ${groups[q].length} specimens`}
+            aria-label={`Filter ${q}: ${groups[q]?.length || 0} specimens`}
             aria-pressed={filters.quarter === q}
             onClick={() => setFilter("quarter", q)}
-            title={`${q}: ${groups[q].length} specimens`}
+            title={`${q}: ${groups[q]?.length || 0} specimens`}
           >
             <span className="quarter-bar" aria-hidden="true">
               {Object.entries(
-                groups[q].reduce((r, e) => {
+                (groups[q] || []).reduce((r, e) => {
                   r[e.type] = (r[e.type] || 0) + 1;
                   return r;
                 }, {}),
@@ -232,10 +243,11 @@ function Chronology() {
   );
 }
 export default function Archive() {
-  const { loading, error, filters, setFilter, entries, allEntries } = useData();
+  const { loading, error, filters, setFilter, allEntries } = useData();
   if (loading || error) return <ArchiveState />;
   return (
     <main className="archive-grid" id="main-content">
+      <h1 className="sr-only">Sand archive</h1>
       <aside className="filter-rail" aria-label="Filter collection">
         <div className="filter-intro">
           <span className="eyebrow">THE COLLECTION</span>
@@ -259,16 +271,7 @@ export default function Archive() {
           <Facet dimension="region" title="By region" number="02" />
         </div>
       </aside>
-      <section className="atlas">
-        <div className="atlas-heading">
-          <div>
-            <span className="eyebrow">FIELD ATLAS</span>
-            <h1>A collection of places.</h1>
-          </div>
-          <span className="atlas-count mono">
-            {entries.length} specimens in view
-          </span>
-        </div>
+      <section className="atlas" aria-label="Field atlas">
         <ActiveFilters />
         <div className="map-stage">
           <MapView />

@@ -122,81 +122,6 @@ a {
 .skip-link:focus {
   top: 10px;
 }
-.archive-header {
-  height: 90px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  padding: 0 30px;
-  border-bottom: 1px solid var(--rule);
-  gap: 64px;
-  background: var(--surface);
-}
-.brand {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  text-decoration: none;
-  font-size: 27px;
-  letter-spacing: 0.2em;
-  font-weight: 500;
-  line-height: 1.1;
-}
-.brand small {
-  display: block;
-  font: 8px var(--mono);
-  letter-spacing: 0.17em;
-  margin-top: 7px;
-}
-.brand-mark {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  transform: skewY(-12deg);
-  width: 27px;
-}
-.brand-mark i {
-  height: 4px;
-  background: var(--oxide);
-}
-.brand-mark i:nth-child(2) {
-  width: 22px;
-}
-.brand-mark i:nth-child(3) {
-  width: 17px;
-}
-.archive-header nav {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  font-size: 12px;
-}
-.archive-header nav a {
-  text-decoration: none;
-  padding: 14px 0;
-  border-bottom: 1px solid transparent;
-}
-.archive-header nav a.active {
-  border-color: var(--oxide);
-  color: var(--oxide);
-}
-.current-page {
-  color: var(--muted);
-}
-.header-caption {
-  margin-left: auto;
-  text-align: right;
-  font-family: var(--serif);
-  font-size: 19px;
-  font-style: italic;
-}
-.header-caption small {
-  display: block;
-  font: 8px var(--mono);
-  letter-spacing: 0.13em;
-  margin-top: 5px;
-  color: var(--muted);
-}
 .archive-grid {
   flex: 1;
   min-height: 0;
@@ -332,30 +257,6 @@ a {
   min-width: 0;
   min-height: 0;
   padding: 22px 24px 0;
-}
-.atlas-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-.atlas-heading .eyebrow {
-  color: var(--oxide);
-}
-.atlas-heading h1 {
-  font-family: var(--serif);
-  font-weight: normal;
-  font-size: clamp(26px, 2.8vw, 42px);
-  letter-spacing: -0.045em;
-  line-height: 1.18;
-  margin-top: 6px;
-}
-.atlas-count {
-  font-size: 9px;
-  color: var(--muted);
-  text-align: right;
-  padding-bottom: 5px;
 }
 .map-stage {
   flex: 1;
@@ -521,7 +422,7 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin: -4px 0 12px;
+  margin: 0 0 12px;
 }
 .active-filters button {
   min-height: 36px;
@@ -693,13 +594,6 @@ a {
   bottom: 13px;
   font-size: 12px;
   color: var(--oxide);
-}
-.index-note {
-  font: italic 12px var(--serif);
-  text-align: center;
-  padding: 12px 6px;
-  border-top: 1px solid var(--rule);
-  color: var(--muted);
 }
 .archive-footer {
   height: 54px;
@@ -883,26 +777,11 @@ a {
   .entry-layout {
     grid-template-columns: minmax(0, 1fr) 248px;
   }
-  .archive-header {
-    padding: 0 20px;
-    gap: 35px;
-    height: 76px;
-  }
-  .header-caption {
-    font-size: 16px;
-  }
   .filter-rail {
     padding: 18px 14px 0;
   }
   .atlas {
     padding: 18px 16px 0;
-  }
-  .atlas-heading {
-    display: block;
-    margin-bottom: 14px;
-  }
-  .atlas-count {
-    display: none;
   }
   .specimen-card {
     padding: 15px 12px;
@@ -943,17 +822,8 @@ a {
   }
 }
 @media (max-height: 700px) {
-  .archive-header {
-    height: 68px;
-  }
   .atlas {
     padding-top: 15px;
-  }
-  .atlas-heading h1 {
-    font-size: 27px;
-  }
-  .atlas-heading {
-    margin-bottom: 12px;
   }
   .chronology {
     height: 127px;
@@ -993,9 +863,6 @@ a {
   }
   .archive-footer {
     height: 48px;
-  }
-  .index-note {
-    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

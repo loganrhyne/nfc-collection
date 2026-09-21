@@ -1,11 +1,5 @@
 import React from "react";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  NavLink,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { DataProvider } from "./context/DataContext";
 import { WebSocketProvider } from "./hooks/useWebSocket";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -22,36 +16,11 @@ import "./styles/videoPlayer.css";
 import "./App.css";
 
 function AppContent() {
-  const { pathname } = useLocation();
   return (
     <div className="strata-app">
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      <header className="archive-header">
-        <NavLink to="/" className="brand" aria-label="STRATA archive home">
-          <span className="brand-mark" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <span>
-            STRATA<small>THE SAND ARCHIVE</small>
-          </span>
-        </NavLink>
-        <nav aria-label="Main navigation">
-          <NavLink to="/" end>
-            Explore the collection
-          </NavLink>
-          {pathname.startsWith("/entry/") && (
-            <span className="current-page">/ Field note</span>
-          )}
-        </nav>
-        <div className="header-caption">
-          <span>Earth, gathered.</span>
-          <small>A PERSONAL NATURAL HISTORY</small>
-        </div>
-      </header>
       <Routes>
         <Route path="/" element={<Archive />} />
         <Route path="/entry/:entryId" element={<EntryView />} />
