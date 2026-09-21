@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MapInteraction } from "./MapView";
+import { MapInteraction, PopupLayer } from "./MapView";
 const mockControl = () => ({
   enabled: () => true,
   disable: jest.fn(),
@@ -33,6 +33,7 @@ const points = [[0, 0]];
 beforeAll(() => {
   window.ResizeObserver = class {
     observe() {}
+    unobserve() {}
     disconnect() {}
   };
   window.PointerEvent = class extends MouseEvent {
@@ -47,6 +48,58 @@ beforeAll(() => {
   HTMLElement.prototype.setPointerCapture = jest.fn();
   HTMLElement.prototype.hasPointerCapture = () => true;
   HTMLElement.prototype.releasePointerCapture = jest.fn();
+});
+test("popup layer stays above controls and clamps each viewport edge without panning", () => {
+  const container = document.createElement("div");
+  const movingPane = document.createElement("div");
+  const popupPane = document.createElement("div");
+  const popupElement = document.createElement("div");
+  container.appendChild(movingPane);
+  movingPane.appendChild(popupPane);
+  popupPane.appendChild(popupElement);
+  document.body.appendChild(container);
+  container.getBoundingClientRect = () => ({
+    left: 0,
+    top: 0,
+    right: 400,
+    bottom: 220,
+  });
+  let bounds = { left: -30, top: -10, right: 210, bottom: 110 };
+  popupElement.getBoundingClientRect = () => bounds;
+  const handlers = {};
+  mockMap.getContainer = () => container;
+  mockMap.getPane = () => popupPane;
+  mockMap.layerPointToContainerPoint = () => ({ x: 0, y: 0 });
+  mockMap.on = jest.fn((names, fn) =>
+    names.split(" ").forEach((name) => {
+      handlers[name] = fn;
+    }),
+  );
+  mockMap.off = jest.fn();
+  const popup = {
+    getElement: () => popupElement,
+    on: jest.fn(),
+    off: jest.fn(),
+  };
+  const view = render(<PopupLayer />);
+  expect(popupPane.parentElement).toBe(container);
+  expect(popupPane.style.zIndex).toBe("1100");
+  handlers.popupopen({ popup });
+  expect(popupElement.style.translate).toBe("42px 22px");
+  expect(popupElement).toHaveClass("popup-clamped");
+  bounds = { left: 210, top: 140, right: 450, bottom: 260 };
+  handlers.move();
+  expect(popupElement.style.translate).toBe("-62px -52px");
+  bounds = { left: 80, top: 30, right: 320, bottom: 150 };
+  handlers.zoomend();
+  expect(popupElement.style.translate).toBe("0px 0px");
+  expect(popupElement).not.toHaveClass("popup-clamped");
+  view.unmount();
+  expect(popupPane.parentElement).toBe(movingPane);
+  expect(popup.off).toHaveBeenCalledWith("contentupdate", expect.any(Function));
+  expect(mockMap.off).toHaveBeenCalledWith("popupopen", expect.any(Function));
+  container.remove();
+  mockMap.getContainer = () => document.body;
 });
 const tap = (node, x, y) => {
   fireEvent.pointerDown(node, {

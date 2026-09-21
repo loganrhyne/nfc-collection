@@ -40,6 +40,73 @@ const LAYERS = {
   },
 };
 const pathOptions = { color: "#a45135", weight: 2, fillOpacity: 0.12 };
+// Leaflet's moving map pane is a stacking context below its controls.
+// Keep popups in a sibling pane, preserving the same coordinate origin.
+export function PopupLayer() {
+  const map = useMap();
+  useEffect(() => {
+    const pane = map.getPane("popupPane");
+    const parent = pane.parentElement;
+    const zIndex = pane.style.zIndex;
+    const container = map.getContainer();
+    container.appendChild(pane);
+    pane.style.zIndex = "1100";
+    let activePopup = null;
+    const sync = () => {
+      L.DomUtil.setPosition(pane, map.layerPointToContainerPoint([0, 0]));
+      const element = activePopup?.getElement();
+      if (!element) return;
+      element.style.translate = "none";
+      const bounds = container.getBoundingClientRect();
+      const popup = element.getBoundingClientRect();
+      // Clamp the overlay rather than auto-panning against the world's maxBounds.
+      const dx = Math.max(
+        bounds.left + 12 - popup.left,
+        Math.min(0, bounds.right - 12 - popup.right),
+      );
+      const dy = Math.max(
+        bounds.top + 12 - popup.top,
+        Math.min(0, bounds.bottom - 12 - popup.bottom),
+      );
+      element.style.translate = `${dx}px ${dy}px`;
+      // A shifted card must not point at an unrelated location on the map.
+      element.classList.toggle(
+        "popup-clamped",
+        Math.abs(dx) > 1 || Math.abs(dy) > 1,
+      );
+    };
+    const resize = new ResizeObserver(sync);
+    resize.observe(container);
+    const close = () => {
+      if (!activePopup) return;
+      resize.unobserve(activePopup.getElement());
+      activePopup.off("contentupdate", sync);
+      activePopup = null;
+    };
+    const open = ({ popup }) => {
+      close();
+      activePopup = popup;
+      popup.on("contentupdate", sync);
+      resize.observe(popup.getElement());
+      sync();
+    };
+    sync();
+    map.on("move zoom zoomend viewreset resize", sync);
+    map.on("popupopen", open);
+    map.on("popupclose", close);
+    return () => {
+      close();
+      resize.disconnect();
+      map.off("move zoom zoomend viewreset resize", sync);
+      map.off("popupopen", open);
+      map.off("popupclose", close);
+      parent.appendChild(pane);
+      pane.style.zIndex = zIndex;
+      L.DomUtil.setPosition(pane, L.point(0, 0));
+    };
+  }, [map]);
+  return null;
+}
 export function MapInteraction({ points, onSelect, geo }) {
   const map = useMap();
   const [selecting, setSelecting] = useState(false);
@@ -219,6 +286,7 @@ function ZoomHere({ location }) {
   const map = useMap();
   return (
     <button
+      aria-label="Zoom to location"
       onClick={() => {
         map.closePopup();
         map.setView(
@@ -227,7 +295,7 @@ function ZoomHere({ location }) {
         );
       }}
     >
-      Zoom to location
+      Zoom here
     </button>
   );
 }
@@ -277,6 +345,7 @@ export default function MapView() {
           }}
         />
         <MapInteraction points={points} onSelect={select} geo={filters.geo} />
+        <PopupLayer />
         {located.map((entry) => (
           <Marker
             key={entry.uuid}
@@ -290,7 +359,7 @@ export default function MapView() {
               iconAnchor: [18, 18],
             })}
           >
-            <Popup>
+            <Popup minWidth={200} maxWidth={240} autoPan={false}>
               <div className="specimen-popup">
                 <span className="eyebrow">
                   {entry.type} / {entry.region}
@@ -300,15 +369,17 @@ export default function MapView() {
                   {entry.location.country} ·{" "}
                   {new Date(entry.creationDate).getFullYear()}
                 </p>
-                <button
-                  onClick={() => {
-                    setSelectedEntry(entry);
-                    navigate(`/entry/${entry.uuid}`);
-                  }}
-                >
-                  Open field note ↗
-                </button>
-                <ZoomHere location={entry.location} />
+                <div className="specimen-popup-actions">
+                  <button
+                    onClick={() => {
+                      setSelectedEntry(entry);
+                      navigate(`/entry/${entry.uuid}`);
+                    }}
+                  >
+                    Open note ↗
+                  </button>
+                  <ZoomHere location={entry.location} />
+                </div>
               </div>
             </Popup>
           </Marker>

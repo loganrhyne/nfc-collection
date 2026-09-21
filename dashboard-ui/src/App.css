@@ -398,25 +398,74 @@ a {
   width: 20px;
   height: 20px;
 }
-.specimen-popup {
-  min-width: 180px;
+.strata-map {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
 }
-.specimen-popup h3 {
-  font: 22px var(--serif);
-  margin: 8px 0;
+.strata-map .leaflet-popup-pane .leaflet-popup {
+  opacity: 1;
 }
-.specimen-popup p {
-  color: var(--muted);
-  font-size: 11px;
-}
-.specimen-popup button {
-  width: 100%;
-  margin-top: 8px;
+.strata-map .popup-clamped .leaflet-popup-tip-container {
+  visibility: hidden;
 }
 .strata-map .leaflet-popup-content-wrapper {
   background: var(--surface);
   color: var(--ink);
-  border-radius: 3px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  box-shadow: 0 3px 14px rgba(40, 58, 58, 0.18);
+}
+.strata-map .leaflet-popup-content {
+  margin: 10px 12px 6px;
+}
+.strata-map .leaflet-popup-tip {
+  background: var(--surface);
+  box-shadow: none;
+}
+.strata-map a.leaflet-popup-close-button {
+  top: 3px;
+  right: 3px;
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  color: var(--muted);
+}
+.specimen-popup .eyebrow {
+  font-size: 8px;
+  padding-right: 20px;
+  display: block;
+}
+.specimen-popup h3 {
+  font: 17px/1.15 var(--serif);
+  margin: 4px 16px 4px 0;
+}
+.strata-map .specimen-popup p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.specimen-popup-actions {
+  display: flex;
+  gap: 6px;
+  border-top: 1px solid var(--rule);
+  margin-top: 8px;
+  padding-top: 2px;
+}
+.specimen-popup-actions button {
+  flex: 1;
+  min-height: 36px;
+  padding: 4px 5px;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.specimen-popup-actions button:first-child {
+  color: var(--oxide);
+}
+.specimen-popup-actions button:hover {
+  background: var(--wash);
 }
 .active-filters {
   display: flex;
