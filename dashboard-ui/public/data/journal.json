@@ -8896,5 +8896,40 @@
   "starred" : false,
   "isPinned" : false,
   "creationDeviceType" : "iPhone"
+},
+{
+  "userActivity" : {
+
+  },
+  "tags" : [
+    "Region: Europe",
+    "Type: Mountain"
+  ],
+  "location" : {
+    "region" : {
+      "center" : {
+        "longitude" : 8.9985,
+        "latitude" : 46.9395
+      },
+      "radius" : 75
+    },
+    "localityName" : "Braunwald",
+    "country" : "Switzerland",
+    "timeZoneName" : "Europe\/Zurich",
+    "administrativeArea" : "GL",
+    "longitude" : 8.9985,
+    "placeName" : "Märchenhotel Braunwald",
+    "latitude" : 46.9395
+  },
+  "text" : "# Märchenhotel Braunwald, CH\nAptly dubbed the “fairytale” hotel in a car-free mountain village.",
+  "richText" : "{\"contents\":[{\"attributes\":{\"line\":{\"header\":1}},\"text\":\"Märchenhotel Braunwald, CH\\n\"},{\"attributes\":{\"line\":{\"header\":0}},\"text\":\"Aptly dubbed the “fairytale” hotel in a car-free mountain village.\"}],\"meta\":{\"small-lines-removed\":true,\"version\":1}}",
+  "isAllDay" : true,
+  "timeZone" : "Europe\/Zurich",
+  "creationDate" : "2026-09-25T00:00:00Z",
+  "modifiedDate" : "2026-09-25T00:00:00Z",
+  "duration" : 0,
+  "starred" : false,
+  "isPinned" : false,
+  "uuid" : "B313FCB091C54EF390CD812E62197D2A"
 }
 ]}
