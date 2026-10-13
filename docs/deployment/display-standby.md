@@ -53,6 +53,13 @@ this integration so there is only one standby policy.
 Restart `nfc-server` after changing configuration and reload the dashboard on
 the Pi and other browsers to remove their old frontend idle timers.
 
+On this Waveshare assembly, `wlopm --off` initially changed the output to Off
+but it returned to On within half a second, even without an input watcher in
+the test. For this immediate-wake behavior, Raspberry Pi documents appending
+`vc4.force_hotplug=1` to the single line in `/boot/firmware/cmdline.txt` and
+rebooting. The original boot command line was backed up before applying the
+workaround. See the [screen blanking documentation](https://www.raspberrypi.com/documentation/computers/configuration.html#configure-screen-blanking).
+
 ## Checks
 
 `/health` includes `idle.phase`, remaining time, configured timeouts, display
