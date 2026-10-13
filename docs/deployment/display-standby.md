@@ -60,6 +60,21 @@ the test. For this immediate-wake behavior, Raspberry Pi documents appending
 rebooting. The original boot command line was backed up before applying the
 workaround. See the [screen blanking documentation](https://www.raspberrypi.com/documentation/computers/configuration.html#configure-screen-blanking).
 
+That global workaround also makes the unused HDMI-A-1 connector appear
+connected. The Pi's previously empty `~/.config/kanshi/config` was backed up
+and given this single-panel profile, so the desktop and touchscreen keep their
+original 1920×1200 layout:
+
+```text
+profile strata {
+    output HDMI-A-1 disable
+    output HDMI-A-2 enable mode 1920x1200 position 0,0
+}
+```
+
+The backend retries display wake when it starts before the Wayland socket is
+available, without resetting the idle clock.
+
 ## Checks
 
 `/health` includes `idle.phase`, remaining time, configured timeouts, display
