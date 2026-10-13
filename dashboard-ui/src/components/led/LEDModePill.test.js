@@ -65,3 +65,26 @@ test("enabling interactive mode with an empty result does not light the entire c
     expect.objectContaining({ mode: "interactive", interactiveLedData: [] }),
   );
 });
+
+test("backend idle transitions drive the controls and browsers have no idle timer", () => {
+  jest.useFakeTimers();
+  render(<LEDModePill />);
+  act(() => mockHandlers.get("led_status")({
+    type: "led_status",
+    data: { status: { current_mode: "interactive", brightness: 0.1 } },
+  }));
+  act(() => jest.advanceTimersByTime(21 * 60 * 1000));
+  expect(mockSend).not.toHaveBeenCalled();
+  act(() => mockHandlers.get("led_status")({
+    type: "led_status",
+    data: { status: { current_mode: "off", idle: { phase: "standby" } } },
+  }));
+  expect(screen.getByText("Grid light · Off")).toBeInTheDocument();
+  act(() => mockHandlers.get("led_status")({
+    type: "led_status",
+    data: { status: { current_mode: "interactive", brightness: 0.1 } },
+  }));
+  fireEvent.click(screen.getByTitle("Click to configure LED mode"));
+  expect(screen.getByRole("slider", { name: "Brightness" })).toHaveValue("10");
+  jest.useRealTimers();
+});

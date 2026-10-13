@@ -36,3 +36,29 @@ class RegistrationFlowTests(unittest.IsolatedAsyncioTestCase):
         await self.run_registration()
         self.assertIsNone(self.registry.by_tag_uid('AA'))
         self.assertEqual(self.app.sio.emit.call_args.args[0],'registration_error')
+
+    async def test_nfc_scan_wakes_even_without_a_journal_id(self):
+        self.app.idle.activity = AsyncMock()
+        await self.app.on_tag_scanned({'uid': 'AA', 'data': None})
+        self.app.idle.activity.assert_awaited_once_with('nfc')
+        self.assertEqual(self.app.sio.emit.call_args.args[0], 'tag_scanned')
+
+    async def test_same_sample_scan_is_activity_each_time(self):
+        self.app.idle.activity = AsyncMock()
+        event = {'uid': 'AA', 'data': {'id': 'ENTRY'}}
+        await self.app.on_tag_scanned(event)
+        await self.app.on_tag_scanned(event)
+        self.assertEqual(self.app.idle.activity.await_count, 2)
+
+    async def test_heartbeat_and_new_browser_do_not_reset_idle(self):
+        self.app.idle.activity = AsyncMock()
+        self.nfc.get_status.return_value = {'hardware_available': True}
+        await self.app.sio.handlers['/']['ping']('client', {'timestamp': 1})
+        await self.app.sio.handlers['/']['connect']('client', {})
+        self.app.idle.activity.assert_not_awaited()
+
+    async def test_browser_activity_uses_shared_backend_timer(self):
+        self.app.idle.activity = AsyncMock()
+        await self.app.sio.handlers['/']['user_activity']('a', {})
+        await self.app.sio.handlers['/']['user_activity']('b', {})
+        self.assertEqual(self.app.idle.activity.await_count, 2)

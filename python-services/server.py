@@ -23,6 +23,7 @@ except ImportError as e:
 
 # NFC service owns UART access on one worker and verifies complete NDEF records.
 from services.nfc_service import NFCService, NFCCancelledError, NFCHardwareError, NFCTimeoutError
+from services.assembly_idle import AssemblyIdle
 from services.tag_registry import get_tag_registry
 
 # LED imports
@@ -67,6 +68,11 @@ class WebSocketServer:
             except Exception as e:
                 logger.warning(f"Could not initialize LED controller: {e}")
 
+        self.idle = AssemblyIdle(
+            lambda: self.led_manager.get_status()['current_mode'] if self.led_manager else 'off',
+            self.set_assembly_led_mode, self.send_assembly_status,
+            busy=lambda: self.nfc.busy)
+
         # Socket.IO setup
         self.sio = socketio.AsyncServer(
             async_mode='aiohttp',
@@ -106,6 +112,7 @@ class WebSocketServer:
                 'reader': self.nfc.get_status(),
                 'registry': self.registry.status(),
                 'clients': len(self.clients),
+                'idle': self.idle.status(),
                 'timestamp': datetime.now(timezone.utc).isoformat()
             })
 
@@ -160,6 +167,12 @@ class WebSocketServer:
                 'degraded': self.nfc.degraded
             }, to=sid)
 
+            await self.send_assembly_status(to=sid)
+
+        @self.sio.event
+        async def user_activity(sid, data=None):
+            await self.idle.activity('browser')
+
         @self.sio.event
         async def disconnect(sid):
             self.clients.discard(sid)
@@ -180,6 +193,7 @@ class WebSocketServer:
         @self.sio.event
         async def register_tag_start(sid, data):
             """Handle tag registration request"""
+            await self.idle.activity('registration')
             entry_id = data.get('entry_id')
             entry_data = data.get('entry_data', {})
             logger.info(f"Registration requested for entry {entry_id}")
@@ -325,7 +339,6 @@ class WebSocketServer:
 
                 # Extract LED command type
                 command = data.get('command', 'set_selected')
-                status = None
 
                 if command == 'update_interactive':
                     # Update LEDs for interactive mode
@@ -355,7 +368,7 @@ class WebSocketServer:
                         await self.led_manager.update_entries(data['allEntries'])
 
                     # Set the mode
-                    status = await self.led_manager.set_mode(mode)
+                    await self.idle.manual_mode(mode.value)
                     logger.info(f"LED: Mode set to {mode.value}")
 
                     # If switching to interactive mode and LED data is included, update immediately
@@ -363,19 +376,8 @@ class WebSocketServer:
                         led_data = data['interactiveLedData']
                         await self.led_manager.handle_interactive_update(led_data)
 
-                    # If switching to visualization mode, also send visualization status separately
-                    elif mode == LEDMode.VISUALIZATION and status and status.get('visualization'):
-                        await self.sio.emit('visualization_status', status['visualization'], to=sid)
-
-                # Get current status if not already set
-                if status is None:
-                    status = self.led_manager.get_status()
-
                 # Send acknowledgment with current status
-                await self.sio.emit('led_status', {
-                    'success': True,
-                    'status': status
-                }, to=sid)
+                await self.send_assembly_status()
 
             except Exception as e:
                 logger.error(f"LED update error: {e}", exc_info=True)
@@ -391,6 +393,7 @@ class WebSocketServer:
                 return
 
             try:
+                await self.idle.activity('brightness-control', restore=False)
                 brightness = data.get('brightness', 0.5)
                 await self.led_controller.set_brightness(brightness)
                 logger.info(f"LED brightness set to {brightness:.0%}")
@@ -398,7 +401,7 @@ class WebSocketServer:
                 # Send confirmation
                 await self.sio.emit('led_brightness_updated', {
                     'brightness': brightness
-                }, to=sid)
+                })
             except Exception as e:
                 logger.error(f"LED brightness error: {e}")
 
@@ -410,6 +413,10 @@ class WebSocketServer:
 
             try:
                 command = data.get('command')
+                if command != 'get_status':
+                    await self.idle.activity('visualization-control', restore=False)
+                    if self.led_manager.get_status()['current_mode'] == 'visualization':
+                        await self.idle.manual_mode('visualization')
                 logger.info(f"Visualization control from {sid}: {command}")
 
                 if command == 'select':
@@ -449,6 +456,7 @@ class WebSocketServer:
         rather than re-firing every few seconds while a box sits on the cradle, and
         suppresses events entirely while a registration write is in progress.
         """
+        await self.idle.activity('nfc')
         uid = event.get('uid')
         data = event.get('data') or {}
         entry_id = data.get('id')
@@ -466,11 +474,24 @@ class WebSocketServer:
 
     async def startup(self, app):
         """Startup tasks"""
+        await self.idle.start()
         logger.info("Starting NFC scanning")
         # Reader I/O runs on a dedicated thread; events arrive here via a queue,
         # so a wedged or slow PN532 can no longer stall the event loop.
         self.nfc.start(self.on_tag_scanned)
         self.scan_task = asyncio.create_task(self.nfc.process_scan_queue())
+
+    async def set_assembly_led_mode(self, mode):
+        if self.led_manager:
+            await self.led_manager.set_mode(LEDMode(mode))
+
+    async def send_assembly_status(self, to=None):
+        status = self.led_manager.get_status() if self.led_manager else {'current_mode': 'off'}
+        status['idle'] = self.idle.status()
+        if status['current_mode'] == 'visualization':
+            status['auto_off_remaining'] = status['idle']['remaining_seconds']
+            status['auto_off_enabled'] = True
+        await self.sio.emit('led_status', {'success': True, 'status': status}, to=to)
 
     async def send_visualization_status(self, status: Dict):
         """Send visualization status to all connected clients"""
@@ -478,6 +499,7 @@ class WebSocketServer:
 
     async def cleanup(self, app):
         """Cleanup tasks"""
+        await self.idle.close()
         logger.info("Stopping NFC scanning")
         self.scanning = False
         # Stop the reader thread first so it stops enqueuing, then the consumer.
