@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { useData } from "../../context/DataContext";
@@ -415,14 +415,6 @@ const LEDModePill = () => {
   const [visualizationDuration, setVisualizationDuration] = useState(60); // Default 60s
   const [availableVisualizations, setAvailableVisualizations] = useState([]);
 
-  // Refs for managing state
-  const inactivityTimerRef = useRef(null);
-  const lastEntriesRef = useRef(entries);
-  const lastSelectedEntryRef = useRef(selectedEntry);
-  const INACTIVITY_TIMEOUT = window.location.search.includes("debug=led")
-    ? 30 * 1000 // 30 seconds for testing
-    : 5 * 60 * 1000; // 5 minutes
-
   // Handle LED status updates from server
   useEffect(() => {
     const handleStatus = (lastMessage) => {
@@ -430,6 +422,9 @@ const LEDModePill = () => {
         try {
           if (lastMessage.type === "led_status" && lastMessage.data?.status) {
             const serverMode = lastMessage.data.status.current_mode;
+            if (lastMessage.data.status.brightness !== undefined) {
+              setBrightness(Math.round(lastMessage.data.status.brightness * 100));
+            }
             if (serverMode) {
               if (serverMode === "off") {
                 setLedsOn(false);
@@ -476,6 +471,9 @@ const LEDModePill = () => {
     const unsubscribe = [
       registerHandler("led_status", handleStatus),
       registerHandler("visualization_status", handleStatus),
+      registerHandler("led_brightness_updated", (message) =>
+        setBrightness(Math.round(message.data.brightness * 100)),
+      ),
     ];
     return () => unsubscribe.forEach((fn) => fn());
   }, [registerHandler]);
@@ -565,20 +563,6 @@ const LEDModePill = () => {
     [mode, sendMessage, allEntries, entries, selectedEntry, getEntryIndex],
   );
 
-  // Reset inactivity timer
-  const resetInactivityTimer = useCallback(() => {
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current);
-    }
-
-    // Only set timer if in interactive mode and LEDs are on
-    if (mode === "interactive" && ledsOn) {
-      inactivityTimerRef.current = setTimeout(() => {
-        changeMode("visualization", "inactivity");
-      }, INACTIVITY_TIMEOUT);
-    }
-  }, [mode, ledsOn, changeMode, INACTIVITY_TIMEOUT]);
-
   // Handle LED on/off toggle
   const handleLedToggle = useCallback(
     (isOn) => {
@@ -598,18 +582,12 @@ const LEDModePill = () => {
           }, 100);
         }
 
-        // Reset inactivity timer
-        resetInactivityTimer();
       } else {
         // Turn LEDs off
         changeMode("off", "manual");
-        // Clear inactivity timer when turning off
-        if (inactivityTimerRef.current) {
-          clearTimeout(inactivityTimerRef.current);
-        }
       }
     },
-    [lastActiveMode, changeMode, resetInactivityTimer, updateLEDs],
+    [lastActiveMode, changeMode, updateLEDs],
   );
 
   // Handle manual mode change from UI
@@ -618,17 +596,10 @@ const LEDModePill = () => {
       // Don't change mode if LEDs are off
       if (!ledsOn) return;
 
-      // Clear interaction history so we don't immediately switch back
-      lastEntriesRef.current = entries;
-      lastSelectedEntryRef.current = selectedEntry;
-
       // Change mode
       changeMode(newMode, "manual");
 
-      // Reset timer if going to interactive
-      if (newMode === "interactive") {
-        resetInactivityTimer();
-      } else if (newMode === "visualization") {
+      if (newMode === "visualization") {
         // Request visualization status when switching to visualization mode
         setTimeout(() => {
           sendMessage("visualization_control", {
@@ -640,9 +611,6 @@ const LEDModePill = () => {
     [
       ledsOn,
       changeMode,
-      resetInactivityTimer,
-      entries,
-      selectedEntry,
       sendMessage,
     ],
   );
@@ -705,43 +673,6 @@ const LEDModePill = () => {
     },
     [connected, sendMessage],
   );
-
-  // Handle data activity (filter/selection changes)
-  const handleDataActivity = useCallback(() => {
-    // Don't handle activity if LEDs are off
-    if (!ledsOn) return;
-
-    // Check if there's actual change in data
-    const entriesChanged = entries !== lastEntriesRef.current;
-    const selectionChanged = selectedEntry !== lastSelectedEntryRef.current;
-
-    if (!entriesChanged && !selectionChanged) {
-      // No actual change, don't trigger activity
-      return;
-    }
-
-    // Update our tracked values
-    lastEntriesRef.current = entries;
-    lastSelectedEntryRef.current = selectedEntry;
-
-    // If in visualization mode, switch back to interactive
-    if (mode === "visualization") {
-      changeMode("interactive", "activity");
-    }
-
-    // Reset inactivity timer
-    resetInactivityTimer();
-  }, [mode, ledsOn, changeMode, resetInactivityTimer, entries, selectedEntry]);
-
-  // Monitor filter and selection changes
-  useEffect(() => {
-    handleDataActivity();
-  }, [entries, selectedEntry, handleDataActivity]);
-
-  useEffect(() => {
-    resetInactivityTimer();
-    return () => clearTimeout(inactivityTimerRef.current);
-  }, [resetInactivityTimer]);
 
   const handleModalClick = (e) => {
     if (e.target === e.currentTarget) {

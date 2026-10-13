@@ -11,11 +11,13 @@ import LEDModePill from "./components/led/LEDModePill";
 import VersionInfo from "./components/VersionInfo";
 import DebugPage from "./components/debug/DebugPage";
 import LEDDebugPanel from "./components/debug/LEDDebugPanel";
+import useAssemblyActivity from "./hooks/useAssemblyActivity";
 import "./styles/mediaGrid.css";
 import "./styles/videoPlayer.css";
 import "./App.css";
 
 function AppContent() {
+  useAssemblyActivity();
   return (
     <div className="strata-app">
       <a className="skip-link" href="#main-content">

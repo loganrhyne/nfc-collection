@@ -286,6 +286,7 @@ class LEDController:
         return {
             'hardware_available': bool(self._pixels),
             'num_pixels': self.config.num_pixels,
+            'brightness': self._global_brightness,
             'leds_on': len(self._current_indices),
             'selected_index': self._selected_index,
             'mode': self._mode.value,
