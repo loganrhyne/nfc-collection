@@ -119,6 +119,26 @@ class IdleTests(unittest.IsolatedAsyncioTestCase):
         await monitor.close()
         os.close(writer)
 
+    async def test_desktop_startup_race_recovers_without_resetting_idle(self):
+        ready = asyncio.Event()
+        calls = 0
+        async def wake(awake):
+            nonlocal calls
+            calls += 1
+            self.display.error = 'Wayland not ready' if calls == 1 else None
+            if calls > 1:
+                ready.set()
+            return calls > 1
+        self.display.set_awake.side_effect = wake
+        deadline = self.idle.deadline
+        try:
+            await self.idle.start()
+            await asyncio.wait_for(ready.wait(), 1)
+            self.assertIsNone(self.display.error)
+            self.assertEqual(self.idle.deadline, deadline)
+        finally:
+            await self.idle.close()
+
 
 if __name__ == '__main__':
     unittest.main()

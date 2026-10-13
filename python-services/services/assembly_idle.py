@@ -118,6 +118,7 @@ class AssemblyIdle:
         self.restore_leds = False
         self.lock = asyncio.Lock()
         self.task = None
+        self.display_retry_at = 0
         self.input = PhysicalInput(self.activity)
 
     def status(self):
@@ -186,6 +187,12 @@ class AssemblyIdle:
             try:
                 if self.display.enabled:
                     self.input.refresh()
+                    # The system service can start before the desktop's Wayland
+                    # socket exists. Retry startup wake without resetting idle.
+                    if (self.phase == 'active' and self.display.error and
+                            self.clock() >= self.display_retry_at):
+                        self.display_retry_at = self.clock() + 10
+                        await self.display.set_awake(True)
                 await self.tick()
             except Exception:
                 logger.exception('Assembly idle update failed')
