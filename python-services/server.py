@@ -22,7 +22,7 @@ except ImportError as e:
     sys.exit(1)
 
 # NFC service owns UART access on one worker and verifies complete NDEF records.
-from services.nfc_service import NFCService, NFCCancelledError, NFCHardwareError, NFCTimeoutError
+from services.nfc_service import NFCService, NFCRegistrationConflict, NFCCancelledError, NFCHardwareError, NFCTimeoutError
 from services.assembly_idle import AssemblyIdle
 from services.tag_registry import get_tag_registry
 
@@ -224,7 +224,8 @@ class WebSocketServer:
             """Handle tag registration request"""
             await self.idle.activity('registration')
             entry_id = data.get('entry_id')
-            entry_data = data.get('entry_data', {})
+            overwrite_uid = data.get('overwrite_tag_uid')
+            overwrite_entry = data.get('overwrite_entry_id')
             logger.info(f"Registration requested for entry {entry_id}")
 
             if not entry_id:
@@ -272,7 +273,17 @@ class WebSocketServer:
                 # between, so the tag that was detected is the tag written.
                 self._registration_sid = sid
                 result = await self.nfc.register_tag(payload, timeout=20,
-                                                     bindings=self.registry.bindings())
+                                                     bindings=self.registry.bindings(),
+                                                     overwrite_uid=overwrite_uid,
+                                                     overwrite_entry_id=overwrite_entry)
+            except NFCRegistrationConflict as conflict:
+                await self.sio.emit('registration_conflict', {
+                    'entry_id': entry_id,
+                    'tag_uid': conflict.tag_uid,
+                    'previous_entry_id': conflict.entry_id,
+                    'previous_title': self.registry._titles.get(conflict.entry_id, conflict.entry_id),
+                }, to=sid)
+                return
             except NFCTimeoutError:
                 logger.info(f"Registration for {entry_id}: no tag presented in time")
                 await self.sio.emit('registration_error', {
@@ -299,7 +310,7 @@ class WebSocketServer:
                 # Record it before lighting anything: the registry is the record
                 # of truth and must not depend on the LEDs being present.
                 try:
-                    record = self.registry.register(entry_id, result.tag_uid)
+                    record = self.registry.register(entry_id, result.tag_uid, replace_entry=overwrite_entry if overwrite_uid == result.tag_uid else None)
                 except Exception as e:
                     logger.exception('Tag verified but registry save failed')
                     await self.sio.emit('registration_error', {

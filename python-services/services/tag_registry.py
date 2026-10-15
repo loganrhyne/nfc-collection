@@ -137,12 +137,12 @@ class TagRegistry:
     # --- registration -----------------------------------------------------
 
     def register(self, entry_uuid: str, tag_uid: str,
-                 grid_index: Optional[int] = None) -> Dict[str, Any]:
+                 grid_index: Optional[int] = None, replace_entry: Optional[str] = None) -> Dict[str, Any]:
         """Record a registration, overwriting any previous one for this entry."""
         if self._load_error:
             raise RuntimeError('Registry could not be loaded: '+self._load_error)
         owner = self.by_tag_uid(tag_uid)
-        if owner and owner != entry_uuid:
+        if owner and owner != entry_uuid and owner != replace_entry:
             raise ValueError(f'Tag {tag_uid} is already bound to {owner}')
         if grid_index is None:
             previous_cell = self._entries.get(entry_uuid, {}).get('grid_index')
@@ -159,17 +159,18 @@ class TagRegistry:
             logger.info(f"Overwriting registration for {entry_uuid}: "
                         f"tag {previous.get('tag_uid')} -> {tag_uid}")
             record['previous_tag_uid'] = previous.get('tag_uid')
-        removed = self._removed.pop(entry_uuid, None)
+        entries_before = dict(self._entries)
+        removed_before = dict(self._removed)
+        if owner and owner != entry_uuid:
+            self._entries.pop(owner)
+            self._removed[owner] = {'removed_at': datetime.now(timezone.utc).isoformat()}
+        self._removed.pop(entry_uuid, None)
         self._entries[entry_uuid] = record
         try:
             self.save()
         except Exception:
-            if removed is not None:
-                self._removed[entry_uuid] = removed
-            if previous is None:
-                self._entries.pop(entry_uuid, None)
-            else:
-                self._entries[entry_uuid] = previous
+            self._entries = entries_before
+            self._removed = removed_before
             raise
         return record
 

@@ -71,3 +71,23 @@ class ScanRecoveryTest(unittest.TestCase):
                 self.registry.remove_registration('one')
         self.assertEqual(self.registry.by_tag_uid('AA'), 'one')
         self.assertNotIn('one', self.registry._removed)
+
+    def test_replacement_moves_binding_after_verification(self):
+        self.registry.register('one', 'AA')
+        self.registry.register('two', 'BB')
+        with self.assertRaises(ValueError): self.registry.register('two', 'AA')
+        self.registry.register('two', 'AA', replace_entry='one')
+        self.assertIsNone(self.registry.by_tag_uid('BB'))
+        self.assertEqual(self.registry.by_tag_uid('AA'), 'two')
+        self.assertNotIn('one', self.registry.sample_locations()['samples'])
+        self.assertIn('one', self.registry._removed)
+        self.assertEqual(self.registry.sample_locations()['samples']['two'], {'row': 0, 'col': 1})
+
+    def test_replacement_save_failure_restores_both_records(self):
+        from unittest.mock import patch
+        self.registry.register('one', 'AA')
+        self.registry.register('two', 'BB')
+        with patch.object(self.registry, 'save', side_effect=OSError('disk full')):
+            with self.assertRaises(OSError): self.registry.register('two', 'AA', replace_entry='one')
+        self.assertEqual(self.registry.by_tag_uid('AA'), 'one')
+        self.assertEqual(self.registry.by_tag_uid('BB'), 'two')

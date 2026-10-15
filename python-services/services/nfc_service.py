@@ -15,6 +15,12 @@ logger = logging.getLogger(__name__)
 class NFCError(Exception): pass
 class NFCHardwareError(NFCError): pass
 class NFCDataError(NFCError): pass
+class NFCRegistrationConflict(NFCDataError):
+    def __init__(self, tag_uid, entry_id):
+        super().__init__(f'Tag {tag_uid} is already linked to entry {entry_id}')
+        self.tag_uid = tag_uid
+        self.entry_id = entry_id
+
 class NFCWriteError(NFCError): pass
 class NFCTimeoutError(NFCError): pass
 class NFCCancelledError(NFCError): pass
@@ -32,6 +38,8 @@ class Command:
     payload: dict
     deadline: float
     bindings: dict
+    overwrite_uid: str = None
+    overwrite_entry_id: str = None
     future: Future = field(default_factory=Future)
     cancel: threading.Event = field(default_factory=threading.Event)
 
@@ -86,12 +94,13 @@ class NFCService:
                 return True
         return False
 
-    async def register_tag(self, data, timeout=20, bindings=None):
+    async def register_tag(self, data, timeout=20, bindings=None, overwrite_uid=None, overwrite_entry_id=None):
         nfc_codec.encode(data)
         with self._lock:
             if not self._running: raise NFCHardwareError('Reader is stopped')
             if self._pending: raise NFCError('A registration is already in progress')
-            cmd = Command(dict(data), time.monotonic()+timeout, dict(bindings or {}))
+            cmd = Command(dict(data), time.monotonic()+timeout, dict(bindings or {}),
+                          overwrite_uid=overwrite_uid, overwrite_entry_id=overwrite_entry_id)
             self._pending = cmd
             self._commands.put_nowait(cmd)
         try:
@@ -127,9 +136,12 @@ class NFCService:
         tag = self._find(cmd)
         uid = self.backend.uid(tag)
         self._present_uid, self._seen = uid, time.monotonic()
+        if cmd.overwrite_uid and uid != cmd.overwrite_uid:
+            raise NFCDataError('A different tag was presented. Replacement stopped; scan again.')
         owner = cmd.bindings.get(uid)
         if owner and owner != cmd.payload['id']:
-            raise NFCDataError(f'Tag {uid} is already registered to entry {owner}')
+            if (uid, owner) != (cmd.overwrite_uid, cmd.overwrite_entry_id):
+                raise NFCRegistrationConflict(uid, owner)
         error = None
         for attempt in range(self.config.write_retry_attempts):
             self._check(cmd)
@@ -138,6 +150,14 @@ class NFCService:
                 # Read first on every attempt: an earlier write may have succeeded
                 # even if the reader lost its acknowledgement.
                 current = self.backend.read(tag)
+                if current:
+                    try:
+                        current_id = nfc_codec.decode(current).get('id')
+                    except Exception:
+                        current_id = None
+                    if current_id and current_id != cmd.payload['id']:
+                        if (uid, current_id) != (cmd.overwrite_uid, cmd.overwrite_entry_id):
+                            raise NFCRegistrationConflict(uid, current_id)
                 if current != payload:
                     self._check(cmd)
                     self._phase = 'writing'
