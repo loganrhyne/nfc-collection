@@ -862,6 +862,11 @@ a {
   justify-content: space-between;
   margin-bottom: 32px;
 }
+.sample-grid-location {
+  align-self: center;
+  font-size: 11px;
+  color: var(--muted);
+}
 .field-note-actions button {
   background: transparent;
   font-size: 11px;

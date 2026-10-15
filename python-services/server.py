@@ -170,6 +170,14 @@ class WebSocketServer:
             await self.send_assembly_status(to=sid)
 
         @self.sio.event
+        async def get_sample_locations(sid, data=None):
+            cols = 20
+            if self.led_manager and self.led_manager.led_controller:
+                cols = self.led_manager.led_controller.config.grid_cols
+            await self.sio.emit('sample_locations',
+                                self.registry.sample_locations(cols), to=sid)
+
+        @self.sio.event
         async def user_activity(sid, data=None):
             await self.idle.activity('browser')
 
@@ -305,6 +313,12 @@ class WebSocketServer:
                 else:
                     logger.warning(f"Entry {entry_id} is not in the journal - "
                                    f"no grid cell could be assigned")
+
+                cols = 20
+                if self.led_manager and self.led_manager.led_controller:
+                    cols = self.led_manager.led_controller.config.grid_cols
+                await self.sio.emit('sample_locations',
+                                    self.registry.sample_locations(cols))
 
                 await self.sio.emit('tag_registered', {
                     'entry_id': entry_id,

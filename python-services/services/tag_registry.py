@@ -201,6 +201,17 @@ class TagRegistry:
                 })
         return sorted(out, key=lambda d: d['placed_at_index'] if d['placed_at_index'] is not None else -1)
 
+    def sample_locations(self, cols: int = 20) -> Dict[str, Any]:
+        """Stored placements, never recalculated from current chronology."""
+        if self._load_error:
+            return {'error': 'Sample registry unavailable'}
+        return {'samples': {
+            uuid: ({'row': rec['grid_index'] // cols,
+                    'col': rec['grid_index'] % cols}
+                   if rec.get('grid_index') is not None else None)
+            for uuid, rec in self._entries.items()
+        }}
+
     def status(self) -> Dict[str, Any]:
         drift = self.drift()
         return {

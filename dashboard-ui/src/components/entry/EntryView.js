@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useData } from "../../context/DataContext";
+import { useWebSocket } from "../../hooks/useWebSocket";
 import JournalContent from "./JournalContent";
 import NFCRegistrationModal from "../nfc/NFCRegistrationModal";
 import { ArchiveState, SpecimenList } from "../layout/Archive";
@@ -11,6 +12,18 @@ export default function EntryView() {
   const navigate = useNavigate();
   const { getEntryByUUID, setSelectedEntry, loading, error } = useData();
   const entry = getEntryByUUID(entryId);
+  const { connected, sendMessage, registerHandler } = useWebSocket();
+  const [samples, setSamples] = useState(null);
+  useEffect(() => {
+    setSamples(null);
+    const unsubscribe = registerHandler("sample_locations", (message) => {
+      setSamples(message.data?.samples || null);
+    });
+    if (connected) sendMessage("get_sample_locations", {});
+    return unsubscribe;
+  }, [connected, sendMessage, registerHandler]);
+  const registered = samples && Object.prototype.hasOwnProperty.call(samples, entryId);
+  const placement = registered ? samples[entryId] : null;
   const [showRegistration, setShowRegistration] = useState(false);
   const closeRegistration = useCallback(() => setShowRegistration(false), []);
   useEffect(() => {
@@ -39,9 +52,21 @@ export default function EntryView() {
           >
             ← Collection
           </button>
-          <button onClick={() => setShowRegistration(true)}>
-            Register sample ↗
-          </button>
+          {registered ? (
+            <span className="sample-grid-location mono">
+              {placement
+                ? `Row ${placement.row + 1} / Column ${placement.col + 1}`
+                : "Sample registered · Position unavailable"}
+            </span>
+          ) : samples ? (
+            <button onClick={() => setShowRegistration(true)}>
+              Register sample ↗
+            </button>
+          ) : (
+            <span className="sample-grid-location">
+              {connected ? "Checking sample registration…" : "Sample registration unavailable"}
+            </span>
+          )}
         </div>
         <div className="field-note-meta">
           <span className="eyebrow">
