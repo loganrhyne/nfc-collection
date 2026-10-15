@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useData } from "../../context/DataContext";
+import { useWebSocket } from "../../hooks/useWebSocket";
 import JournalContent from "./JournalContent";
+import RemoveRegistrationModal from "../nfc/RemoveRegistrationModal";
 import NFCRegistrationModal from "../nfc/NFCRegistrationModal";
 import { ArchiveState, SpecimenList } from "../layout/Archive";
 import colors from "../../utils/colorSchemeEnhanced";
@@ -11,11 +13,26 @@ export default function EntryView() {
   const navigate = useNavigate();
   const { getEntryByUUID, setSelectedEntry, loading, error } = useData();
   const entry = getEntryByUUID(entryId);
+  const { connected, sendMessage, registerHandler } = useWebSocket();
+  const [samples, setSamples] = useState(null);
+  useEffect(() => {
+    setSamples(null);
+    const unsubscribe = registerHandler("sample_locations", (message) => {
+      setSamples(message.data?.samples || null);
+    });
+    if (connected) sendMessage("get_sample_locations", {});
+    return unsubscribe;
+  }, [connected, sendMessage, registerHandler]);
+  const registered = samples && Object.prototype.hasOwnProperty.call(samples, entryId);
+  const placement = registered ? samples[entryId] : null;
+  const [showRemoval, setShowRemoval] = useState(false);
+  const closeRemoval = useCallback(() => setShowRemoval(false), []);
   const [showRegistration, setShowRegistration] = useState(false);
   const closeRegistration = useCallback(() => setShowRegistration(false), []);
   useEffect(() => {
     setSelectedEntry(entry);
     setShowRegistration(false);
+    setShowRemoval(false);
   }, [entry, setSelectedEntry]);
   if (loading || error) return <ArchiveState />;
   if (!entry)
@@ -39,9 +56,24 @@ export default function EntryView() {
           >
             ← Collection
           </button>
-          <button onClick={() => setShowRegistration(true)}>
-            Register sample ↗
-          </button>
+          {registered ? (
+            <span className="sample-grid-location mono">
+              {placement
+                ? `Row ${placement.row + 1} / Column ${placement.col + 1}`
+                : "Sample registered · Position unavailable"}
+              <button className="remove-registration" aria-label="Remove sample registration"
+                title="Remove sample registration" disabled={!connected}
+                onClick={() => setShowRemoval(true)}>×</button>
+            </span>
+          ) : samples ? (
+            <button onClick={() => setShowRegistration(true)}>
+              Register sample ↗
+            </button>
+          ) : (
+            <span className="sample-grid-location">
+              {connected ? "Checking sample registration…" : "Sample registration unavailable"}
+            </span>
+          )}
         </div>
         <div className="field-note-meta">
           <span className="eyebrow">
@@ -93,6 +125,9 @@ export default function EntryView() {
         )}
       </article>
       <SpecimenList />
+      {showRemoval && (
+        <RemoveRegistrationModal key={entryId} entry={entry} onClose={closeRemoval} />
+      )}
       {showRegistration && (
         <NFCRegistrationModal
           entry={entry}

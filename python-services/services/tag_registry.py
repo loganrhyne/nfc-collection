@@ -40,6 +40,7 @@ class TagRegistry:
         self.journal_path = journal_path or os.getenv(
             'JOURNAL_PATH', DEFAULT_JOURNAL_PATH)
         self._load_error = None
+        self._removed = {}
         self._entries: Dict[str, Dict[str, Any]] = {}   # uuid -> registration
         self._chronological: List[str] = []             # uuid, oldest first
         self._titles: Dict[str, str] = {}
@@ -57,6 +58,7 @@ class TagRegistry:
             with open(self.registry_path) as fh:
                 data = json.load(fh)
             self._entries = data.get('registrations', {})
+            self._removed = data.get('removed_registrations', {})
             logger.info(f"Loaded {len(self._entries)} registrations from "
                         f"{self.registry_path}")
         except Exception as e:
@@ -73,6 +75,7 @@ class TagRegistry:
             'schema_version': SCHEMA_VERSION,
             'updated_at': datetime.now(timezone.utc).isoformat(),
             'registrations': self._entries,
+            'removed_registrations': self._removed,
         }
         os.makedirs(os.path.dirname(self.registry_path), exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(self.registry_path),
@@ -134,12 +137,12 @@ class TagRegistry:
     # --- registration -----------------------------------------------------
 
     def register(self, entry_uuid: str, tag_uid: str,
-                 grid_index: Optional[int] = None) -> Dict[str, Any]:
+                 grid_index: Optional[int] = None, replace_entry: Optional[str] = None) -> Dict[str, Any]:
         """Record a registration, overwriting any previous one for this entry."""
         if self._load_error:
             raise RuntimeError('Registry could not be loaded: '+self._load_error)
         owner = self.by_tag_uid(tag_uid)
-        if owner and owner != entry_uuid:
+        if owner and owner != entry_uuid and owner != replace_entry:
             raise ValueError(f'Tag {tag_uid} is already bound to {owner}')
         if grid_index is None:
             previous_cell = self._entries.get(entry_uuid, {}).get('grid_index')
@@ -156,16 +159,40 @@ class TagRegistry:
             logger.info(f"Overwriting registration for {entry_uuid}: "
                         f"tag {previous.get('tag_uid')} -> {tag_uid}")
             record['previous_tag_uid'] = previous.get('tag_uid')
+        entries_before = dict(self._entries)
+        removed_before = dict(self._removed)
+        if owner and owner != entry_uuid:
+            self._entries.pop(owner)
+            self._removed[owner] = {'removed_at': datetime.now(timezone.utc).isoformat()}
+        self._removed.pop(entry_uuid, None)
         self._entries[entry_uuid] = record
         try:
             self.save()
         except Exception:
-            if previous is None:
-                self._entries.pop(entry_uuid, None)
-            else:
-                self._entries[entry_uuid] = previous
+            self._entries = entries_before
+            self._removed = removed_before
             raise
         return record
+
+    def remove_registration(self, entry_uuid: str) -> bool:
+        """Clear the binding, retaining a marker to prevent scan recovery."""
+        if self._load_error:
+            raise RuntimeError('Registry could not be loaded: ' + self._load_error)
+        previous = self._entries.pop(entry_uuid, None)
+        if previous is None:
+            return False
+        old_marker = self._removed.get(entry_uuid)
+        self._removed[entry_uuid] = {'removed_at': datetime.now(timezone.utc).isoformat()}
+        try:
+            self.save()
+        except Exception:
+            self._entries[entry_uuid] = previous
+            if old_marker is None:
+                self._removed.pop(entry_uuid, None)
+            else:
+                self._removed[entry_uuid] = old_marker
+            raise
+        return True
 
     def bindings(self):
         if self._load_error:
@@ -200,6 +227,35 @@ class TagRegistry:
                     'chronological_index': current,
                 })
         return sorted(out, key=lambda d: d['placed_at_index'] if d['placed_at_index'] is not None else -1)
+
+    def recover_scanned_registration(self, entry_uuid: str, tag_uid: str) -> bool:
+        """Recover a missing binding from a successfully decoded physical tag.
+
+        Existing bindings and placements always win. Unknown journal IDs,
+        conflicting tags and occupied cells require explicit reconciliation.
+        """
+        if self._load_error:
+            raise RuntimeError('Registry could not be loaded: ' + self._load_error)
+        if not tag_uid or entry_uuid in self._entries or entry_uuid in self._removed:
+            return False
+        index = self.chronological_index(entry_uuid)
+        if index is None or self.by_tag_uid(tag_uid):
+            return False
+        if any(rec.get('grid_index') == index for rec in self._entries.values()):
+            return False
+        self.register(entry_uuid, tag_uid, grid_index=index)
+        return True
+
+    def sample_locations(self, cols: int = 20) -> Dict[str, Any]:
+        """Stored placements, never recalculated from current chronology."""
+        if self._load_error:
+            return {'error': 'Sample registry unavailable'}
+        return {'samples': {
+            uuid: ({'row': rec['grid_index'] // cols,
+                    'col': rec['grid_index'] % cols}
+                   if rec.get('grid_index') is not None else None)
+            for uuid, rec in self._entries.items()
+        }}
 
     def status(self) -> Dict[str, Any]:
         drift = self.drift()

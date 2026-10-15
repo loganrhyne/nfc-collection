@@ -22,7 +22,7 @@ except ImportError as e:
     sys.exit(1)
 
 # NFC service owns UART access on one worker and verifies complete NDEF records.
-from services.nfc_service import NFCService, NFCCancelledError, NFCHardwareError, NFCTimeoutError
+from services.nfc_service import NFCService, NFCRegistrationConflict, NFCCancelledError, NFCHardwareError, NFCTimeoutError
 from services.assembly_idle import AssemblyIdle
 from services.tag_registry import get_tag_registry
 
@@ -170,6 +170,35 @@ class WebSocketServer:
             await self.send_assembly_status(to=sid)
 
         @self.sio.event
+        async def get_sample_locations(sid, data=None):
+            cols = 20
+            if self.led_manager and self.led_manager.led_controller:
+                cols = self.led_manager.led_controller.config.grid_cols
+            await self.sio.emit('sample_locations',
+                                self.registry.sample_locations(cols), to=sid)
+
+        @self.sio.event
+        async def remove_sample_registration(sid, data=None):
+            entry_id = (data or {}).get('entry_id')
+            if not isinstance(entry_id, str) or not entry_id:
+                return
+            try:
+                if self.nfc.busy:
+                    raise ValueError('Wait for the current registration to finish, then retry.')
+                self.registry.remove_registration(entry_id)
+                cols = 20
+                if self.led_manager and self.led_manager.led_controller:
+                    cols = self.led_manager.led_controller.config.grid_cols
+                await self.sio.emit('sample_locations', self.registry.sample_locations(cols))
+                await self.sio.emit('sample_registration_removed', {'entry_id': entry_id}, to=sid)
+            except Exception:
+                logger.exception('Could not remove sample registration')
+                await self.sio.emit('sample_registration_remove_error', {
+                    'entry_id': entry_id,
+                    'message': 'Could not remove the registration. Please retry when the reader is idle.'
+                }, to=sid)
+
+        @self.sio.event
         async def user_activity(sid, data=None):
             await self.idle.activity('browser')
 
@@ -195,7 +224,8 @@ class WebSocketServer:
             """Handle tag registration request"""
             await self.idle.activity('registration')
             entry_id = data.get('entry_id')
-            entry_data = data.get('entry_data', {})
+            overwrite_uid = data.get('overwrite_tag_uid')
+            overwrite_entry = data.get('overwrite_entry_id')
             logger.info(f"Registration requested for entry {entry_id}")
 
             if not entry_id:
@@ -243,7 +273,17 @@ class WebSocketServer:
                 # between, so the tag that was detected is the tag written.
                 self._registration_sid = sid
                 result = await self.nfc.register_tag(payload, timeout=20,
-                                                     bindings=self.registry.bindings())
+                                                     bindings=self.registry.bindings(),
+                                                     overwrite_uid=overwrite_uid,
+                                                     overwrite_entry_id=overwrite_entry)
+            except NFCRegistrationConflict as conflict:
+                await self.sio.emit('registration_conflict', {
+                    'entry_id': entry_id,
+                    'tag_uid': conflict.tag_uid,
+                    'previous_entry_id': conflict.entry_id,
+                    'previous_title': self.registry._titles.get(conflict.entry_id, conflict.entry_id),
+                }, to=sid)
+                return
             except NFCTimeoutError:
                 logger.info(f"Registration for {entry_id}: no tag presented in time")
                 await self.sio.emit('registration_error', {
@@ -270,7 +310,7 @@ class WebSocketServer:
                 # Record it before lighting anything: the registry is the record
                 # of truth and must not depend on the LEDs being present.
                 try:
-                    record = self.registry.register(entry_id, result.tag_uid)
+                    record = self.registry.register(entry_id, result.tag_uid, replace_entry=overwrite_entry if overwrite_uid == result.tag_uid else None)
                 except Exception as e:
                     logger.exception('Tag verified but registry save failed')
                     await self.sio.emit('registration_error', {
@@ -305,6 +345,12 @@ class WebSocketServer:
                 else:
                     logger.warning(f"Entry {entry_id} is not in the journal - "
                                    f"no grid cell could be assigned")
+
+                cols = 20
+                if self.led_manager and self.led_manager.led_controller:
+                    cols = self.led_manager.led_controller.config.grid_cols
+                await self.sio.emit('sample_locations',
+                                    self.registry.sample_locations(cols))
 
                 await self.sio.emit('tag_registered', {
                     'entry_id': entry_id,
@@ -463,6 +509,17 @@ class WebSocketServer:
 
         if entry_id:
             logger.info(f"Tag {uid} -> entry {entry_id}")
+            try:
+                recovered = self.registry.recover_scanned_registration(entry_id, uid)
+                if recovered:
+                    logger.info(f"Recovered registration from scanned tag {uid}")
+                    cols = 20
+                    if self.led_manager and self.led_manager.led_controller:
+                        cols = self.led_manager.led_controller.config.grid_cols
+                    await self.sio.emit('sample_locations',
+                                        self.registry.sample_locations(cols))
+            except Exception:
+                logger.exception('Could not recover scanned tag registration')
         else:
             logger.warning(f"Tag {uid} carries no entry ID - needs registration")
 

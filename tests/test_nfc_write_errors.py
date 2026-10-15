@@ -51,6 +51,25 @@ class WriterTests(unittest.TestCase):
         self.command.bindings={'AA':'OTHER'}
         with self.assertRaises(NFCDataError): self.service._register(self.command)
         self.assertEqual(self.backend.writes,0)
+    def test_tag_payload_conflict_requires_confirmation_even_without_registry(self):
+        self.backend.raw = nfc_codec.encode(dict(PAYLOAD, id='OLD'))
+        with self.assertRaises(NFCDataError): self.service._register(self.command)
+        self.assertEqual(self.backend.writes, 0)
+
+    def test_confirmed_replacement_rewrites_and_verifies_exact_tag(self):
+        self.backend.raw = nfc_codec.encode(dict(PAYLOAD, id='OLD'))
+        self.command.bindings = {'AA': 'OLD'}
+        self.command.overwrite_uid = 'AA'
+        self.command.overwrite_entry_id = 'OLD'
+        self.assertTrue(self.service._register(self.command).success)
+        self.assertEqual(nfc_codec.decode(self.backend.raw), PAYLOAD)
+
+    def test_replacement_confirmation_cannot_write_a_different_tag(self):
+        self.command.overwrite_uid = 'OTHER_TAG'
+        self.command.overwrite_entry_id = 'OLD'
+        with self.assertRaises(NFCDataError): self.service._register(self.command)
+        self.assertEqual(self.backend.writes, 0)
+
     def test_cancellation_prevents_write(self):
         self.command.cancel.set()
         with self.assertRaises(NFCCancelledError): self.service._register(self.command)
