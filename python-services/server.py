@@ -178,6 +178,27 @@ class WebSocketServer:
                                 self.registry.sample_locations(cols), to=sid)
 
         @self.sio.event
+        async def remove_sample_registration(sid, data=None):
+            entry_id = (data or {}).get('entry_id')
+            if not isinstance(entry_id, str) or not entry_id:
+                return
+            try:
+                if self.nfc.busy:
+                    raise ValueError('Wait for the current registration to finish, then retry.')
+                self.registry.remove_registration(entry_id)
+                cols = 20
+                if self.led_manager and self.led_manager.led_controller:
+                    cols = self.led_manager.led_controller.config.grid_cols
+                await self.sio.emit('sample_locations', self.registry.sample_locations(cols))
+                await self.sio.emit('sample_registration_removed', {'entry_id': entry_id}, to=sid)
+            except Exception:
+                logger.exception('Could not remove sample registration')
+                await self.sio.emit('sample_registration_remove_error', {
+                    'entry_id': entry_id,
+                    'message': 'Could not remove the registration. Please retry when the reader is idle.'
+                }, to=sid)
+
+        @self.sio.event
         async def user_activity(sid, data=None):
             await self.idle.activity('browser')
 

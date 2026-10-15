@@ -49,3 +49,25 @@ class ScanRecoveryTest(unittest.TestCase):
         self.assertFalse(self.registry.recover_scanned_registration('unknown', 'AA'))
         self.registry.register('two', 'BB', grid_index=0)
         self.assertFalse(self.registry.recover_scanned_registration('one', 'AA'))
+
+    def test_clear_persists_and_scan_does_not_restore_it(self):
+        self.registry.register('one', 'AA')
+        self.registry.register('two', 'BB')
+        self.assertTrue(self.registry.remove_registration('one'))
+        self.registry.load()
+        self.assertNotIn('one', self.registry.sample_locations()['samples'])
+        self.assertEqual(self.registry.by_tag_uid('BB'), 'two')
+        self.assertFalse(self.registry.recover_scanned_registration('one', 'AA'))
+        self.registry.register('one', 'CC')
+        self.registry.load()
+        self.assertNotIn('one', self.registry._removed)
+        self.assertEqual(self.registry.by_tag_uid('CC'), 'one')
+
+    def test_failed_removal_keeps_registration(self):
+        from unittest.mock import patch
+        self.registry.register('one', 'AA')
+        with patch.object(self.registry, 'save', side_effect=OSError('disk full')):
+            with self.assertRaises(OSError):
+                self.registry.remove_registration('one')
+        self.assertEqual(self.registry.by_tag_uid('AA'), 'one')
+        self.assertNotIn('one', self.registry._removed)

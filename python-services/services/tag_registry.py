@@ -40,6 +40,7 @@ class TagRegistry:
         self.journal_path = journal_path or os.getenv(
             'JOURNAL_PATH', DEFAULT_JOURNAL_PATH)
         self._load_error = None
+        self._removed = {}
         self._entries: Dict[str, Dict[str, Any]] = {}   # uuid -> registration
         self._chronological: List[str] = []             # uuid, oldest first
         self._titles: Dict[str, str] = {}
@@ -57,6 +58,7 @@ class TagRegistry:
             with open(self.registry_path) as fh:
                 data = json.load(fh)
             self._entries = data.get('registrations', {})
+            self._removed = data.get('removed_registrations', {})
             logger.info(f"Loaded {len(self._entries)} registrations from "
                         f"{self.registry_path}")
         except Exception as e:
@@ -73,6 +75,7 @@ class TagRegistry:
             'schema_version': SCHEMA_VERSION,
             'updated_at': datetime.now(timezone.utc).isoformat(),
             'registrations': self._entries,
+            'removed_registrations': self._removed,
         }
         os.makedirs(os.path.dirname(self.registry_path), exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(self.registry_path),
@@ -156,16 +159,39 @@ class TagRegistry:
             logger.info(f"Overwriting registration for {entry_uuid}: "
                         f"tag {previous.get('tag_uid')} -> {tag_uid}")
             record['previous_tag_uid'] = previous.get('tag_uid')
+        removed = self._removed.pop(entry_uuid, None)
         self._entries[entry_uuid] = record
         try:
             self.save()
         except Exception:
+            if removed is not None:
+                self._removed[entry_uuid] = removed
             if previous is None:
                 self._entries.pop(entry_uuid, None)
             else:
                 self._entries[entry_uuid] = previous
             raise
         return record
+
+    def remove_registration(self, entry_uuid: str) -> bool:
+        """Clear the binding, retaining a marker to prevent scan recovery."""
+        if self._load_error:
+            raise RuntimeError('Registry could not be loaded: ' + self._load_error)
+        previous = self._entries.pop(entry_uuid, None)
+        if previous is None:
+            return False
+        old_marker = self._removed.get(entry_uuid)
+        self._removed[entry_uuid] = {'removed_at': datetime.now(timezone.utc).isoformat()}
+        try:
+            self.save()
+        except Exception:
+            self._entries[entry_uuid] = previous
+            if old_marker is None:
+                self._removed.pop(entry_uuid, None)
+            else:
+                self._removed[entry_uuid] = old_marker
+            raise
+        return True
 
     def bindings(self):
         if self._load_error:
@@ -209,7 +235,7 @@ class TagRegistry:
         """
         if self._load_error:
             raise RuntimeError('Registry could not be loaded: ' + self._load_error)
-        if not tag_uid or entry_uuid in self._entries:
+        if not tag_uid or entry_uuid in self._entries or entry_uuid in self._removed:
             return False
         index = self.chronological_index(entry_uuid)
         if index is None or self.by_tag_uid(tag_uid):

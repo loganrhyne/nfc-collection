@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useData } from "../../context/DataContext";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import JournalContent from "./JournalContent";
+import RemoveRegistrationModal from "../nfc/RemoveRegistrationModal";
 import NFCRegistrationModal from "../nfc/NFCRegistrationModal";
 import { ArchiveState, SpecimenList } from "../layout/Archive";
 import colors from "../../utils/colorSchemeEnhanced";
@@ -24,11 +25,14 @@ export default function EntryView() {
   }, [connected, sendMessage, registerHandler]);
   const registered = samples && Object.prototype.hasOwnProperty.call(samples, entryId);
   const placement = registered ? samples[entryId] : null;
+  const [showRemoval, setShowRemoval] = useState(false);
+  const closeRemoval = useCallback(() => setShowRemoval(false), []);
   const [showRegistration, setShowRegistration] = useState(false);
   const closeRegistration = useCallback(() => setShowRegistration(false), []);
   useEffect(() => {
     setSelectedEntry(entry);
     setShowRegistration(false);
+    setShowRemoval(false);
   }, [entry, setSelectedEntry]);
   if (loading || error) return <ArchiveState />;
   if (!entry)
@@ -57,6 +61,9 @@ export default function EntryView() {
               {placement
                 ? `Row ${placement.row + 1} / Column ${placement.col + 1}`
                 : "Sample registered · Position unavailable"}
+              <button className="remove-registration" aria-label="Remove sample registration"
+                title="Remove sample registration" disabled={!connected}
+                onClick={() => setShowRemoval(true)}>×</button>
             </span>
           ) : samples ? (
             <button onClick={() => setShowRegistration(true)}>
@@ -118,6 +125,9 @@ export default function EntryView() {
         )}
       </article>
       <SpecimenList />
+      {showRemoval && (
+        <RemoveRegistrationModal key={entryId} entry={entry} onClose={closeRemoval} />
+      )}
       {showRegistration && (
         <NFCRegistrationModal
           entry={entry}

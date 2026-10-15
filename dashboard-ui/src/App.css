@@ -1143,3 +1143,13 @@ a {
 .facets {
   touch-action: pan-y;
 }
+
+.sample-grid-location .remove-registration {
+  margin-left: 10px;
+  min-width: 36px;
+  min-height: 36px;
+  font-size: 20px;
+  color: var(--muted);
+}
+.sample-grid-location .remove-registration:hover { color: var(--oxide); }
+.registration-dialog-actions { display: flex; justify-content: flex-end; gap: 16px; margin-top: 24px; }

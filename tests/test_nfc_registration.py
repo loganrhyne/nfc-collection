@@ -62,3 +62,18 @@ class RegistrationFlowTests(unittest.IsolatedAsyncioTestCase):
         await self.app.sio.handlers['/']['user_activity']('a', {})
         await self.app.sio.handlers['/']['user_activity']('b', {})
         self.assertEqual(self.app.idle.activity.await_count, 2)
+
+    async def test_clear_registration_broadcasts_saved_state(self):
+        self.registry.register('ENTRY', 'AA')
+        await self.app.sio.handlers['/']['remove_sample_registration']('client', {'entry_id': 'ENTRY'})
+        self.assertIsNone(self.registry.by_tag_uid('AA'))
+        self.assertFalse(self.registry.recover_scanned_registration('ENTRY', 'AA'))
+        self.app.sio.emit.assert_any_await('sample_locations', {'samples': {}})
+        self.assertEqual(self.app.sio.emit.call_args.args[0], 'sample_registration_removed')
+
+    async def test_clear_registration_rejected_while_reader_busy(self):
+        self.registry.register('ENTRY', 'AA')
+        self.nfc.busy = True
+        await self.app.sio.handlers['/']['remove_sample_registration']('client', {'entry_id': 'ENTRY'})
+        self.assertEqual(self.registry.by_tag_uid('AA'), 'ENTRY')
+        self.assertEqual(self.app.sio.emit.call_args.args[0], 'sample_registration_remove_error')
