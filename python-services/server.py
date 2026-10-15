@@ -477,6 +477,17 @@ class WebSocketServer:
 
         if entry_id:
             logger.info(f"Tag {uid} -> entry {entry_id}")
+            try:
+                recovered = self.registry.recover_scanned_registration(entry_id, uid)
+                if recovered:
+                    logger.info(f"Recovered registration from scanned tag {uid}")
+                    cols = 20
+                    if self.led_manager and self.led_manager.led_controller:
+                        cols = self.led_manager.led_controller.config.grid_cols
+                    await self.sio.emit('sample_locations',
+                                        self.registry.sample_locations(cols))
+            except Exception:
+                logger.exception('Could not recover scanned tag registration')
         else:
             logger.warning(f"Tag {uid} carries no entry ID - needs registration")
 

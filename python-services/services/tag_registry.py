@@ -201,6 +201,24 @@ class TagRegistry:
                 })
         return sorted(out, key=lambda d: d['placed_at_index'] if d['placed_at_index'] is not None else -1)
 
+    def recover_scanned_registration(self, entry_uuid: str, tag_uid: str) -> bool:
+        """Recover a missing binding from a successfully decoded physical tag.
+
+        Existing bindings and placements always win. Unknown journal IDs,
+        conflicting tags and occupied cells require explicit reconciliation.
+        """
+        if self._load_error:
+            raise RuntimeError('Registry could not be loaded: ' + self._load_error)
+        if not tag_uid or entry_uuid in self._entries:
+            return False
+        index = self.chronological_index(entry_uuid)
+        if index is None or self.by_tag_uid(tag_uid):
+            return False
+        if any(rec.get('grid_index') == index for rec in self._entries.values()):
+            return False
+        self.register(entry_uuid, tag_uid, grid_index=index)
+        return True
+
     def sample_locations(self, cols: int = 20) -> Dict[str, Any]:
         """Stored placements, never recalculated from current chronology."""
         if self._load_error:
