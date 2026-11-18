@@ -45,30 +45,38 @@ The NFC Collection app now uses a cleaner separation between application code an
 
 #### From Your Non-Dev Machine
 
-1. **Configure the sync script** (`scripts/sync-media.sh`):
-   ```bash
-   # Edit these variables if needed:
-   PI_HOST="nfc-pi.local"  # Or use IP: 192.168.1.114
-   PI_USER="loganrhyne"
-   ```
+`PI_HOST`, `PI_USER`, `PI_MEDIA_DIR` and `SOURCE_BASE_DIR` default to the Pi at `192.168.1.114` and can be overridden from the environment. The script needs SSH key access to the Pi.
 
-2. **Run the sync script**:
-   ```bash
-   ./scripts/sync-media.sh
-   ```
+**Full export (directory) — replaces the journal:**
 
-   The script will:
-   - Automatically find the most recent Day One export
-   - Show you what will be synced
-   - Use rsync to transfer only new/changed files
-   - Preserve directory structure
-   - Show progress during transfer
+```bash
+./scripts/sync-media.sh                      # most recent export in SOURCE_BASE_DIR
+./scripts/sync-media.sh "/path/to/Day One Export"
+```
+
+**Partial export (zip) — merges into the journal:**
+
+```bash
+./scripts/sync-media.sh ~/Downloads/11-18-2026_2-07-PM.zip
+```
+
+A zip is merged by default: each exported entry is matched to the deployed journal by `uuid`. A match is replaced in place, a new uuid is appended, and every other deployed entry is kept. Use `--merge` or `--replace` to override the default for either input, and `--yes` to skip the confirmation prompt.
+
+Before anything is copied the script:
+- reads the deployed `journal.json` from the Pi
+- validates the export (`validate-journal.py`, including that its photos/videos exist)
+- in merge mode, builds the merged journal (`merge-journal.py`), prints each entry as `+ new`, `~ updated (fields)` or `= same`, and validates the result against the deployed entry count
+- refuses a replacement that would shrink the journal
+
+Then it rsyncs new or changed media (nothing on the Pi is deleted), and swaps the journal in atomically. The previous journal is kept as `journal.json.bak-<timestamp>`. If the deployed journal changed while the sync was running, it is not replaced.
+
+**Day One is the source of truth.** A merge replaces a deployed entry with its exported copy, so edits made only on the Pi are lost. Check `~ updated` lines before confirming.
 
 #### What Gets Synced
 
 - `photos/` directory with all journal photos
 - `videos/` directory with all journal videos  
-- `journal.json` with all journal entry data
+- `journal.json` — the export's journal (replace) or the merged journal (merge)
 
 ### Deployment Process
 
